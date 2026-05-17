@@ -12,11 +12,12 @@ architecture_doc: agent-execution-engine/ARCHITECTURE.md
 dfx_doc: docs/dfx/agent-execution-engine.yaml
 spi_packages:
   - ascend.springai.engine.spi
+  - ascend.springai.service.runtime.orchestration.spi
 allowed_dependencies:
+  - agent-runtime-core     # shared kernel types (Run, RunContext, SuspendSignal) per ADR-0079
   - agent-middleware       # engine references HookPoint enum + RuntimeMiddleware listener
 forbidden_dependencies:
-  - agent-platform
-  - agent-runtime          # engine is a contract surface; runtime depends on engine, not vice versa
+  - agent-service          # engine is upstream of agent-service; reverse direction forbidden
   - agent-bus
   - agent-client
   - agent-evolve

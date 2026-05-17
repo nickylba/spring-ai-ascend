@@ -22,6 +22,7 @@ import java.util.UUID;
  *
  * <p>Authority: ADR-0074; CLAUDE.md Rule 46 (S2C Callback Envelope + Lifecycle Bound).
  */
+// scope: process-internal — transport envelope; tenant resolved from callbackId via registry at the wrapping Run boundary (ADR-0074 §Consequences)
 public record S2cCallbackEnvelope(
         UUID callbackId,            // primary correlation key
         UUID serverRunId,           // suspending Run id

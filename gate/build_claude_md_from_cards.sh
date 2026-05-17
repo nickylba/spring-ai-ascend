@@ -149,7 +149,7 @@ cat <<'MID4'
 ### Architectural enforcement
 MID4
 
-for n in 20 21 25 28; do emit_rule "$n"; done
+for n in 11 20 21 24 25 28; do emit_rule "$n"; done
 
 cat <<'MID5'
 
@@ -191,7 +191,7 @@ cat <<'TAIL_E1'
 ### Gate-script efficiency wave (2026-05-17)
 TAIL_E1
 
-for n in 73; do emit_rule "$n"; done
+for n in 72 73; do emit_rule "$n"; done
 
 cat <<'TAIL_E7'
 
@@ -204,7 +204,7 @@ cat <<'TAIL2'
 
 ## Deferred Rules
 
-On-demand: [`docs/CLAUDE-deferred.md`](docs/CLAUDE-deferred.md). Currently deferred: Rules 7, 8, 11, 13, 14, 15, 16, 17, 18, 19, 22, 23, 24, 26, 27 + sub-clauses.
+On-demand: [`docs/CLAUDE-deferred.md`](docs/CLAUDE-deferred.md). Currently deferred: Rules 7, 8, 13, 14, 15, 16, 17, 18, 19, 22, 23, 26, 27 + sub-clauses (Rules 11, 24, 29.c, 72 activated 2026-05-18 per Wave 4).
 TAIL2
 } > "$out"
 

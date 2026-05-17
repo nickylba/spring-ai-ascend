@@ -39,20 +39,6 @@ Gate pass recorded in `docs/delivery/<date>-<sha>.md`. Unrecorded ≠ passed.
 
 ---
 
-## Rule 11 — Contract Spine Completeness
-
-**Re-introduction trigger**: first persistent record class committed (e.g., `RunRecord`,
-`IdempotencyRecord` with Postgres-backed `IdempotencyStore`, or `ArtifactMetadata`).
-
-**Rule**: Every persistent record must explicitly carry at minimum `tenant_id`, plus the
-relevant subset of `{user_id, session_id, run_id, parent_run_id, attempt_id, capability_name}`.
-
-**Pre-commit check**: any new contract DTO / entity must declare a `tenant_id` field unless
-marked `// scope: process-internal` with reason. Process-internal value objects (budget structs,
-validation results, stage directives) are exempt.
-
----
-
 ## Rule 13 — P1 Cost-of-Use Constraints
 
 **Re-introduction trigger**: first context-cache, cost-accounting, or small/large-model handoff capability committed (target: W3).
@@ -160,19 +146,6 @@ Composes with: ARCHITECTURE.md §4 #23 (`suspension_write_atomicity_contract`); 
 
 ---
 
-## Rule 24 — RunLifecycle Re-Authorization [Deferred to W2]
-
-**Re-introduction trigger**: first W2 `RunController` HTTP endpoint for `cancel`, `resume`, or `retry` operations.
-
-**Rule**: Every `cancel`, `retry`, and `resume` operation on a `Run` MUST:
-1. Re-validate that the request's `tenantId` matches `Run.tenantId`; mismatch returns HTTP 403.
-2. Write a `run_state_change` audit row capturing actor identity (who, when, from which request).
-3. Be idempotent for terminal→terminal same-status calls (cancel on CANCELLED returns 200 + same row); return 409 for illegal transitions per `RunStateMachine.allowedTransitions(from)`.
-
-Composes with: ARCHITECTURE.md §4 #14 (`resume_reauthorization_check`), §4 #20 (`run_state_change_audit_log`); ADR-0020; Rule 17.
-
----
-
 ## Rule 19 — Runtime Hook Conformance
 
 **Re-introduction trigger**: first W2 LLM gateway capability committed (first `ChatClient` call in production code path).
@@ -214,16 +187,6 @@ Composes with: ARCHITECTURE.md §4 #27 (`skill_spi_lifecycle_resource_matrix`); 
 3. **VETTED bypass**: `SkillTrustTier.VETTED` skills may route through `NoOpSandboxExecutor` in all postures. Trust-tier assignment is declared in `Skill.metadata()` and is immutable at runtime.
 
 Composes with: ARCHITECTURE.md §4 #27 (`skill_spi_lifecycle_resource_matrix`); ADR-0030; ADR-0018 (`SandboxExecutor` SPI); Rule 10 (posture-aware defaults).
-
----
-
-## Rule 29.c — Quickstart Smoke Run in CI [Deferred to W1]
-
-**Re-introduction trigger**: first `.github/workflows/*.yml` (or sibling container-based CI workflow) that boots a Spring Boot reactor end-to-end. Not yet fired as of 2026-05-15 — the repo runs `./mvnw clean test` locally without a tracked CI workflow file.
-
-**Rule (draft)**: A CI job MUST execute the `docs/quickstart.md` instructions on a clean container and assert that `GET /v1/health` returns 200 within 60 s of `spring-boot:run` start. Failure of this job is a ship-blocking finding under Rule 9 (HTTP / API contract category).
-
-Composes with: ARCHITECTURE.md §4 #60; ADR-0064; Rule 29 (Business/Platform Decoupling).
 
 ---
 
@@ -421,3 +384,19 @@ Composes with: Rule 28 (Code-as-Contract Coverage); Rule 48 (Schema-First Domain
 **Rule (draft)**: The `EngineEnvelope` record constructor MUST reject `engineType` values not present in `docs/contracts/engine-envelope.v1.yaml#known_engines[].id`. Today the constructor validates only nullability; `engineType` membership is enforced lazily by `EngineRegistry.resolve()` at dispatch time. W2 promotion: load `known_engines` once at JVM startup (or on first envelope construction), cache, and reject in the ctor. Rationale for the deferral: today every envelope is built inside a Spring-managed context where `EngineRegistry.validateAgainstSchema()` has already run at boot per ADR-0076; user-supplied envelopes do not yet exist.
 
 Composes with: Rule 48 (Schema-First Domain Contracts); Rule 44 (Strict Engine Matching); ADR-0072; ADR-0076.
+---
+
+## Rule 29.c — Quickstart Smoke Run in CI (ACTIVATED 2026-05-18)
+
+**Activated 2026-05-18 per Wave 4 Track E.** See `docs/governance/rules/rule-29c.md` for
+the active rule card. The original deferred draft below is preserved for audit.
+
+**Re-introduction trigger (original)**: first `.github/workflows/*.yml` (or sibling container-based CI
+workflow) that boots a Spring Boot reactor end-to-end. Fired 2026-05-18 when
+`.github/workflows/ci.yml` quickstart-smoke job landed.
+
+**Rule (now active)**: A CI job MUST execute the `docs/quickstart.md` instructions on a clean
+container and assert that `GET /v1/health` returns 200 within 60 s of `spring-boot:run` start.
+Failure of this job is a ship-blocking finding under Rule 9.
+
+Composes with: ARCHITECTURE.md §4 #60; ADR-0064; Rule 29.

@@ -51,9 +51,9 @@ capabilities:
       - agent-service/ARCHITECTURE.md
     implementation:
       - agent-service/src/main/java/ascend/springai/service/runtime/probe/OssApiProbe.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/runs/Run.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/runs/RunStatus.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/runs/RunStateMachine.java
+      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/Run.java
+      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/RunStatus.java
+      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/RunStateMachine.java
       - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/SyncOrchestrator.java
       - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/SequentialGraphExecutor.java
       - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/IterativeAgentLoopExecutor.java
@@ -308,10 +308,10 @@ capabilities:
     shipped: true
     l0_decision: ARCHITECTURE.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/runtime/runs/Run.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/runs/RunMode.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/runs/RunStatus.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/runs/RunRepository.java
+      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/Run.java
+      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/RunMode.java
+      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/RunStatus.java
+      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/RunRepository.java
     tests:
       - agent-service/src/test/java/ascend/springai/service/runtime/runs/RunTest.java
     allowed_claim: "L1: Run record with mandatory tenantId, runId, mode (GRAPH|AGENT_LOOP); RunStatus PENDING/RUNNING/SUSPENDED/SUCCEEDED/FAILED/CANCELLED; nullable parentNodeKey+suspendedAt for interrupt-driven nesting; RunRepository SPI adds findByParentRunId + findByTenantAndStatus + findRootRuns(tenantId). Rule 11 target. findRootRuns shipped W0 per ADR-0032."
@@ -321,7 +321,7 @@ capabilities:
     shipped: true
     l0_decision: ARCHITECTURE.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/runtime/idempotency/IdempotencyRecord.java
+      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/idempotency/IdempotencyRecord.java
     tests:
       - agent-service/src/test/java/ascend/springai/service/runtime/idempotency/IdempotencyRecordTest.java
     allowed_claim: "L1: IdempotencyRecord contract-spine entity with mandatory tenantId and idempotencyKey. Rule 11 target."
@@ -331,13 +331,13 @@ capabilities:
     shipped: true
     l0_decision: ARCHITECTURE.md (sec.4 constraint #9)
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/spi/Orchestrator.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/spi/RunContext.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/spi/GraphExecutor.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/spi/AgentLoopExecutor.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/spi/ExecutorDefinition.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/spi/SuspendSignal.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/spi/Checkpointer.java
+      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/Orchestrator.java
+      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/RunContext.java
+      - agent-execution-engine/src/main/java/ascend/springai/service/runtime/orchestration/spi/GraphExecutor.java
+      - agent-execution-engine/src/main/java/ascend/springai/service/runtime/orchestration/spi/AgentLoopExecutor.java
+      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/ExecutorDefinition.java
+      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/SuspendSignal.java
+      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/Checkpointer.java
       - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryCheckpointer.java
     tests:
       - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/spi/SuspendSignalTest.java
@@ -580,9 +580,9 @@ capabilities:
     shipped: true
     l0_decision: docs/adr/0020-runlifecycle-spi-and-runstatus-formal-dfa.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/runtime/runs/RunStateMachine.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/runs/Run.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/runs/RunStatus.java
+      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/RunStateMachine.java
+      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/Run.java
+      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/RunStatus.java
     tests:
       - agent-service/src/test/java/ascend/springai/service/runtime/runs/RunStateMachineTest.java
     allowed_claim: "Shipped — RunStateMachine.validate(from, to) enforces legal DFA transitions; Run.withStatus/withSuspension call validate before constructing updated record; EXPIRED added as 7th terminal RunStatus value. Rule 20 active. RunStateMachineTest exhaustively covers legal + illegal transitions."
@@ -632,7 +632,7 @@ capabilities:
     shipped: true
     l0_decision: docs/adr/0023-cross-boundary-context-propagation.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/spi/RunContext.java
+      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/RunContext.java
     tests:
       - agent-service/src/test/java/ascend/springai/service/runtime/architecture/TenantPropagationPurityTest.java
     allowed_claim: "Shipped — TenantPropagationPurityTest ArchUnit rule enforces Rule 21: no ascend.springai.service.runtime.* main class may import TenantContextHolder. RunContext.tenantId() is the canonical carrier. Test-scope exemption for TenantContextFilterTest."
@@ -700,12 +700,14 @@ capabilities:
     allowed_claim: "Deferred W1 — wire IdempotencyStore into IdempotencyHeaderFilter with (tenant_id, key) claim/replay/409-conflict semantics backed by Postgres. Currently IdempotencyStore is a @Component stub not injected in production."
 
   micrometer_mandatory_tenant_tag:
-    status: deferred_w1
-    shipped: false
+    status: test_verified
+    shipped: true
     l0_decision: docs/adr/0023-cross-boundary-context-propagation.md
-    implementation: null
-    tests: []
-    allowed_claim: "Deferred W1 — every springai_ascend_* metric must carry tenant_id tag (ADR-0023). No MeterFilter at W0; current counters tag only with posture."
+    implementation:
+      - agent-service/src/main/java/ascend/springai/service/platform/observability/TenantTagMeterFilter.java
+    tests:
+      - agent-service/src/test/java/ascend/springai/service/platform/observability/TenantTagMeterFilterTest.java
+    allowed_claim: "Shipped 2026-05-18 (Wave 4 Track D): TenantTagMeterFilter MeterFilter bean tags every springai_ascend_* metric with tenant_id (low-cardinality bucket). Promoted from deferred_w1 to test_verified. ADR-0023."
 
   otel_trace_propagation_across_suspend:
     status: deferred_w2
@@ -823,7 +825,7 @@ capabilities:
     shipped: true
     l0_decision: docs/adr/0032-scope-based-run-hierarchy-and-planner-contract-minimal.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/runtime/runs/RunRepository.java
+      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/RunRepository.java
       - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryRunRegistry.java
     tests:
       - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryRunRegistryFindRootRunsTest.java
@@ -1144,7 +1146,7 @@ capabilities:
       - ARCHITECTURE.md
     implementation:
       - agent-service/src/main/java/ascend/springai/service/platform/tenant/TenantContextFilter.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/spi/RunContext.java
+      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/RunContext.java
     tests:
       - agent-service/src/test/java/ascend/springai/service/platform/tenant/TenantContextFilterIT.java
       - agent-service/src/test/java/ascend/springai/service/runtime/architecture/TenantPropagationPurityTest.java
@@ -1168,8 +1170,8 @@ capabilities:
     l2_documents:
       - docs/adr/0054-long-connection-containment-runtime-handles.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/runtime/runs/Run.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/spi/SuspendSignal.java
+      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/Run.java
+      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/SuspendSignal.java
     tests:
       - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/spi/SuspendSignalTest.java
     allowed_claim: "LogicalCallHandle is the L0 alias for Run+SuspendSignal: Run is the lifecycle identity; SuspendSignal is the one interrupt primitive that releases physical resources without losing the logical call. A LogicalCallHandle is NOT equivalent to a TCP connection, thread, or Netty channel. W0 shipped via Run entity + SuspendSignal."
@@ -1181,7 +1183,7 @@ capabilities:
     l2_documents:
       - docs/adr/0054-long-connection-containment-runtime-handles.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/spi/SuspendSignal.java
+      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/SuspendSignal.java
     tests:
       - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/spi/SuspendSignalTest.java
     allowed_claim: "Named principle: a long wait MUST become a suspended workflow state when useful compute is not happening. W0 implemented via SuspendReason.RateLimited (ADR-0019) and SuspendReason.AwaitTimer. Idle waits must NOT consume scarce physical resources (threads, sockets, connections, event-loop slots). The principle composes with AdmissionDecision.Yielded (ADR-0050)."
@@ -1240,9 +1242,9 @@ capabilities:
       - docs/adr/0061-telemetry-vertical-layer.md
       - agent-service/ARCHITECTURE.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/spi/TraceContext.java
+      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/TraceContext.java
       - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/NoopTraceContext.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/spi/RunContext.java
+      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/RunContext.java
     tests:
       - agent-service/src/test/java/ascend/springai/service/runtime/architecture/TelemetryVerticalArchTest.java
       - agent-service/src/test/java/ascend/springai/service/runtime/architecture/RunContextIdentityAccessorsTest.java
@@ -1286,7 +1288,7 @@ capabilities:
       - docs/adr/0062-trace-run-session-identity.md
       - ARCHITECTURE.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/runtime/runs/Run.java
+      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/Run.java
     tests:
       - agent-service/src/test/java/ascend/springai/service/runtime/runs/RunTraceSessionConsistencyIT.java
     allowed_claim: "Section 4 #54 shipped at L1.x — Run record carries traceId (32-char hex; nullable at L1.x, NOT NULL at W2) and sessionId (UUID; nullable at L1.x, NOT NULL in posture=research/prod from W2) alongside the existing 12 fields. Backward-compatible 12-arg constructor preserved so existing callers compile. RunController populates traceId from MDC at Run-creation time. Verified by RunTraceSessionConsistencyIT."

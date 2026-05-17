@@ -11,10 +11,10 @@ description: "Combined HTTP edge + cognitive runtime kernel. Sub-package layerin
 architecture_doc: agent-service/ARCHITECTURE.md
 dfx_doc: docs/dfx/agent-service.yaml
 spi_packages:
-  - ascend.springai.service.runtime.orchestration.spi
   - ascend.springai.service.runtime.memory.spi
-  - ascend.springai.service.runtime.s2c.spi
 allowed_dependencies:
+  - agent-runtime-core
+  - agent-execution-engine
   - agent-middleware
 forbidden_dependencies: []
 deployment_plane: compute_control

@@ -20,6 +20,7 @@ import java.util.UUID;
  *
  * <p>Authority: ADR-0074; CLAUDE.md Rule 46.
  */
+// scope: process-internal — transport envelope; tenant carried by the receiving Orchestrator context
 public record S2cCallbackResponse(
         UUID callbackId,                 // MUST match request.callbackId
         Outcome outcome,                 // ok | error | timeout

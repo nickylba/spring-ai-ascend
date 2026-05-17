@@ -89,6 +89,13 @@ Enforced by [`rule-10.md`](docs/governance/rules/rule-10.md).
 ---
 
 ### Architectural enforcement
+#### Rule 11 — Contract Spine Completeness
+
+**Every persistent record class committed under `agent-runtime-core/src/main/java/ascend/springai/service/runtime/**/*.java` (or its successor module) MUST declare a `String tenantId` component validated by `Objects.requireNonNull(tenantId, "tenantId is required")` in its compact constructor. Process-internal value objects exempt themselves with a `// scope: process-internal` reason comment. Activated 2026-05-18 (Wave 4 Track B) — trigger met by `Run` and `IdempotencyRecord` carrying tenantId.**
+
+Enforced by [`rule-11.md`](docs/governance/rules/rule-11.md).
+
+---
 #### Rule 20 — Run State Transition Validity
 
 **Every `Run.withStatus(newStatus)` mutation MUST call `RunStateMachine.validate(this.status, newStatus)` before constructing the updated record. Illegal transitions MUST throw `IllegalStateException`.**
@@ -101,6 +108,13 @@ Enforced by [`rule-20.md`](docs/governance/rules/rule-20.md).
 **No production class under `ascend.springai.service.runtime..` (main sources) may import any class under `ascend.springai.service.platform..`. The original narrow case — no import of `TenantContextHolder` — remains the specific instance most likely to be violated and is asserted independently as defence-in-depth.**
 
 Enforced by [`rule-21.md`](docs/governance/rules/rule-21.md).
+
+---
+#### Rule 24 — RunLifecycle Re-Authorization (cancel-only at W1)
+
+**Every `POST /v1/runs/{runId}/cancel` operation MUST re-validate `(request.tenantId == Run.tenantId)`; mismatch returns HTTP 403 `tenant_mismatch`. Idempotent terminal->terminal same-status calls return 200; illegal transitions return 409 `illegal_state_transition`. The cancel surface emits a structured `WARN+` audit log line carrying `(runId, fromStatus, toStatus, actor, occurredAt)` MDC fields. Resume and retry sub-clauses (24.d) remain deferred to the W2 async orchestrator.**
+
+Enforced by [`rule-24.md`](docs/governance/rules/rule-24.md).
 
 ---
 #### Rule 25 — Architecture-Text Truth
@@ -310,6 +324,13 @@ Enforced by [`rule-71.md`](docs/governance/rules/rule-71.md).
 ---
 
 ### Gate-script efficiency wave (2026-05-17)
+#### Rule 72 — Rule Duration Regression Check
+
+**Every gate run records per-rule duration in `gate/log/runs/<sha>_<ts>/per-rule.ndjson`. After each successful run, `gate/lib/update_benchmark_baseline.sh` updates a rolling median over the last 5 runs at `gate/log/benchmarks/median.json`. Gate Rule 72 (`rule_duration_regression_check`) fails when any rule's current duration exceeds 2x its baseline median AND exceeds 200ms absolute. Bootstrap waits until 5 successful runs exist; until then Rule 72 vacuously passes.**
+
+Enforced by [`rule-72.md`](docs/governance/rules/rule-72.md).
+
+---
 #### Rule 73 — Gate Config Well-Formed
 
 **`gate/config.yaml` MUST validate against `gate/config.schema.yaml`. The gate fails closed on: missing required keys at any level, type mismatch, value outside declared min/max range, unknown keys (typo detection via `additionalProperties: false`), enum violation. Schema follows the wave's structural invariant: yaml → loader-validated env-vars → runtime-checked.**
@@ -329,4 +350,4 @@ Enforced by [`rule-74.md`](docs/governance/rules/rule-74.md).
 
 ## Deferred Rules
 
-On-demand: [`docs/CLAUDE-deferred.md`](docs/CLAUDE-deferred.md). Currently deferred: Rules 7, 8, 11, 13, 14, 15, 16, 17, 18, 19, 22, 23, 24, 26, 27 + sub-clauses.
+On-demand: [`docs/CLAUDE-deferred.md`](docs/CLAUDE-deferred.md). Currently deferred: Rules 7, 8, 13, 14, 15, 16, 17, 18, 19, 22, 23, 26, 27 + sub-clauses (Rules 11, 24, 29.c, 72 activated 2026-05-18 per Wave 4).

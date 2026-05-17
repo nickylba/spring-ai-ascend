@@ -2504,16 +2504,17 @@ if [[ $_r55_fail -eq 0 ]]; then pass_rule "engine_envelope_yaml_present_and_well
 # ---------------------------------------------------------------------------
 _r56_fail=0
 _r56_yaml="docs/contracts/engine-envelope.v1.yaml"
-_r56_main="agent-service/src/main/java"
+# Post-T2.B2 (ADR-0079): EngineRegistry + ENGINE_TYPE constants moved to
+# agent-execution-engine. Reference adapters (SequentialGraphExecutor +
+# IterativeAgentLoopExecutor) stay in agent-service/.../inmemory and also
+# declare ENGINE_TYPE. Scan BOTH source roots.
+_r56_main="agent-execution-engine/src/main/java agent-service/src/main/java"
 if [[ ! -f "$_r56_yaml" ]]; then
   fail_rule "engine_registry_covers_all_known_engines" "$_r56_yaml missing -- cannot cross-check"
   _r56_fail=1
-elif [[ ! -d "$_r56_main" ]]; then
-  fail_rule "engine_registry_covers_all_known_engines" "$_r56_main missing -- cannot cross-check"
-  _r56_fail=1
 else
   _r56_yaml_ids=$(grep -E '^[[:space:]]+- id:[[:space:]]+' "$_r56_yaml" | sed -E 's/^[[:space:]]+- id:[[:space:]]+([A-Za-z0-9_.-]+).*/\1/' | sort -u)
-  _r56_src_ids=$(grep -rhE 'String[[:space:]]+ENGINE_TYPE[[:space:]]*=[[:space:]]*"[A-Za-z0-9_.-]+"' "$_r56_main" 2>/dev/null | sed -E 's/.*ENGINE_TYPE[[:space:]]*=[[:space:]]*"([A-Za-z0-9_.-]+)".*/\1/' | sort -u)
+  _r56_src_ids=$(grep -rhE 'String[[:space:]]+ENGINE_TYPE[[:space:]]*=[[:space:]]*"[A-Za-z0-9_.-]+"' $_r56_main 2>/dev/null | sed -E 's/.*ENGINE_TYPE[[:space:]]*=[[:space:]]*"([A-Za-z0-9_.-]+)".*/\1/' | sort -u)
   for _id in $_r56_yaml_ids; do
     if ! echo "$_r56_src_ids" | grep -qxE "${_id}"; then
       fail_rule "engine_registry_covers_all_known_engines" "yaml declares known_engines.id=$_id but no ENGINE_TYPE=\"$_id\" found in $_r56_main"
@@ -3331,6 +3332,108 @@ else
   fi
 fi
 if [[ $_r74_fail -eq 0 ]]; then pass_rule "linux_first_dev_doc_present"; fi
+
+# ===========================================================================
+# Wave 4 — small rule activations (2026-05-18)
+# Authority: D:/.claude/plans/spicy-mixing-galaxy.md Wave 4.
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# Rule 11 — contract_spine_tenant_id_required (enforcer E105)
+# Every persistent record under agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/Run.java
+# OR agent-runtime-core/src/main/java/ascend/springai/service/runtime/idempotency/IdempotencyRecord.java
+# MUST declare a String tenantId component. Process-internal opt-out via
+# "// scope: process-internal" same-line comment.
+# ---------------------------------------------------------------------------
+_r11_fail=0
+_r11_root='agent-runtime-core/src/main/java/ascend/springai/service/runtime'
+if [[ -d "$_r11_root" ]]; then
+  # Scan record declarations missing String tenantId — heuristic: a record header line
+  # NOT containing "tenantId" or "// scope: process-internal" is a violation.
+  _r11_hits="$(grep -rEln 'public[[:space:]]+record[[:space:]]' "$_r11_root" 2>/dev/null || true)"
+  while IFS= read -r _r11_f; do
+    [[ -z "$_r11_f" ]] && continue
+    if grep -qE 'scope:[[:space:]]*process-internal' "$_r11_f" 2>/dev/null; then
+      continue
+    fi
+    if ! grep -qE 'String[[:space:]]+tenantId' "$_r11_f" 2>/dev/null; then
+      fail_rule "contract_spine_tenant_id_required" "$_r11_f declares a record without a String tenantId component (Rule 11 / E105)"
+      _r11_fail=1
+    fi
+  done <<< "$_r11_hits"
+fi
+if [[ $_r11_fail -eq 0 ]]; then pass_rule "contract_spine_tenant_id_required"; fi
+
+# ---------------------------------------------------------------------------
+# Rule 24.c — runlifecycle_cancel_reauthz_shipped (enforcer E106)
+# agent-service RunController MUST expose POST /v1/runs/{runId}/cancel
+# with tenant re-validation + RunStateMachine validation + audit log.
+# ---------------------------------------------------------------------------
+_r24_fail=0
+_r24_path='agent-service/src/main/java/ascend/springai/service/platform/web/runs/RunController.java'
+if [[ ! -f "$_r24_path" ]]; then
+  fail_rule "runlifecycle_cancel_reauthz_shipped" "$_r24_path missing — Rule 24.c expects RunController to host the cancel surface"
+  _r24_fail=1
+elif ! grep -qE '/v1/runs/\{[a-zA-Z]+\}/cancel' "$_r24_path" 2>/dev/null; then
+  fail_rule "runlifecycle_cancel_reauthz_shipped" "$_r24_path missing the POST /v1/runs/{runId}/cancel mapping"
+  _r24_fail=1
+elif ! grep -qE 'tenantId\(\)' "$_r24_path" 2>/dev/null; then
+  fail_rule "runlifecycle_cancel_reauthz_shipped" "$_r24_path cancel handler does not re-validate tenantId"
+  _r24_fail=1
+fi
+if [[ $_r24_fail -eq 0 ]]; then pass_rule "runlifecycle_cancel_reauthz_shipped"; fi
+
+# ---------------------------------------------------------------------------
+# Rule 29.c — quickstart_smoke_job_present (enforcer E107)
+# .github/workflows/ci.yml MUST contain a job named quickstart-smoke that
+# polls /v1/health.
+# ---------------------------------------------------------------------------
+_r29c_fail=0
+_r29c_path='.github/workflows/ci.yml'
+if [[ ! -f "$_r29c_path" ]]; then
+  fail_rule "quickstart_smoke_job_present" "$_r29c_path missing — Rule 29.c requires a CI workflow"
+  _r29c_fail=1
+elif ! grep -qE '^[[:space:]]*quickstart-smoke:' "$_r29c_path" 2>/dev/null; then
+  fail_rule "quickstart_smoke_job_present" "$_r29c_path missing job 'quickstart-smoke' — Rule 29.c"
+  _r29c_fail=1
+elif ! grep -qF '/v1/health' "$_r29c_path" 2>/dev/null; then
+  fail_rule "quickstart_smoke_job_present" "$_r29c_path quickstart-smoke job does not poll /v1/health"
+  _r29c_fail=1
+fi
+if [[ $_r29c_fail -eq 0 ]]; then pass_rule "quickstart_smoke_job_present"; fi
+
+# ---------------------------------------------------------------------------
+# Rule 72 — rule_duration_regression_check (enforcer E102)
+# Vacuously passes until gate/log/benchmarks/median.json has >= 5 entries
+# (bootstrap window per ADR-0077). After bootstrap: fail if any rule's
+# current duration > 2x baseline median AND > 200ms absolute.
+# ---------------------------------------------------------------------------
+_r72_fail=0
+_r72_median='gate/log/benchmarks/median.json'
+_r72_current="${GATE_LOG_DIR:-gate/log/latest}/per-rule.ndjson"
+if [[ ! -s "$_r72_median" ]] || ! command -v jq >/dev/null 2>&1; then
+  pass_rule "rule_duration_regression_check"
+elif [[ ! -f "$_r72_current" ]]; then
+  pass_rule "rule_duration_regression_check"
+else
+  _r72_baseline_count="$(jq 'length' "$_r72_median" 2>/dev/null || echo 0)"
+  if [[ "${_r72_baseline_count:-0}" -lt 5 ]]; then
+    pass_rule "rule_duration_regression_check"
+  else
+    _r72_alerts="$(jq -r --slurpfile baseline "$_r72_median" '
+      . as $row | $baseline[0][$row.rule_slug] as $median |
+      if ($median != null and $row.duration_ms > $median * 2 and $row.duration_ms > 200)
+      then "\($row.rule_slug): \($row.duration_ms)ms (median \($median)ms)"
+      else empty end
+    ' "$_r72_current" 2>/dev/null || true)"
+    if [[ -n "$_r72_alerts" ]]; then
+      fail_rule "rule_duration_regression_check" "$_r72_alerts"
+      _r72_fail=1
+    else
+      pass_rule "rule_duration_regression_check"
+    fi
+  fi
+fi
 
 # ---------------------------------------------------------------------------
 # Summary

@@ -936,3 +936,40 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#linux_first_dev_doc_present
   asserts: "docs/governance/dev-environment.md exists on disk AND mentions WSL2 (preferred), WSL1 (fallback), and Linux (native). The doc is the canonical onboarding guide; its absence or weakening signals the Linux-first policy has been silently regressed. Codifies the 2026-05-18 lesson: running the gate in WSL surfaced 2 production bugs (Windows-absolute paths + CRLF line endings) that Git Bash for Windows verification had hidden through multiple review cycles. WSL is 6-20x faster than Git Bash AND honest about platform-portability bugs."
+
+# ---------------------------------------------------------------------------
+# 2026-05-18 Wave 4 — rule activations (Rules 11, 24.c, 29.c, 72).
+# Authority: D:/.claude/plans/spicy-mixing-galaxy.md Wave 4.
+# ---------------------------------------------------------------------------
+
+- id: E102
+  constraint_ref: "CLAUDE.md Rule 72 (rule_duration_regression_check); Wave 4 Track A"
+  kind: gate-script
+  level: L0
+  view: scenarios
+  artifact: gate/check_architecture_sync.sh#rule_duration_regression_check
+  asserts: "After 5+ successful runs are recorded under gate/log/runs/, every subsequent gate run compares per-rule durations against the rolling median in gate/log/benchmarks/median.json. A rule whose current duration exceeds 2x its baseline AND exceeds 200ms absolute fails Rule 72."
+
+- id: E105
+  constraint_ref: "CLAUDE.md Rule 11 (contract_spine_tenant_id_required); Wave 4 Track B"
+  kind: gate-script
+  level: L1
+  view: development
+  artifact: gate/check_architecture_sync.sh#contract_spine_tenant_id_required
+  asserts: "Every public record under agent-runtime-core/src/main/java/ascend/springai/service/runtime/ declares a String tenantId component. Process-internal opt-out via 'scope: process-internal' reason comment."
+
+- id: E106
+  constraint_ref: "CLAUDE.md Rule 24 (runlifecycle_cancel_reauthz_shipped); Wave 4 Track C"
+  kind: gate-script
+  level: L1
+  view: process
+  artifact: gate/check_architecture_sync.sh#runlifecycle_cancel_reauthz_shipped
+  asserts: "agent-service RunController exposes POST /v1/runs/{runId}/cancel with tenant re-validation. Resume + retry sub-clauses (24.d) remain deferred to W2."
+
+- id: E107
+  constraint_ref: "CLAUDE.md Rule 29.c (quickstart_smoke_job_present); Wave 4 Track E"
+  kind: gate-script
+  level: L1
+  view: scenarios
+  artifact: gate/check_architecture_sync.sh#quickstart_smoke_job_present
+  asserts: ".github/workflows/ci.yml declares a job named 'quickstart-smoke' that boots agent-service and polls /v1/health."
