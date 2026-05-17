@@ -4,7 +4,7 @@
 **Deciders:** architecture
 **Date:** 2026-05-13
 **Technical story:** Post-seventh L0 readiness follow-up (P1.2) surfaced three contradictions
-across five active documents (`agent-platform/ARCHITECTURE.md`, `ARCHITECTURE.md`,
+across five active documents (`agent-service/ARCHITECTURE.md`, `ARCHITECTURE.md`,
 `docs/contracts/contract-catalog.md`, `docs/contracts/http-api-contracts.md`,
 `docs/contracts/openapi-v1.yaml`) regarding: (a) whether W1 replaces `X-Tenant-Id` with JWT
 or cross-checks it; (b) whether a newly-created run starts in `CREATED` or `PENDING` status;
@@ -16,7 +16,7 @@ This ADR resolves all three contradictions and names the canonical W1 HTTP contr
 Three contradictory signals existed before this ADR:
 
 **Tenant model:**
-- `agent-platform/ARCHITECTURE.md:34-35` said W1 "will replace header-based extraction with
+- `agent-service/ARCHITECTURE.md:34-35` said W1 "will replace header-based extraction with
   JWT `tenant_id` claim validation."
 - `ARCHITECTURE.md:149-153` echoed: "replace header with JWT `tenant_id` claim at W1."
 - `http-api-contracts.md:19` already described a JWT cross-check *against* `X-Tenant-Id`
@@ -87,7 +87,7 @@ POST /v1/runs/{runId}/cancel → 200 OK (idempotent if already CANCELLED)
 
 | Document | Field | Before | After |
 |---|---|---|---|
-| `agent-platform/ARCHITECTURE.md:34-35` | W1 tenant model | "replace … with JWT" | "add JWT cross-check against X-Tenant-Id" |
+| `agent-service/ARCHITECTURE.md:34-35` | W1 tenant model | "replace … with JWT" | "add JWT cross-check against X-Tenant-Id" |
 | `ARCHITECTURE.md:149-153` | W1 tenant model | "replace header with JWT" | "add JWT cross-check; X-Tenant-Id stays required" |
 | `http-api-contracts.md:92` | initial status | `CREATED` | `PENDING` |
 | `openapi-v1.yaml x-w1-note` | W1 additions | mentions `DELETE /v1/runs/{runId}` | `POST /v1/runs/{id}/cancel` |

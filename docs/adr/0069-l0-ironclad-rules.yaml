@@ -232,8 +232,8 @@ artefacts:
     - docs/CLAUDE-deferred.md
     - gate/check_architecture_sync.sh
     - gate/test_architecture_sync_gate.sh
-    - agent-platform/module-metadata.yaml
-    - agent-runtime/module-metadata.yaml
+    - agent-service/module-metadata.yaml
+    - agent-service/module-metadata.yaml
     - spring-ai-ascend-dependencies/module-metadata.yaml
     - spring-ai-ascend-graphmemory-starter/module-metadata.yaml
     # 2026-05-17: six-module materialization PR added five new module-metadata.yaml files
@@ -251,8 +251,8 @@ verification:
   - "bash gate/test_architecture_sync_gate.sh exits 0 with 8 new positive + 8 new negative cases (TOTAL=66)."
   - "yq '.principles[] | select(.id == \"P-E\")' docs/governance/principle-coverage.yaml returns the new principle entry."
   - "grep -c '^- id: E' docs/governance/enforcers.yaml returns 71 (was 63)."
-  - "Rule 38 (no Thread.sleep) gate scan returns zero matches in agent-platform/src/main/java + agent-runtime/src/main/java (verified pre-landing)."
-  - "Rule 47 (no_blocking_io_in_runtime_main) gate scan returns zero matches in agent-runtime/src/main/java (agent-platform's existing JdbcTemplate uses are out of scope; rule scoped to agent-runtime per ADR-0069)."
+  - "Rule 38 (no Thread.sleep) gate scan returns zero matches in agent-service/src/main/java + agent-service/src/main/java (verified pre-landing)."
+  - "Rule 47 (no_blocking_io_in_runtime_main) gate scan returns zero matches in agent-service/src/main/java (agent-platform's existing JdbcTemplate uses are out of scope; rule scoped to agent-runtime per ADR-0069)."
 
 deferred_sub_clauses:
   - id: 37.b

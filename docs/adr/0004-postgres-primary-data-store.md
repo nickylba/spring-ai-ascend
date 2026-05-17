@@ -75,5 +75,5 @@ medium (memory L2 store is one adapter; Qdrant adapter is plug-in)
 - `docs/cross-cutting/data-model-conventions.md`
 - `docs/cross-cutting/oss-bill-of-materials.md` sec-4.2
 
-> NOTE 2026-05-12: `agent-runtime/memory/ARCHITECTURE.md` deleted (pre-refresh content) in 2026-05-12 Occam pass; see `agent-runtime/ARCHITECTURE.md`.
+> NOTE 2026-05-12: `agent-runtime/memory/ARCHITECTURE.md` deleted (pre-refresh content) in 2026-05-12 Occam pass; see `agent-service/ARCHITECTURE.md`.
 > NOTE 2026-05-12: `docs/cross-cutting/data-model-conventions.md` moved to `docs/v6-rationale/v6-data-model-conventions.md` in 2026-05-12 Occam pass.

@@ -58,14 +58,14 @@ Implementation: regex scan of `contract-catalog.md` for any of these strings; FA
 
 ### Gate Rule 14 — `module_arch_method_name_truth`
 
-For each code-fence block in `agent-platform/ARCHITECTURE.md` and `agent-runtime/ARCHITECTURE.md`
+For each code-fence block in `agent-service/ARCHITECTURE.md` and `agent-service/ARCHITECTURE.md`
 that references a method call in the pattern `<identifier>.<methodName>()`, verify that `methodName`
 exists as a declared method in the most recently-compiled class for `<identifier>`.
 
 Implementation: pragmatic regex sweep — scan for patterns like `probe.probe()` and grep for the
 method name in the corresponding Java source file. FAIL if the method is absent.
 
-W0 fix covered: `probe.check()` → `probe.probe()` in `agent-runtime/ARCHITECTURE.md` (confirmed
+W0 fix covered: `probe.check()` → `probe.probe()` in `agent-service/ARCHITECTURE.md` (confirmed
 via grep on `OssApiProbe.java`).
 
 ### Additional truth fixes shipped this cycle
@@ -73,7 +73,7 @@ via grep on `OssApiProbe.java`).
 | File | Defect | Fix |
 |---|---|---|
 | `contract-catalog.md` | 7 of 10 SPIs deleted; 8 deleted starter coords | Rewritten to reflect 5 active SPIs + 4 design-named deferred (Cluster 3) |
-| `agent-runtime/ARCHITECTURE.md:36` | `probe.check()` | `probe.probe()` |
+| `agent-service/ARCHITECTURE.md:36` | `probe.check()` | `probe.probe()` |
 | `architecture-status.yaml` `agent_runtime_kernel` row | "No kernel logic, W2 delivers run lifecycle" | Updated to reflect shipped Run + RunStateMachine + executors |
 | `architecture-status.yaml` `orchestration_spi` row | "No reference executor yet (C34)" | Removed — 3 reference executors exist |
 | `docs/adr/0016-*` | "ADR-0019 (future)" reversal trigger | Updated to reference ADR-0033 |
@@ -84,7 +84,7 @@ via grep on `OssApiProbe.java`).
 Extending §4 #24 (Rule 25): the following truth-claim documents are subject to Gate Rules 13 and 14
 in addition to the original four gate rules (7, 8, 9, 10):
 - `docs/contracts/contract-catalog.md` — subject to Gate Rule 13 (deleted-name scan).
-- `agent-platform/ARCHITECTURE.md`, `agent-runtime/ARCHITECTURE.md` — subject to Gate Rule 14 (method-name truth).
+- `agent-service/ARCHITECTURE.md`, `agent-service/ARCHITECTURE.md` — subject to Gate Rule 14 (method-name truth).
 
 ### Consequences
 

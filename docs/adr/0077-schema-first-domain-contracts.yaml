@@ -90,7 +90,7 @@ decision: |
 
   - Introduce gate/schema-first-grandfathered.txt as the closed
     grandfather list with 10 entries covering the existing prose
-    enum sites in ARCHITECTURE.md (root) + agent-platform/ARCHITECTURE.md.
+    enum sites in ARCHITECTURE.md (root) + agent-service/ARCHITECTURE.md.
     File header asserts the list is closed — no entries added after
     2026-05-16. Self-tests assert no novel additions.
 

@@ -16,7 +16,7 @@ relates_to:
 decision_one_liner: |
   Introduce a lightweight EngineEnvelope (yaml schema authority at
   docs/contracts/engine-envelope.v1.yaml; mirrored by Java record
-  ascend.springai.runtime.engine.EngineEnvelope) and a central EngineRegistry
+  ascend.springai.service.runtime.engine.EngineEnvelope) and a central EngineRegistry
   that strictly matches envelope.engineType to a registered ExecutorAdapter.
   Pattern-matching on ExecutorDefinition subtypes is forbidden outside the
   registry — Rule 43 enforces it. A mismatch raises EngineMatchingException;
@@ -61,7 +61,7 @@ decision: |
     payload_class and payload_schema_ref pointers (the per-engine payload
     schemas are W2 placeholders).
 
-  - Java surfaces (agent-runtime/src/main/java/ascend/springai/runtime/engine/):
+  - Java surfaces (agent-service/src/main/java/ascend/springai/service/runtime/engine/):
       EngineEnvelope         — record mirroring the schema
       EngineRegistry         — central authority; register / resolve /
                                 resolveByEngineType / resolveByPayload /
@@ -127,7 +127,7 @@ verification:
     - "bash gate/check_architecture_sync.sh → GATE: PASS with 62 active rules (60 prior + Rules 55 + 56)"
     - "bash gate/test_architecture_sync_gate.sh → all self-tests GREEN with 4 new (positive + negative for each of 55, 56)"
   manual:
-    - "grep -r 'instanceof ExecutorDefinition' agent-runtime/src/main → matches only inside engine.EngineRegistry"
+    - "grep -r 'instanceof ExecutorDefinition' agent-service/src/main → matches only inside engine.EngineRegistry"
     - "docs/contracts/engine-envelope.v1.yaml present + parses + known_engines list non-empty"
 
 enforcer_rows:

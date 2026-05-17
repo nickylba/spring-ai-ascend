@@ -62,7 +62,7 @@ The four baseline counts above MUST match `docs/governance/architecture-status.y
 | Orchestration SPI | `Orchestrator`, `GraphExecutor`, `AgentLoopExecutor`, `SuspendSignal`, `Checkpointer`, `ExecutorDefinition`, `RunContext` — pure-Java SPIs (verified by `OrchestrationSpiArchTest`); no framework imports. `RunLifecycle` (cancel/resume/retry) remains design-only for W2 — see ADR-0020 |
 | `RunContext` | Interface with canonical methods `runId()`, `tenantId()`, `checkpointer()`, `suspendForChild(parentNodeKey, childMode, childDef, resumePayload)`. Tenant identity is sourced from the runtime context, not from the HTTP ThreadLocal (Rule 21). Posture is not threaded through `RunContext` at W0 — posture is enforced via construction-time `AppPostureGate` calls in the in-memory components only |
 | Dev-posture executors | `SyncOrchestrator`, `SequentialGraphExecutor`, `IterativeAgentLoopExecutor`, `InMemoryRunRegistry`, `InMemoryCheckpointer` — reference impls that fail-closed in research/prod via `AppPostureGate` |
-| `AppPostureGate` (located in `agent-runtime`, package `ascend.springai.runtime.posture`) | Construction-time posture guard (ADR-0035, Rule 6 single-construction-path). Called by exactly three in-memory components — `SyncOrchestrator`, `InMemoryRunRegistry`, `InMemoryCheckpointer` — during construction to fail-closed in research/prod. Other runtime types do not receive posture as a parameter. The gate is not part of the HTTP edge module. |
+| `AppPostureGate` (located in `agent-runtime`, package `ascend.springai.service.runtime.posture`) | Construction-time posture guard (ADR-0035, Rule 6 single-construction-path). Called by exactly three in-memory components — `SyncOrchestrator`, `InMemoryRunRegistry`, `InMemoryCheckpointer` — during construction to fail-closed in research/prod. Other runtime types do not receive posture as a parameter. The gate is not part of the HTTP edge module. |
 | `ResilienceContract` + `YamlResilienceContract` | Per-operation resilience routing (operationId → (cbName, retryName, tlName)); Spring `@ConfigurationProperties` wiring is deferred to W2 LLM gateway |
 | `GraphMemoryRepository` SPI scaffold | Interface only at W0; no adapter registers a bean. Graphiti REST reference adapter lands at W1 per ADR-0034 |
 | `IdempotencyRecord` entity | Contract-spine entity with mandatory `tenantId` (Rule 11 target) |
@@ -242,7 +242,7 @@ This release note's text is validated for shipped-surface truth by Gate Rule 26 
 
 ## CI Hardening (JDK 21 + Spring Boot 4)
 
-The following CI/build hardening landed alongside the architectural work and is verified by the IT suite (see `agent-platform/src/test/java/.../**IT.java`):
+The following CI/build hardening landed alongside the architectural work and is verified by the IT suite (see `agent-service/src/test/java/.../**IT.java`):
 
 | Issue | Fix |
 |-------|-----|

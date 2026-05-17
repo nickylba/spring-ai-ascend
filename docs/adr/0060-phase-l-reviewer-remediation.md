@@ -22,7 +22,7 @@ Four supporting findings (P1/P2):
 
 - **P1-1**: Reviewer suspected `IdempotencyHeaderFilter` consumed the request body before the controller. Verified: Spring's `ContentCachingRequestWrapper` does replay (per Javadoc + code comment), so this is **REFUTED**. But the underlying gap — no authenticated end-to-end POST `/v1/runs` test — is real.
 - **P1-2**: `architecture-status.yaml` carried two rows (`w1_http_contract_reconciliation`, `micrometer_mandatory_tenant_tag`) as `design_accepted, shipped: false` while L1 had actually shipped the relevant code.
-- **P1-4**: `agent-platform/ARCHITECTURE.md` §6–9 still described the W0 boundary as if L1 had not happened (test table, "JWT validation: W1 out of scope", "No JDBC at W0; risk not active").
+- **P1-4**: `agent-service/ARCHITECTURE.md` §6–9 still described the W0 boundary as if L1 had not happened (test table, "JWT validation: W1 out of scope", "No JDBC at W0; risk not active").
 - **P2-1**: Rule 28 meta-check (`constraint_enforcer_coverage`) was a baseline presence check, not the full constraint inventory implied by its name and ADR-0059's wording.
 
 ## Decision
@@ -42,7 +42,7 @@ Two new gate self-tests under `gate/test_architecture_sync_gate.sh` exercise the
 
 ### 2. Authenticated HTTP contract coverage (closes P0-2 + P1-1 underlying gap)
 
-`agent-platform/src/test/java/.../web/runs/JwtTestFixture.java` lands as a shared test fixture (enforcer E37): generates one stable RSA keypair per JVM and provides `decoder()` + `mint(subject, tenantId)` helpers. Re-uses `JwtDecoderConfig.buildValidator` so the test decoder enforces the same issuer + audience + timestamp chain as production.
+`agent-service/src/test/java/.../web/runs/JwtTestFixture.java` lands as a shared test fixture (enforcer E37): generates one stable RSA keypair per JVM and provides `decoder()` + `mint(subject, tenantId)` helpers. Re-uses `JwtDecoderConfig.buildValidator` so the test decoder enforces the same issuer + audience + timestamp chain as production.
 
 `RunHttpContractIT` gains four authenticated `@Test` methods named to match the enforcer-row anchors:
 
@@ -62,7 +62,7 @@ Two new gate self-tests under `gate/test_architecture_sync_gate.sh` exercise the
 - Schemas `CreateRunRequest`, `RunResponse` (with `RunStatus` enum), `ErrorEnvelope` (`{error:{code,message,details}}`).
 - Per-operation response codes 201/400/401/403/404/409/422 with `ErrorEnvelope` references for failure rows.
 
-`agent-platform/src/test/resources/contracts/openapi-v1-pinned.yaml` is synced to match.
+`agent-service/src/test/resources/contracts/openapi-v1-pinned.yaml` is synced to match.
 
 `OpenApiSnapshotComparator` gains a new static method `compareNoUndocumentedLivePaths(pinned, live)` that fails when a live `/v1/**` path/operation is NOT documented in the pinned snapshot, unless the live operation carries `x-experimental: true`. Non-`/v1/**` paths (`/actuator/**`, `/v3/api-docs`, springdoc-emitted error endpoints) are tolerated.
 
@@ -84,7 +84,7 @@ The function name `constraint_enforcer_coverage` is retained because many existi
 
 ### 6. Module ARCHITECTURE.md refresh (closes P1-4)
 
-`agent-platform/ARCHITECTURE.md` §6 is rewritten with an "L1 shipped tests" table listing every L1 test (`AuthPropertiesValidationTest`, `JwtValidationIT`, `JwtDevLocalModeGuardIT`, `JwtTenantClaimCrossCheckTest`, `IdempotencyStoreTest`, `IdempotencyStorePostgresIT`, `IdempotencyDurabilityIT`, `InMemoryIdempotencyAllowFlagIT`, `PostureBootGuardIT`, `RunHttpContractIT`, `RunStatusEnumTest`, `ErrorEnvelopeContractTest`, `TenantTagMeterFilterTest`, `PlatformImportsOnlyRuntimePublicApiTest`, `RuntimeMustNotDependOnPlatformTest`, `HttpEdgeMustNotImportMemorySpiTest`, `JwtTestFixture`). §7 ("Out of scope at L1") removes the "JWT validation: W1" line. §8 ("Wave landing") moves the L1 packages from W1-planned to W1-delivered and explicitly defers PowerShell mirror to W2. §9 ("Risks") rewrites virtual-thread + JDBC pinning from "not active at W0" to "active at L1; HikariCP wired".
+`agent-service/ARCHITECTURE.md` §6 is rewritten with an "L1 shipped tests" table listing every L1 test (`AuthPropertiesValidationTest`, `JwtValidationIT`, `JwtDevLocalModeGuardIT`, `JwtTenantClaimCrossCheckTest`, `IdempotencyStoreTest`, `IdempotencyStorePostgresIT`, `IdempotencyDurabilityIT`, `InMemoryIdempotencyAllowFlagIT`, `PostureBootGuardIT`, `RunHttpContractIT`, `RunStatusEnumTest`, `ErrorEnvelopeContractTest`, `TenantTagMeterFilterTest`, `PlatformImportsOnlyRuntimePublicApiTest`, `RuntimeMustNotDependOnPlatformTest`, `HttpEdgeMustNotImportMemorySpiTest`, `JwtTestFixture`). §7 ("Out of scope at L1") removes the "JWT validation: W1" line. §8 ("Wave landing") moves the L1 packages from W1-planned to W1-delivered and explicitly defers PowerShell mirror to W2. §9 ("Risks") rewrites virtual-thread + JDBC pinning from "not active at W0" to "active at L1; HikariCP wired".
 
 ## 3. Explicitly deferred (W2 trigger)
 
@@ -108,7 +108,7 @@ The function name `constraint_enforcer_coverage` is retained because many existi
 - L1 v0.1.0-L1 tag retained as the release candidate marker. L1 v0.1.0-L1.1 is the cleaned release; the corresponding release note adds §2.12 "Phase L Reviewer Remediation" + Architecture Baseline table.
 - Future Rule 28j additions automatically validate any new `#anchor` references. Phase B/C/D/E/F/G/H/I/J/K anchors are all back-validated by this strengthening.
 - Future OpenAPI changes MUST update both `docs/contracts/openapi-v1.yaml` and the pinned classpath copy; live additive `/v1/**` endpoints will fail `OpenApiContractIT.noUndocumentedV1OperationsExposedByLive`.
-- Future Phase notes (Phase M+) MUST start from `agent-platform/ARCHITECTURE.md`'s current shipped surface; W0-era language in §6–9 is no longer present to confuse the picture.
+- Future Phase notes (Phase M+) MUST start from `agent-service/ARCHITECTURE.md`'s current shipped surface; W0-era language in §6–9 is no longer present to confuse the picture.
 
 ## L1 Review Checklist (per ADR-0059 §16)
 

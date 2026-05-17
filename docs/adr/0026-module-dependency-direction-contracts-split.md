@@ -11,7 +11,7 @@
 > See `docs/adr/0055-permit-platform-to-runtime-direction.md` for the current rule.
 **Technical story:** Fourth architecture reviewer (F2) identified that `ARCHITECTURE.md:91,127`
 claims "`agent-platform` → SPI-only → `agent-runtime`, no reverse imports," but
-`agent-runtime/pom.xml:18` declares a Maven compile-scope dependency on `agent-platform`. The
+`agent-service/pom.xml:18` declares a Maven compile-scope dependency on `agent-platform`. The
 claimed direction is backwards relative to the Maven module graph at W0. This ADR documents
 the W0 exception, defines the target architecture, and sets the exit criterion for eliminating
 the exception at W1.
@@ -39,7 +39,7 @@ can depend on, without either depending on the other.
 - Minimal disruption: the split should be a pure file-move refactor — no new abstractions, no
   behavior changes.
 - Gate coverage: after the split, `RuntimeNoPlatformDependencyTest` (ArchUnit) asserts
-  `agent-runtime` packages never import `ascend.springai.platform.*`.
+  `agent-runtime` packages never import `ascend.springai.service.platform.*`.
 
 ## Considered Options
 
@@ -48,7 +48,7 @@ can depend on, without either depending on the other.
    for more "documented violations."
 
 2. **Move all shared types into `agent-runtime`** — `agent-platform` depends on `agent-runtime`.
-   This is the direction `agent-platform/pom.xml` would need to express. Benefit: no new module.
+   This is the direction `agent-service/pom.xml` would need to express. Benefit: no new module.
    Cost: contradicts the stated northbound/southbound separation; makes `agent-platform` depend on
    `agent-runtime` types, which is semantically backwards.
 
@@ -61,13 +61,13 @@ can depend on, without either depending on the other.
 
 **Chosen option 3: split at W1 — but W0 turned out to be already clean.**
 
-Investigation revealed that `agent-runtime/src/main` and `agent-runtime/src/test` have **zero
-imports** of `ascend.springai.platform.*`. The `pom.xml` dependency on `agent-platform` was a
+Investigation revealed that `agent-service/src/main` and `agent-service/src/test` have **zero
+imports** of `ascend.springai.service.platform.*`. The `pom.xml` dependency on `agent-platform` was a
 speculative reference added in anticipation of future cross-module types, but no code ever used
 it. The fix was simply to **remove the unused pom.xml dependency** — no contracts module
 creation was required at W0.
 
-**W0 (resolved):** `agent-runtime/pom.xml` dependency on `agent-platform` removed. Neither
+**W0 (resolved):** `agent-service/pom.xml` dependency on `agent-platform` removed. Neither
 module depends on the other at the Maven module level.
 
 **W1 target (VOIDED by ADR-0055 — preserved for historical context):** Create `agent-platform-contracts` Maven module containing:
@@ -89,7 +89,7 @@ Concrete implementations remain in their current modules:
 - `SyncOrchestrator`, `SequentialGraphExecutor`, `IterativeAgentLoopExecutor`,
   `InMemoryCheckpointer`, `InMemoryRunRegistry` — stay in `agent-runtime`
 
-**[VOIDED by ADR-0055.]** **Exit criterion:** `agent-runtime/pom.xml` dependency on `agent-platform` is removed and
+**[VOIDED by ADR-0055.]** **Exit criterion:** `agent-service/pom.xml` dependency on `agent-platform` is removed and
 replaced with a dependency on `agent-platform-contracts`. `RuntimeNoPlatformDependencyTest`
 passes. `ApiCompatibilityTest` updated to assert the clean three-module graph.
 
@@ -116,5 +116,5 @@ Medium: once done, reverting requires moving 9 types back and updating all impor
 - §4 #1 (revised dependency direction description)
 - ADR-0021 (layered SPI taxonomy)
 - `architecture-status.yaml` row: `module_dependency_direction_w0`
-- `agent-runtime/pom.xml:18-25` (W0 exception)
+- `agent-service/pom.xml:18-25` (W0 exception)
 - `ApiCompatibilityTest.java:37-44` (platform→runtime direction only at W0)

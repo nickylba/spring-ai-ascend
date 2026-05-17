@@ -72,7 +72,7 @@ context: |
   request-scoped from context. Option C (rename Maven module only,
   leave packages alone) was rejected because a single agent-service
   module with two unrelated top-level Java packages
-  (ascend.springai.platform.* + ascend.springai.runtime.*) becomes a
+  (ascend.springai.service.platform.* + ascend.springai.service.runtime.*) becomes a
   permanent namespace fossil that future readers will misread as
   evidence of two modules.
 
@@ -91,14 +91,14 @@ decision: |
     relationship.
 
   - Java package rename, mechanical bulk operation:
-      ascend.springai.platform.*  →  ascend.springai.service.platform.*
-      ascend.springai.runtime.*   →  ascend.springai.service.runtime.*
+      ascend.springai.service.platform.*  →  ascend.springai.service.platform.*
+      ascend.springai.service.runtime.*   →  ascend.springai.service.runtime.*
     Applied to 164 in-module Java files plus 3 import-site files in
     spring-ai-ascend-graphmemory-starter (including its
     AutoConfiguration.imports manifest).
 
   - Flyway migrations move-as-is from
-    agent-platform/src/main/resources/db/migration/ to
+    agent-service/src/main/resources/db/migration/ to
     agent-service/src/main/resources/db/migration/. Flyway tracks by
     filename + checksum, so production schema-history is unaffected.
     gate/rls-baseline-grandfathered.txt updates path prefixes
@@ -110,7 +110,7 @@ decision: |
     (service.runtime ↛ service.platform). Rule 37
     (no_blocking_io_in_runtime_main), Rule 38 (no_thread_sleep), and
     Rule 40 (RLS baseline) repoint their scan paths from
-    agent-runtime/src/main and agent-platform/src/main to the
+    agent-service/src/main and agent-service/src/main to the
     corresponding sub-trees under agent-service. Rule 28j,
     Rule 65 (module_metadata_pom_dep_parity), and Rule 66
     (spi_package_exhaustiveness) adjust paths.
@@ -157,7 +157,7 @@ consequences:
 alternatives_considered:
   - alternative: "Option B — Flat ascend.springai.service.* namespace, fold both platform and runtime packages up one level (e.g. service.web, service.runs, service.tenant, service.idempotency, service.orchestration, ...)."
     why_rejected: "Erases the platform/runtime sub-layering signal at the package-name level. Every future contributor would have to re-derive from context which symbols are request-scoped (formerly platform) versus non-request (formerly runtime). Rule 21's negative invariant would have to encode an ad-hoc package list instead of a clean ..service.runtime.. ↛ ..service.platform.. pattern. The flat layout is appropriate when the sub-layering is genuinely gone; here the sub-layering is the same, only the Maven boundary changes."
-  - alternative: "Option C — Rename the Maven module only (agent-platform + agent-runtime → agent-service), leave Java packages untouched (ascend.springai.platform.* and ascend.springai.runtime.* remain as two top-level namespaces inside one module)."
+  - alternative: "Option C — Rename the Maven module only (agent-platform + agent-runtime → agent-service), leave Java packages untouched (ascend.springai.service.platform.* and ascend.springai.service.runtime.* remain as two top-level namespaces inside one module)."
     why_rejected: "Permanent namespace fossil: a single Maven module agent-service containing two unrelated top-level Java packages will read to every future reviewer as evidence of an incomplete merge. The cost is ~10x smaller (no Java import rewrites, no ArchUnit retargeting), but it defers the package decision indefinitely and produces an architecturally incoherent module. Option C is appropriate only if the user wants a minimum-risk experimental merge; the user explicitly confirmed Option A."
   - alternative: "Defer Phase C indefinitely — keep the 9-module reactor, leave the ARCHITECTURE.md §2 'follow-up' language in place, accept that the two modules always ship together."
     why_rejected: "Violates Rule 25 (Architecture-Text Truth) over time. ARCHITECTURE.md §2 has declared the merger as future work since 2026-05-17; the longer the corpus declares an intent without executing it, the more downstream artefacts (release notes, plans, reviews) hedge against the eventual move. The empirical signal (every cross-cutting wave edits both modules together; no operator has split them) is unambiguous; deferring further accumulates dead optionality."
@@ -186,7 +186,7 @@ verification:
   manual:
     - "Verify agent-platform/ and agent-runtime/ directories no longer exist on disk after Commit 2 of the phase-c-merge branch."
     - "Verify agent-service/src/main/java/ascend/springai/service/platform/ and .../service/runtime/ both exist and contain the relocated sources."
-    - "Verify spring-ai-ascend-graphmemory-starter/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports references ascend.springai.service.runtime.graphmemory.GraphMemoryAutoConfiguration (not the old ascend.springai.runtime.graphmemory path)."
+    - "Verify spring-ai-ascend-graphmemory-starter/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports references ascend.springai.service.runtime.graphmemory.GraphMemoryAutoConfiguration (not the old ascend.springai.service.runtime.graphmemory path)."
     - "Verify ADR-0055 frontmatter carries superseded_by: ADR-0078 and ADR-0066 carries extended_by: ADR-0078."
     - "Verify ARCHITECTURE.md §2 module-layout table lists 8 substantive modules (BoM + agent-client + agent-bus + agent-service + agent-middleware + agent-execution-engine + agent-evolve + graphmemory-starter)."
 

@@ -9,9 +9,9 @@ After the L0 v1 architecture release (then at `docs/releases/2026-05-13-L0-archi
 | Finding | Overclaim | Truth |
 |---|---|---|
 | P1a | "`RunLifecycle` SPI" listed in W0 shipped runtime kernel | `RunLifecycle` is W2 design-only (ADR-0020); no Java class exists. The actual shipped orchestration SPIs are `Orchestrator`, `GraphExecutor`, `AgentLoopExecutor`, `SuspendSignal`, `Checkpointer`, `ExecutorDefinition`, `RunContext`. |
-| P1b | "`RunContext` exposes `tenantId()`, `runId()`, `posture()`" | Actual interface (`agent-runtime/src/main/java/ascend/springai/runtime/orchestration/spi/RunContext.java:16-37`) exposes `runId()`, `tenantId()`, `checkpointer()`, `suspendForChild(...)`. `posture()` is invented. |
+| P1b | "`RunContext` exposes `tenantId()`, `runId()`, `posture()`" | Actual interface (`agent-service/src/main/java/ascend/springai/service/runtime/orchestration/spi/RunContext.java:16-37`) exposes `runId()`, `tenantId()`, `checkpointer()`, `suspendForChild(...)`. `posture()` is invented. |
 | P2 | "`ApiCompatibilityTest` fails if the OpenAPI snapshot diverges" | `ApiCompatibilityTest` is ArchUnit-only (competitor-import ban + dependency-direction). The actual OpenAPI snapshot diff is `OpenApiContractIT` calling `OpenApiSnapshotComparator`. |
-| P3 | `AppPostureGate` placed in "HTTP Edge (agent-platform)" table; described as "all runtime components receive posture as a constructor argument" | `AppPostureGate` lives in `agent-runtime/src/main/java/ascend/springai/runtime/posture/`. Only three in-memory components call it (`SyncOrchestrator`, `InMemoryRunRegistry`, `InMemoryCheckpointer`), not every runtime component. |
+| P3 | `AppPostureGate` placed in "HTTP Edge (agent-platform)" table; described as "all runtime components receive posture as a constructor argument" | `AppPostureGate` lives in `agent-service/src/main/java/ascend/springai/service/runtime/posture/`. Only three in-memory components call it (`SyncOrchestrator`, `InMemoryRunRegistry`, `InMemoryCheckpointer`), not every runtime component. |
 
 A fifth finding (P4 — `HEAD SHA: 82a1397` while `git HEAD` was `776d4e7`) was a HISTORY-PARADOX class defect addressed by renaming the field to `Semantic release SHA:` plus an explicit `Metadata follow-up SHAs:` line.
 
@@ -93,7 +93,7 @@ Sub-checks 26c and 26d are exercised end-to-end by running the real gate against
 - `gate/check_architecture_sync.ps1` (Rule 26)
 - `gate/check_architecture_sync.sh` (mirror)
 - `gate/test_architecture_sync_gate.sh` (self-tests for Rule 26)
-- `agent-runtime/src/main/java/ascend/springai/runtime/orchestration/spi/RunContext.java:16-37` (canonical `RunContext` interface)
-- `agent-platform/src/test/java/ascend/springai/platform/contracts/OpenApiContractIT.java` (canonical OpenAPI snapshot test)
-- `agent-platform/src/test/java/ascend/springai/platform/api/ApiCompatibilityTest.java` (canonical ArchUnit test — not OpenAPI)
-- `agent-runtime/src/main/java/ascend/springai/runtime/posture/AppPostureGate.java` (canonical posture-gate module)
+- `agent-service/src/main/java/ascend/springai/service/runtime/orchestration/spi/RunContext.java:16-37` (canonical `RunContext` interface)
+- `agent-service/src/test/java/ascend/springai/service/platform/contracts/OpenApiContractIT.java` (canonical OpenAPI snapshot test)
+- `agent-service/src/test/java/ascend/springai/service/platform/api/ApiCompatibilityTest.java` (canonical ArchUnit test — not OpenAPI)
+- `agent-service/src/main/java/ascend/springai/service/runtime/posture/AppPostureGate.java` (canonical posture-gate module)

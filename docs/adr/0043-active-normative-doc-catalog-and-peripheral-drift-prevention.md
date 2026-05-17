@@ -51,8 +51,8 @@ them. Install five gate rules (widen Rule 18, add Rules 20–23) to prevent recu
 Files whose claims are actively binding on implementers and reviewers:
 
 - `ARCHITECTURE.md`, `README.md`, `CLAUDE.md`, `AGENTS.md`
-- `agent-platform/ARCHITECTURE.md`, `agent-platform/README.md`
-- `agent-runtime/ARCHITECTURE.md`
+- `agent-service/ARCHITECTURE.md`, `agent-platform/README.md`
+- `agent-service/ARCHITECTURE.md`
 - `docs/contracts/**/*.{md,yaml}`
 - `docs/cross-cutting/**/*.md`
 - `docs/telemetry/**/*.md` (renamed from `docs/observability/` per ADR-0061 §2)
@@ -116,7 +116,7 @@ that exist on disk. Anchors (`#...`) and external links (`http://`, `https://`) 
 |---|---|
 | `docs/contracts/http-api-contracts.md:34` | PolicyEvaluator → Spring Security AuthorizationManager |
 | `docs/contracts/http-api-contracts.md:39` | SPRINGAI_ASCEND_filter_errors_total → lowercase |
-| `docs/contracts/http-api-contracts.md:141` | broken link → agent-platform/ARCHITECTURE.md |
+| `docs/contracts/http-api-contracts.md:141` | broken link → agent-service/ARCHITECTURE.md |
 | `agent-platform/README.md:11` | deleted SPI names → actual W0 filter chain description |
 | `agent-platform/README.md:58,60` | broken links → existing doc paths |
 | `spring-ai-ascend-graphmemory-starter/pom.xml` | description → W0 scaffold truth |

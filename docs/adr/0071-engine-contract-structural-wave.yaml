@@ -53,9 +53,9 @@ triggering_inputs:
         SpawnEnvelope 11-dim hidden-defect family seen in the fourteenth cycle).
   internal_signal:
     code_inspection:
-      - "agent-runtime/src/main/java/ascend/springai/runtime/orchestration/inmemory/SyncOrchestrator.java:86-90 — implicit instanceof switch, no engine_type discriminator, no envelope concept"
-      - "agent-runtime/src/main/java/ascend/springai/runtime/runs/Run.java:21-44 — record has no engine_type field"
-      - "agent-runtime/src/main/java/ascend/springai/runtime/resilience/SuspendReason.java:37 — AwaitExternal/AwaitApproval slots empty, natural extension point for AwaitClientCallback"
+      - "agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/SyncOrchestrator.java:86-90 — implicit instanceof switch, no engine_type discriminator, no envelope concept"
+      - "agent-service/src/main/java/ascend/springai/service/runtime/runs/Run.java:21-44 — record has no engine_type field"
+      - "agent-service/src/main/java/ascend/springai/service/runtime/resilience/SuspendReason.java:37 — AwaitExternal/AwaitApproval slots empty, natural extension point for AwaitClientCallback"
       - "docs/governance/architecture-graph.yaml — no engine-contract / hook-surface / s2c-callback / evolution-scope nodes today"
     historical_defect_round_count: 12
     historical_defects_in_text_drift_family: 79

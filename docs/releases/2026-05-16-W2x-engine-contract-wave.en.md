@@ -78,12 +78,12 @@ Pillar coverage by canonical name (`performance`, `cost`, `developer_onboarding`
 
 ## Java SPI surfaces added
 
-- `ascend.springai.runtime.orchestration.spi`: `ExecutorAdapter`, `EngineMatchingException`, `HookPoint`, `HookContext`, `HookOutcome`, `RuntimeMiddleware`, `EngineHookSurface` (all pure `java.*` per E3)
-- `ascend.springai.runtime.engine`: `EngineEnvelope`, `EngineRegistry`, `HookDispatcher`
-- `ascend.springai.runtime.s2c`: `S2cCallbackEnvelope`, `S2cCallbackResponse`, `InMemoryS2cCallbackTransport`
-- `ascend.springai.runtime.s2c.spi`: `S2cCallbackSignal`, `S2cCallbackTransport`
-- `ascend.springai.runtime.evolution`: `EvolutionExport`
-- `ascend.springai.runtime.resilience.SuspendReason.AwaitClientCallback` (new sealed variant)
+- `ascend.springai.service.runtime.orchestration.spi`: `ExecutorAdapter`, `EngineMatchingException`, `HookPoint`, `HookContext`, `HookOutcome`, `RuntimeMiddleware`, `EngineHookSurface` (all pure `java.*` per E3)
+- `ascend.springai.service.runtime.engine`: `EngineEnvelope`, `EngineRegistry`, `HookDispatcher`
+- `ascend.springai.service.runtime.s2c`: `S2cCallbackEnvelope`, `S2cCallbackResponse`, `InMemoryS2cCallbackTransport`
+- `ascend.springai.service.runtime.s2c.spi`: `S2cCallbackSignal`, `S2cCallbackTransport`
+- `ascend.springai.service.runtime.evolution`: `EvolutionExport`
+- `ascend.springai.service.runtime.resilience.SuspendReason.AwaitClientCallback` (new sealed variant)
 
 ## Cross-rule co-design audit (Phase 3a — hard gate before S2C code)
 
@@ -128,7 +128,7 @@ Four parallel Explore audits scanned:
 
 1. **W2.x Engine Contract drift** — schema/yaml/code triplet completeness for all four W2.x contracts (engine-envelope, engine-hooks, s2c-callback, evolution-scope).
 2. **L0 governance corpus integrity** — principle-coverage.yaml, enforcers.yaml, architecture-status.yaml, architecture-graph.yaml, posture-coverage.md, competitive-baselines.yaml, bus-channels.yaml, skill-capacity.yaml, sandbox-policies.yaml, evolution-scope.v1.yaml, SESSION-START-CONTEXT.md, all module-metadata.yaml, all ADRs 0068-0077.
-3. **SPI / runtime code-truth** — agent-runtime/src/main, agent-runtime/src/test, agent-platform/src/main pure-Java cross-package contamination, strict-match enforcement, hook surface presence, Run state machine integrity, async / blocking discipline, tenant scope, posture-aware defaults, test honesty.
+3. **SPI / runtime code-truth** — agent-service/src/main, agent-service/src/test, agent-service/src/main pure-Java cross-package contamination, strict-match enforcement, hook surface presence, Run state machine integrity, async / blocking discipline, tenant scope, posture-aware defaults, test honesty.
 4. **ADR corpus self-audit** (added after user pushback "少了个维度吧？ADR 的自检呢？") — front-matter discipline, supersedes/extends DAG integrity, decision↔rule↔enforcer triangle closure, decision body internal consistency, mutually consistent decisions across ADRs, orphan / dead references, ADR↔architecture-graph closure, status field truth, schema-first self-application.
 
 **Findings:** 2 HARD (D1: ADR-0076 enforcer mis-citation; L-1: Rule 44 prose/code gap) + 12 SOFT. Self-inspection then mined 4 additional latent items (L-9 EngineEnvelope strict ctor, L-10 parent-Run propagation, L-11 ADR-0076 scope-creep watch, L-12 Phase 3a Matrix link-rot). Total: **18 findings**.

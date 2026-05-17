@@ -9,7 +9,7 @@ After ADR-0046 + Gate Rule 26 closed the GATE-SCOPE-GAP for `docs/releases/*.md`
 | Finding | Failure shape |
 |---|---|
 | **P1 — Root README baseline drift** | At SHA `56f52e3` the root `README.md` Status paragraph still asserted "Forty-one architectural constraints ... `#1-#41`" while `docs/governance/architecture-status.yaml.architecture_sync_gate.allowed_claim` had advanced to "44 §4 constraints ... 46 ADRs ... 26 active gate rules ... 28 gate self-tests". The README and the canonical baseline can drift independently because no gate cross-checked them. (Resolved by content edit at `0ed6a35`; this ADR closes the gate gap so it cannot recur.) |
-| **P2 — System-boundary prose drift** | Root `ARCHITECTURE.md §1` and `agent-runtime/ARCHITECTURE.md §1` described "drives LLMs through a tool-calling loop ... persists durable side effects through an idempotent outbox" in present tense, as if W0 ships those capabilities. The Java sources do not contain a production `LlmRouter`, `OutboxPublisher`, `ActionGuard`, or `RunController` at W0; those are W1–W4 deferred. The boundary section read as a description of running behavior. |
+| **P2 — System-boundary prose drift** | Root `ARCHITECTURE.md §1` and `agent-service/ARCHITECTURE.md §1` described "drives LLMs through a tool-calling loop ... persists durable side effects through an idempotent outbox" in present tense, as if W0 ships those capabilities. The Java sources do not contain a production `LlmRouter`, `OutboxPublisher`, `ActionGuard`, or `RunController` at W0; those are W1–W4 deferred. The boundary section read as a description of running behavior. |
 
 These map to two new defect shapes the 5-shape model from ADR-0046 did not name explicitly:
 
@@ -63,7 +63,7 @@ Document headers (`> Last updated: ...`) MUST track the **last content-change da
 
 Rationale: header dates serve a single purpose — pointing the reader at the most recent set of edits to inspect via `git log`. If a header date moves without a corresponding content change, the date loses signal. Architecture state is canonically asserted in `docs/governance/architecture-status.yaml` (capability ledger) + `docs/releases/` (formal release notes); headers do not need to duplicate that.
 
-Practical effect: this cycle refreshes headers in only the files it actually edits (`ARCHITECTURE.md`, `agent-runtime/ARCHITECTURE.md`). The seven active docs flagged in the review (P3) that are not edited in this cycle keep their previous header dates — which honestly reflect "content last changed at the post-seventh third-pass cycle."
+Practical effect: this cycle refreshes headers in only the files it actually edits (`ARCHITECTURE.md`, `agent-service/ARCHITECTURE.md`). The seven active docs flagged in the review (P3) that are not edited in this cycle keep their previous header dates — which honestly reflect "content last changed at the post-seventh third-pass cycle."
 
 ### §4 Constraint
 
@@ -91,7 +91,7 @@ Practical effect: this cycle refreshes headers in only the files it actually edi
 | Document | Change |
 |---|---|
 | `ARCHITECTURE.md` | §1 system-boundary section rewritten with target-vs-W0 split; §4 #45 added; header refreshed |
-| `agent-runtime/ARCHITECTURE.md` | §1 system-boundary section rewritten with target-vs-W0 split; header refreshed |
+| `agent-service/ARCHITECTURE.md` | §1 system-boundary section rewritten with target-vs-W0 split; header refreshed |
 | `docs/adr/0047-active-entrypoint-truth-and-system-boundary-prose-convention.md` | New ADR (this file) |
 | `docs/adr/README.md` | ADR-0047 index row appended |
 | `docs/governance/architecture-status.yaml` | `active_entrypoint_baseline_truth_gate` row added; `architecture_sync_gate.allowed_claim` counts bumped (44→45, 46→47, 26→27, 28→30); `adr_per_file.allowed_claim` corrected (46→47) |

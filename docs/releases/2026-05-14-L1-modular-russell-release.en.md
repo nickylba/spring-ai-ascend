@@ -61,10 +61,10 @@ constraint to a real test or gate-script rule.
   PowerShell mirror updated in lockstep.
 - **`RuntimeMustNotDependOnPlatformTest`** (ArchUnit, enforcer E2) generalises
   Rule 21 from the single `TenantContextHolder` class to the whole
-  `ascend.springai.platform..` package.
+  `ascend.springai.service.platform..` package.
 - **`HttpEdgeMustNotImportMemorySpiTest`** (ArchUnit, enforcer E4): HTTP edge
   cannot import the memory SPI.
-- **`agent-platform/pom.xml`** declares `agent-runtime` as a dependency.
+- **`agent-service/pom.xml`** declares `agent-runtime` as a dependency.
 
 ### 2.3 JWT Validation (Phase C, ADR-0056, commit `0422123`)
 
@@ -208,11 +208,11 @@ constraint to a real test or gate-script rule.
   - (Additional W1 rows `http_contract_w1_reconciliation` and
     `metric_tenant_tag_w1` updated in follow-up alongside the OpenAPI
     snapshot regen; the high-confidence promotions land in this commit.)
-- Module ARCHITECTURE.md updates: `agent-platform/ARCHITECTURE.md`
+- Module ARCHITECTURE.md updates: `agent-service/ARCHITECTURE.md`
   refreshed in Phase K (commit `feat(L1/K)`) with L1 subsections for
   `auth/`, `tenant/` (cross-check addition), `idempotency/` (durable
   store), `posture/`, `web/runs/`, `observability/`, and `architecture/`.
-  `agent-runtime/ARCHITECTURE.md` unchanged — L1 added no new packages
+  `agent-service/ARCHITECTURE.md` unchanged — L1 added no new packages
   to the runtime kernel.
 
 ### 2.11 Phase K — Post-J Audit Remediation
@@ -237,7 +237,7 @@ closes them and adds two new enforcer rows (E33, E34).
   artifact paths that didn't match disk. Phase K updates the YAML:
   E14 → `idempotency/IdempotencyStorePostgresIT.java#bodyDriftReturns409`;
   E25 → `contracts/OpenApiContractIT.java`.
-- **F4 (P1 — PERIPHERAL-DRIFT)**: `agent-platform/ARCHITECTURE.md` was
+- **F4 (P1 — PERIPHERAL-DRIFT)**: `agent-service/ARCHITECTURE.md` was
   unchanged since 2026-05-13 and did not document the L1 packages.
   Phase K refreshes the file with subsections for every new L1 package
   + enforcer-row cross-references (see §2.10 above for the list).
@@ -347,7 +347,7 @@ codified. Phase L (ADR-0060, commits `feat(L1/L)*`) closes them:
   trigger: any commit landing in W2 must include the port. Bash remains
   the canonical release gate at L1.
 
-- **P1-4 (CONFIRMED — `agent-platform/ARCHITECTURE.md` §6–9 W0-era)**:
+- **P1-4 (CONFIRMED — `agent-service/ARCHITECTURE.md` §6–9 W0-era)**:
   test table listed only W0 tests; §7 said "JWT validation: W1"; §8
   listed W1 work as future; §9 said "No JDBC at W0; risk not active".
   **Fix**: §6 rewritten with full L1 test table (17 tests including
@@ -428,7 +428,7 @@ Per L1 plan §14, the following passes:
 **Resolved in Phase K** (no longer carried forward):
 - ~~E12 IdempotencyDurabilityIT.java missing~~ — landed.
 - ~~E14, E25 path drift in enforcers.yaml~~ — paths corrected.
-- ~~agent-platform/ARCHITECTURE.md missing L1 package docs~~ —
+- ~~agent-service/ARCHITECTURE.md missing L1 package docs~~ —
   comprehensive L1 subsections added.
 - ~~No gate rule for enforcer artifact path existence~~ —
   Rule 28j (`enforcer_artifact_paths_exist`) added (file-level).
@@ -456,7 +456,7 @@ Per L1 plan §14, the following passes:
 - ~~Release-note baseline truth gate failure~~ — Architecture Baseline
   table added matching canonical `architecture_sync_gate.allowed_claim`;
   L0 v2 marked historical at SHA 776d4e7.
-- ~~`agent-platform/ARCHITECTURE.md` §6–9 W0-era contradictions~~ —
+- ~~`agent-service/ARCHITECTURE.md` §6–9 W0-era contradictions~~ —
   rewritten with L1 shipped surface.
 - ~~Rule 28 meta-check overclaim (P2-1)~~ — annotated with explicit
   scope language; substantive coverage moved to Rule 28j.
@@ -473,8 +473,8 @@ Per L1 plan §14, the following passes:
 | H | `b193911` | TenantTagMeterFilter (high-cardinality scrubber) |
 | I | `00f3963` | Rule 28 sub-enforcers (10 gate rules + 3 ArchUnit tests) |
 | J | `e871e7e` | Architecture-truth refresh + initial L1 release note |
-| K | `4d691ee` | Post-J audit remediation: Rule 28 self-violation fix (E12), path drift (E14, E25), PERIPHERAL-DRIFT (agent-platform/ARCHITECTURE.md), Phase B META-PATTERN (E34), gate-gap closure (E33 / Rule 28j) |
-| L | (this) | External reviewer remediation per ADR-0060: P0-1 release-note baseline table + L0 v2 historical marker; P0-2 anchor validation (Rule 28j hardening, E35) + authenticated `RunHttpContractIT` matrix + JwtTestFixture (E37); P0-3 OpenAPI regen for `/v1/runs/*` + `noUndocumentedV1OperationsExposedByLive` (E36); P1-2 status YAML promotion; P1-4 `agent-platform/ARCHITECTURE.md` §6–9 rewrite; P2-1 truthful naming for Rule 28 meta-check. 37 enforcer rows, 37 self-tests, 60 ADRs, 29 gate rules. |
+| K | `4d691ee` | Post-J audit remediation: Rule 28 self-violation fix (E12), path drift (E14, E25), PERIPHERAL-DRIFT (agent-service/ARCHITECTURE.md), Phase B META-PATTERN (E34), gate-gap closure (E33 / Rule 28j) |
+| L | (this) | External reviewer remediation per ADR-0060: P0-1 release-note baseline table + L0 v2 historical marker; P0-2 anchor validation (Rule 28j hardening, E35) + authenticated `RunHttpContractIT` matrix + JwtTestFixture (E37); P0-3 OpenAPI regen for `/v1/runs/*` + `noUndocumentedV1OperationsExposedByLive` (E36); P1-2 status YAML promotion; P1-4 `agent-service/ARCHITECTURE.md` §6–9 rewrite; P2-1 truthful naming for Rule 28 meta-check. 37 enforcer rows, 37 self-tests, 60 ADRs, 29 gate rules. |
 
 ## 7. Where to Look Next
 
@@ -495,7 +495,7 @@ After the initial L1 cut, this release also lands the **Layer-0 governing princi
 - **P-A — Business/Platform Decoupling + Developer Self-Service** — `CLAUDE.md` Rule 29, `ARCHITECTURE.md` §4 #60. Enforcers: `SpiPurityGeneralizedArchTest` (E48), Gate Rule 31 `quickstart_present` (E49). `docs/quickstart.md` ships referenced from `README.md`.
 - **P-B — Four Competitive Pillars: performance, cost, developer_onboarding, governance** — `CLAUDE.md` Rule 30, `ARCHITECTURE.md` §4 #61. `docs/governance/competitive-baselines.yaml` carries baselines for **performance**, **cost**, **developer_onboarding**, and **governance**; Gate Rule 32 / Rule 33 enforce presence + release-note pillar mentions (E50/E51).
 - **P-C — Code-as-Everything, Rapid Evolution, Independent Modules** — `CLAUDE.md` Rule 31, `ARCHITECTURE.md` §4 #62. Each reactor module ships a `module-metadata.yaml`; Gate Rule 34 enforces (E52).
-- **P-D — SPI-Aligned, DFX-Explicit, Spec-Driven, TCK-Tested** — `CLAUDE.md` Rule 32, `ARCHITECTURE.md` §4 #63. `docs/dfx/agent-platform.yaml` + `docs/dfx/agent-runtime.yaml` declare 5 DFX dimensions per module; Gate Rule 35 / Rule 36 enforce (E53/E54). TCK module + conformance suite deferred per `CLAUDE-deferred.md` 32.b / 32.c (W2 trigger).
+- **P-D — SPI-Aligned, DFX-Explicit, Spec-Driven, TCK-Tested** — `CLAUDE.md` Rule 32, `ARCHITECTURE.md` §4 #63. `docs/dfx/agent-service.yaml` + `docs/dfx/agent-service.yaml` declare 5 DFX dimensions per module; Gate Rule 35 / Rule 36 enforce (E53/E54). TCK module + conformance suite deferred per `CLAUDE-deferred.md` 32.b / 32.c (W2 trigger).
 
 `CLAUDE.md` is restructured into Layer-0 Principles + Layer-1 Rules; review-cycle scaffolding moved to `docs/governance/rule-history.md`. The "Constraint Coverage by First Principle" section moved to `docs/governance/principle-coverage.md`. The Rule-10 W0 posture table moved to `docs/governance/posture-coverage.md`. No normative substance was dropped.
 

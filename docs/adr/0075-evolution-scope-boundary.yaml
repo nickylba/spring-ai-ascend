@@ -53,7 +53,7 @@ context: |
   expressed as a machine-checked discriminator instead of prose.
 
   Phase 4 is intentionally light on Java code because the RunEvent type
-  it would otherwise extend does not exist in agent-runtime/src/main
+  it would otherwise extend does not exist in agent-service/src/main
   today. Two valid responses were considered:
     (a) Land RunEvent now (out of scope -- ADR-0022 deferred it to W2 for
         good reason; the typed payload codec, Flux streaming SPI, and
@@ -74,12 +74,12 @@ decision: |
     out_of_scope_default (5 client-owned categories), opt_in_export
     (placeholder referencing W3 telemetry-export.v1.yaml).
 
-  - Java surface (agent-runtime/src/main/java/ascend/springai/runtime/evolution/):
+  - Java surface (agent-service/src/main/java/ascend/springai/service/runtime/evolution/):
       EvolutionExport   -- 3-value enum mirroring the YAML discriminators:
                            IN_SCOPE, OUT_OF_SCOPE, OPT_IN
       package-info.java -- documents the deferred RunEvent integration
 
-  - Test surface (agent-runtime/src/test/java/ascend/springai/runtime/evolution/):
+  - Test surface (agent-service/src/test/java/ascend/springai/service/runtime/evolution/):
       EveryRunEventDeclaresEvolutionExportTest -- ArchUnit, asserts every
       record implements RunEvent declares evolutionExport(): EvolutionExport.
       Armed with allowEmptyShould(true) at W2.x because the RunEvent type
@@ -131,7 +131,7 @@ verification:
     - "bash gate/test_architecture_sync_gate.sh -- all self-tests GREEN with 2 new (positive + negative for Rule 59)"
   manual:
     - "grep -E '^\\s*-\\s+(in_scope|out_of_scope_default|opt_in_export)' docs/governance/evolution-scope.v1.yaml -- 3 top-level discriminator blocks present"
-    - "grep -E 'IN_SCOPE|OUT_OF_SCOPE|OPT_IN' agent-runtime/src/main/java/ascend/springai/runtime/evolution/EvolutionExport.java -- enum constants mirror YAML"
+    - "grep -E 'IN_SCOPE|OUT_OF_SCOPE|OPT_IN' agent-service/src/main/java/ascend/springai/service/runtime/evolution/EvolutionExport.java -- enum constants mirror YAML"
 
 enforcer_rows:
   - E85   # evolution_scope_yaml_present_and_wellformed (kind: gate-script, level: L1, view: physical)

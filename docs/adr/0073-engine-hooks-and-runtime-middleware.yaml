@@ -71,13 +71,13 @@ decision: |
       HookOutcome         — sealed: Proceed | ShortCircuit(Object) | Fail(String)
       RuntimeMiddleware   — @FunctionalInterface: HookOutcome onHook(HookContext)
 
-  - Java surface (agent-runtime/src/main/java/ascend/springai/runtime/orchestration/spi/):
+  - Java surface (agent-service/src/main/java/ascend/springai/service/runtime/orchestration/spi/):
       EngineHookSurface   — @FunctionalInterface: Set<HookPoint> supportedHooks(); default empty() — stays in agent-runtime because it is consumed by ExecutorAdapter (which itself remains in agent-runtime pending T2.B2 engine extraction)
 
   - Java surfaces (agent-middleware/src/main/java/ascend/springai/middleware/ — moved here from agent-runtime/engine/ in the same PR):
       HookDispatcher      — invokes registered middlewares per HookPoint with declared ordering
 
-  - Java surface (agent-runtime/src/main/java/ascend/springai/runtime/engine/):
+  - Java surface (agent-service/src/main/java/ascend/springai/service/runtime/engine/):
       EngineRegistry      — gains registerMiddleware(...) + hookDispatcher() accessor; stays in agent-runtime until T2.B2 engine extraction lands (back-dep on Run/RunContext blocks current extraction — see agent-execution-engine/ARCHITECTURE.md)
 
   - SyncOrchestrator wiring:
@@ -132,7 +132,7 @@ verification:
     - "bash gate/test_architecture_sync_gate.sh → all self-tests GREEN with 2 new (positive + negative for Rule 57)"
   manual:
     - "diff <(awk-extract docs/contracts/engine-hooks.v1.yaml hooks) <(grep-enum HookPoint.java) returns no diff"
-    - "grep -r 'hookDispatcher.fire' agent-runtime/src/main → matches three hook points in SyncOrchestrator.executeLoop"
+    - "grep -r 'hookDispatcher.fire' agent-service/src/main → matches three hook points in SyncOrchestrator.executeLoop"
 
 enforcer_rows:
   - E78   # engine_hooks_yaml_present_and_wellformed (kind: gate-script, level: L1, view: logical)

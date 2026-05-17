@@ -5,7 +5,7 @@
 **Date:** 2026-05-12
 
 > **L1 update (2026-05-14).** Rule 21 was generalised from `TenantContextHolder` to the whole
-> `ascend.springai.platform..` package by ADR-0055. The original narrow rule below remains correct
+> `ascend.springai.service.platform..` package by ADR-0055. The original narrow rule below remains correct
 > as the most-likely-violation case but is no longer the full contract. The generalised contract is
 > asserted by `RuntimeMustNotDependOnPlatformTest`; the narrow case is preserved as defence-in-depth
 > by `TenantPropagationPurityTest`. See `docs/adr/0055-permit-platform-to-runtime-direction.md`.
@@ -69,8 +69,8 @@ Timer-driven or internal resume:
 
 ### Rule 21 — Tenant Propagation Purity (active, enforced now)
 
-No class in `ascend.springai.runtime.*` (main sources) may import
-`ascend.springai.platform.tenant.TenantContextHolder`.
+No class in `ascend.springai.service.runtime.*` (main sources) may import
+`ascend.springai.service.platform.tenant.TenantContextHolder`.
 
 Enforced by `TenantPropagationPurityTest` (ArchUnit rule, shipped at W0).
 

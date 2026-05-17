@@ -4,7 +4,7 @@
 **Deciders:** architecture
 **Date:** 2026-05-12
 **Technical story:** Fourth architecture reviewer (F3) identified that `ARCHITECTURE.md:139-141`
-and `agent-platform/ARCHITECTURE.md:38-42` describe `IdempotencyHeaderFilter` as deduplicating
+and `agent-service/ARCHITECTURE.md:38-42` describe `IdempotencyHeaderFilter` as deduplicating
 requests, returning cached responses, and handling 409 conflicts — behavior not present in
 `IdempotencyHeaderFilter.java:31-60`, which only validates UUID shape and never calls
 `IdempotencyStore`. This ADR defines what W0 ships and what is deferred to W1, eliminating

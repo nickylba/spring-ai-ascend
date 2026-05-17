@@ -107,9 +107,9 @@ claim. `embeddingModelVersion` is the canonical field name (ADR-0034). See ADR-0
 ## References
 
 - `docs/contracts/contract-catalog.md:20,38` (invariant text + RunContext row)
-- `agent-runtime/src/main/java/ascend/springai/runtime/orchestration/spi/RunContext.java`
-- `agent-runtime/src/main/java/ascend/springai/runtime/resilience/ResilienceContract.java`
-- `agent-runtime/src/main/java/ascend/springai/runtime/memory/spi/GraphMemoryRepository.java`
+- `agent-service/src/main/java/ascend/springai/service/runtime/orchestration/spi/RunContext.java`
+- `agent-service/src/main/java/ascend/springai/service/runtime/resilience/ResilienceContract.java`
+- `agent-service/src/main/java/ascend/springai/service/runtime/memory/spi/GraphMemoryRepository.java`
 - `docs/adr/0034-memory-and-knowledge-taxonomy-at-l0.md:66` (embeddingModelVersion)
 - `docs/adr/0027-idempotency-scope-w0-header-validation.md` (Checkpointer scope deferral)
 - `docs/adr/0030-skill-spi-lifecycle-resource-matrix.md:223` (ResilienceContract W2 extension)

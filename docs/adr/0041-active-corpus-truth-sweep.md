@@ -67,7 +67,7 @@ therefore must be archived alongside its peer.
 | `docs/adr/0028-causal-payload-envelope-and-semantic-ontology.md` | References → archived copy |
 | `docs/adr/0030-skill-spi-lifecycle-resource-matrix.md` | References → archived copy |
 | `docs/adr/0031-three-track-channel-isolation.md` | References → archived copy |
-| `agent-runtime/ARCHITECTURE.md` | → wave authority reference |
+| `agent-service/ARCHITECTURE.md` | → wave authority reference |
 | `docs/cross-cutting/oss-bill-of-materials.md` | → wave authority reference |
 | `docs/plans/architecture-systems-engineering-plan.md` | Archived to `docs/archive/2026-05-13-plans-archived/` |
 | `docs/archive/2026-05-13-plans-archived/README.md` | Added third archived doc to table |

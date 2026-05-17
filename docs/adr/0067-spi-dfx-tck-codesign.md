@@ -25,7 +25,7 @@ Every module with `kind: domain` in its `module-metadata.yaml` MUST:
 - Each declared package MUST exist as a directory under `<module>/src/main/java/`.
 - Each SPI package MUST remain free of Spring, platform, inmemory-impl, Micrometer, and OpenTelemetry imports (extension of existing §4.7 — generalised by E48 ArchUnit `SpiPurityGeneralizedArchTest`).
 
-Today: `agent-runtime` is the sole `kind: domain` module; its declared SPI packages are `ascend.springai.runtime.orchestration.spi` and `ascend.springai.runtime.memory.spi`.
+Today: `agent-runtime` is the sole `kind: domain` module; its declared SPI packages are `ascend.springai.service.runtime.orchestration.spi` and `ascend.springai.service.runtime.memory.spi`.
 
 ### 2. DFX yaml for `kind: platform` and `kind: domain` modules
 
@@ -75,7 +75,7 @@ Reserved name: `agent-runtime-tck` (sibling of `agent-runtime`). Adding it as a 
 ## Consequences
 
 - **Positive**: Every domain and platform module declares its SPI surface and DFX posture in structured form; gate rules detect missing files mechanically; TCK name is reserved for W2.
-- **Negative**: Two new docs to maintain (`docs/dfx/agent-platform.yaml`, `docs/dfx/agent-runtime.yaml`); the starter DFX is voluntary but its presence creates a maintenance expectation; TCK content is deferred so SPI compatibility is asserted only by direct tests until W2.
+- **Negative**: Two new docs to maintain (`docs/dfx/agent-service.yaml`, `docs/dfx/agent-service.yaml`); the starter DFX is voluntary but its presence creates a maintenance expectation; TCK content is deferred so SPI compatibility is asserted only by direct tests until W2.
 - **Risk surfaced**: A `kind: domain` module added later without an `*.spi.*` package will fail the gate. Mitigation: the `module-metadata.yaml` `kind:` field is the contributor's commitment; choosing `kind: domain` means committing to SPI presence.
 
 ## Enforcers (Rule 28)

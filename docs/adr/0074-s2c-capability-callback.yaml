@@ -67,12 +67,12 @@ decision: |
     per the audit §5.2 cross-cutting propagation contract. Outcome enum closed
     at OK | ERROR | TIMEOUT.
 
-  - Java surfaces (agent-runtime/src/main/java/ascend/springai/runtime/s2c/):
+  - Java surfaces (agent-service/src/main/java/ascend/springai/service/runtime/s2c/):
       S2cCallbackEnvelope      — request record; validates 6 mandatory fields + W3C-32-char trace_id
       S2cCallbackResponse      — response record; closed enum Outcome (OK / ERROR / TIMEOUT); error fields required iff outcome=ERROR
       InMemoryS2cCallbackTransport — reference impl; Function-based; tests inject canned responses
 
-  - Java surfaces (agent-runtime/src/main/java/ascend/springai/runtime/s2c/spi/):
+  - Java surfaces (agent-service/src/main/java/ascend/springai/service/runtime/s2c/spi/):
       S2cCallbackSignal        — RuntimeException; executor-side trigger
       S2cCallbackTransport     — SPI; CompletionStage<S2cCallbackResponse> dispatch(envelope)
 
@@ -155,10 +155,10 @@ verification:
     - "bash gate/check_architecture_sync.sh → GATE: PASS with 64+ active rules (Rule 58 added by Phase 7 batch)"
     - "Self-tests for Rule 58 (positive + negative) GREEN"
   manual:
-    - "grep 'S2C client callback at node' agent-runtime/src/main → one match in S2cCallbackSignal.java only (the message constant)"
+    - "grep 'S2C client callback at node' agent-service/src/main → one match in S2cCallbackSignal.java only (the message constant)"
     - "grep 's2c.client.callback' docs/governance/skill-capacity.yaml → 1 match"
     - "grep 'logical_mappings' docs/governance/bus-channels.yaml → 1 match (block header)"
-    - "grep 'AwaitClientCallback' agent-runtime/src/main → matches in SuspendReason.java (sealed variant) and SyncOrchestrator.java (constant references)"
+    - "grep 'AwaitClientCallback' agent-service/src/main → matches in SuspendReason.java (sealed variant) and SyncOrchestrator.java (constant references)"
 
 enforcer_rows:
   - E81   # gate-script — Phase 7 will add Rule 58 (s2c_callback_yaml_present_and_wellformed)

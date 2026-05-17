@@ -140,7 +140,7 @@ consequences: |
     corpus.
 
   - Root ARCHITECTURE.md is reorganised under the 4+1 view headings at L0
-    scope. agent-platform/ARCHITECTURE.md and agent-runtime/ARCHITECTURE.md
+    scope. agent-service/ARCHITECTURE.md and agent-service/ARCHITECTURE.md
     are reorganised at L1 scope. A docs/L2/ directory is introduced
     (initially with placeholder README and at least one seed L2 doc).
 
@@ -274,12 +274,12 @@ artefacts:
     - docs/L2/README.md
     - docs/reviews/_TEMPLATE.md
     - gate/build_architecture_graph.sh
-    - agent-platform/src/test/java/ascend/springai/platform/architecture/ArchitectureLayeringTest.java
+    - agent-service/src/test/java/ascend/springai/service/platform/architecture/ArchitectureLayeringTest.java
   modified:
     - CLAUDE.md
     - ARCHITECTURE.md
-    - agent-platform/ARCHITECTURE.md
-    - agent-runtime/ARCHITECTURE.md
+    - agent-service/ARCHITECTURE.md
+    - agent-service/ARCHITECTURE.md
     - gate/check_architecture_sync.sh
     - docs/governance/enforcers.yaml
     - docs/governance/architecture-status.yaml

@@ -58,7 +58,7 @@ negative case (non-existent path detected).
 
 ### Gate Rule 25 — `peripheral_wave_qualifier`
 
-SPI Javadoc in `agent-runtime/src/main/java` must not use `"Primary sidecar impl:"` or
+SPI Javadoc in `agent-service/src/main/java` must not use `"Primary sidecar impl:"` or
 `"Primary impl:"` without a wave qualifier (W0/W1/W2/W3/W4) in the surrounding ±3 line context.
 Active normative markdown docs must not use `"Sidecar adapter —"` without a wave qualifier or an
 ADR reference on the same line.
@@ -117,8 +117,8 @@ ADR-0043's `docs/plans/**` exclusion is simplified to "entirely historical".
 | `README.md` | graphmemory-starter row: "Sidecar adapter — Graphiti REST" → W0 scaffold truth |
 | `README.md` | Status string updated with third-pass scope |
 | `ARCHITECTURE.md` | Last updated header; §4 #42–#43 added |
-| `agent-platform/ARCHITECTURE.md` | Refresh header |
-| `agent-runtime/ARCHITECTURE.md` | Refresh header; "Active submodules" → "Submodules (current + planned)" |
+| `agent-service/ARCHITECTURE.md` | Refresh header |
+| `agent-service/ARCHITECTURE.md` | Refresh header; "Active submodules" → "Submodules (current + planned)" |
 | `docs/contracts/contract-catalog.md` | Last refreshed header |
 | `docs/contracts/http-api-contracts.md` | Last refreshed header |
 | `docs/cross-cutting/oss-bill-of-materials.md` | Refresh cycle tag |
