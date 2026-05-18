@@ -3,20 +3,24 @@ package ascend.springai.service.platform.web.runs;
 import ascend.springai.service.runtime.runs.Run;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.stereotype.Component;
 
 /**
  * Default {@link AsyncRunDispatcher} for W1.x. Logs the dispatch intent at DEBUG and
  * returns. A real orchestrator-backed dispatcher (ADR-0070, W2 scope) overrides this
- * bean by declaring its own {@code @Component} or {@code @Bean}.
+ * bean by declaring its own {@code @Bean @Primary} in a test {@code @TestConfiguration}
+ * or by registering a production dispatcher with {@code @Primary}.
  *
- * <p>Marked {@code @ConditionalOnMissingBean} so consumers can register a custom
- * dispatcher (e.g. test {@code BlockingAsyncRunDispatcher}, future W2 orchestrator)
- * without removing this default first.
+ * <p>Override pattern: see {@code RunCursorFlowIT.Config#blockingDispatcher()} — a
+ * test {@code @Bean @Primary AsyncRunDispatcher} unambiguously wins autowiring without
+ * touching the default registration. Earlier revisions used
+ * {@code @ConditionalOnMissingBean} on this {@code @Component} to gate registration;
+ * that annotation is reliable only on {@code @Bean} methods inside
+ * {@code @Configuration} classes — on {@code @Component} the evaluation is
+ * order-dependent and excluded this bean on Linux CI (root cause of the rc4–rc8 red CI
+ * regression).
  */
 @Component
-@ConditionalOnMissingBean(AsyncRunDispatcher.class)
 public class NoOpAsyncRunDispatcher implements AsyncRunDispatcher {
 
     private static final Logger LOG = LoggerFactory.getLogger(NoOpAsyncRunDispatcher.class);

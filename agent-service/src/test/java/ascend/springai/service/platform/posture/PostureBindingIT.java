@@ -1,9 +1,14 @@
 package ascend.springai.service.platform.posture;
 
+import ascend.springai.service.runtime.orchestration.inmemory.InMemoryRunRegistry;
+import ascend.springai.service.runtime.runs.spi.RunRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.env.Environment;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -49,6 +54,22 @@ class PostureBindingIT {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
+    }
+
+    /**
+     * Test-scoped {@link RunRepository} fixture. {@link ascend.springai.service.platform.web.runs.RunControllerAutoConfiguration}
+     * registers its in-memory default only when {@code app.posture=dev}; this test runs
+     * under {@code APP_POSTURE=research} to exercise posture-binding behavior. Storage
+     * durability is out of scope here — an in-memory implementation is the correct
+     * choice for asserting the security chain.
+     */
+    @TestConfiguration
+    static class RunRepositoryFixture {
+        @Bean
+        @Primary
+        RunRepository runRepository() {
+            return new InMemoryRunRegistry();
+        }
     }
 
     @Autowired
