@@ -1,5 +1,7 @@
 package ascend.springai.service.platform.posture;
 
+import ascend.springai.service.platform.idempotency.IdempotencyStore;
+import ascend.springai.service.platform.idempotency.JdbcIdempotencyStore;
 import ascend.springai.service.runtime.orchestration.inmemory.InMemoryRunRegistry;
 import ascend.springai.service.runtime.runs.spi.RunRepository;
 import org.junit.jupiter.api.Test;
@@ -10,6 +12,11 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.env.Environment;
+import org.springframework.jdbc.core.simple.JdbcClient;
+
+import javax.sql.DataSource;
+import java.time.Clock;
+import java.time.Duration;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -57,11 +64,20 @@ class PostureBindingIT {
     }
 
     /**
-     * Test-scoped {@link RunRepository} fixture. {@link ascend.springai.service.platform.web.runs.RunControllerAutoConfiguration}
-     * registers its in-memory default only when {@code app.posture=dev}; this test runs
-     * under {@code APP_POSTURE=research} to exercise posture-binding behavior. Storage
-     * durability is out of scope here — an in-memory implementation is the correct
-     * choice for asserting the security chain.
+     * Test-scoped bean fixtures for posture=research:
+     *
+     * <ul>
+     *   <li>{@link RunRepository}: {@link ascend.springai.service.platform.web.runs.RunControllerAutoConfiguration}
+     *       gates its in-memory default on {@code app.posture=dev}, so under research no
+     *       repository auto-wires. Storage durability is out of scope here — the test asserts
+     *       posture-binding and security-chain behavior, not durability.</li>
+     *   <li>{@link IdempotencyStore}: under research, {@link ascend.springai.service.platform.posture.PostureBootGuard}
+     *       (ADR-0058) rejects startup unless a {@link JdbcIdempotencyStore} is registered.
+     *       The autoconfig's {@code @ConditionalOnBean(DataSource.class)} on a regular
+     *       {@code @Configuration} class evaluates before {@code DataSourceAutoConfiguration}
+     *       registers its bean in Spring Boot 4 (a documented ordering hazard for non-autoconfig
+     *       classes), so we wire a Jdbc store directly from the Testcontainers DataSource.</li>
+     * </ul>
      */
     @TestConfiguration
     static class RunRepositoryFixture {
@@ -69,6 +85,12 @@ class PostureBindingIT {
         @Primary
         RunRepository runRepository() {
             return new InMemoryRunRegistry();
+        }
+
+        @Bean
+        @Primary
+        IdempotencyStore idempotencyStore(DataSource dataSource) {
+            return new JdbcIdempotencyStore(JdbcClient.create(dataSource), Clock.systemUTC(), Duration.ofHours(24));
         }
     }
 
