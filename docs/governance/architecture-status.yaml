@@ -90,6 +90,14 @@ capabilities:
       # Other docs (README.md, gate/README.md) reference this block; raw numeric claims in those entrypoints
       active_engineering_rules: 37              # `#### Rule X` headings in CLAUDE.md (D-/R-/G-/M- namespace per ADR-0086). rc17 wave (ADR-0094): rc16 baseline 31 + 6 new = 37 (R-C split into R-C + R-C.1 + R-C.2 = +2; R-I split into R-I + R-I.1 = +1; G-3 split into G-3 + G-3.1 = +1; G-2 split into G-2 + G-2.1 = +1; new Rule G-9 Recurring-Defect Family Truth = +1). Composition: 8 D + 15 R + 11 G + 2 M = 36. Plus Rule R-A.c (active per ADR-0087) gives 37. Rule 101 gates this against the live kernel-header count.
       active_governing_principles: 13           # P-A..P-M
+      active_gate_checks: 126                   # rc19 Wave 2 post-Wave-4-rebase update: post-Wave-4 main 125 (124 Wave-1 baseline + Rule 114) + Rule 113 (this Wave 2) = 126. The literal count of `# Rule N[a-z]? — slug` headers in gate/check_architecture_sync.sh before the `# === END OF RULES ===` terminator. Rule G-5 sub-clause .c enforces this field against the live manifest at gate time.
+      gate_executable_test_cases: 220           # rc19 Wave 2 post-Wave-4-rebase update: 216 (Wave 1) + 2 Rule 114 fixtures (Wave 4 via rebase) + 2 Rule 113 fixtures (this Wave 2) = 220. Computed dynamically at runtime per Rule G-5 sub-clause .b / E122 sub-check (b).
+      enforcer_rows: 160                        # rc19 Wave 2 post-Wave-4-rebase update: 159 (158 Wave-1 + E161 from Wave 4) + E160 for Rule 113 (this Wave 2) = 160. Rule G-5 sub-clause .c enforces this field alongside active_gate_checks against live extractors.
+      section_4_constraints: 65                 # ARCHITECTURE.md §4 #1..#65 (unchanged at rc17)
+      adr_count: 94                             # rc18 (ADR-0095): rc17 baseline 93 + ADR-0095 rc18-comprehensive-hardening (single ADR covering all 5 rc18 waves: Rule 111 self-hardening + cross-rule pattern sweep + naming/dead-content cleanup + enforcer normalize + META finalize).
+      maven_tests_green: 374                    # `./mvnw.cmd clean verify` total surefire + failsafe (rc15 baseline 374; rc17 has no Java code deltas — count unchanged)
+      architecture_graph_nodes: 401             # rc19 Wave 2 post-Wave-4-rebase reconciled to live graph (verified 2026-05-21): 401 nodes. Shift of +6 vs rc18 baseline (395) = +2 Wave 1 (Rule 112 + E159) + +2 Wave 4 (Rule 114 + E161) + +2 this Wave 2 (Rule 113 + E160). Rule G-8.a enforces parity between this field and the live header.
+      architecture_graph_edges: 648             # rc19 Wave 2 post-Wave-4-rebase reconciled to live graph (verified 2026-05-21): 648 edges. Shift of +6 vs rc18 baseline (642). Rule G-8.a enforces parity with live header.
       active_gate_checks: 125                   # rc19 Wave 4 update: Wave 1 baseline 124 + 1 new top-level gate rule (Rule 114 rule_card_filename_dot_convention — prevents rc17 hyphen-vs-dot filename trap from recurring). The literal count of `# Rule N[a-z]? — slug` headers in gate/check_architecture_sync.sh before the `# === END OF RULES ===` terminator. Rule G-5 sub-clause .c enforces this field against the live manifest at gate time.
       gate_executable_test_cases: 216           # rc19 Wave 1+4 update: rc18 baseline 210 + 6 net fixtures (5 new Rule 111 ADV-RC18 closure fixtures + 2 Rule 112 fixtures -1 dedup). Computed dynamically at runtime per Rule G-5 sub-clause .b / E122 sub-check (b). Rule 114 self-tests not added in Wave 4 (validation done via the live corpus passing the regex check; pre-rc16 grandfathering exempts).
       enforcer_rows: 159                        # rc19 Wave 4 update: Wave 1 baseline 158 + E161 for Rule 114 rule_card_filename_dot_convention per ADR-0096. Rule G-5 sub-clause .c enforces this field alongside active_gate_checks against live extractors.
@@ -347,7 +355,7 @@ capabilities:
       - agent-service/src/main/java/ascend/springai/service/runtime/runs/spi/RunRepository.java
     tests:
       - agent-service/src/test/java/ascend/springai/service/runtime/runs/RunTest.java
-    allowed_claim: "L1: Run record with mandatory tenantId, runId, mode (GRAPH|AGENT_LOOP); RunStatus PENDING/RUNNING/SUSPENDED/SUCCEEDED/FAILED/CANCELLED; nullable parentNodeKey+suspendedAt for interrupt-driven nesting; RunRepository SPI adds findByParentRunId + findByTenantAndStatus + findRootRuns(tenantId). Rule R-C.c target. findRootRuns shipped W0 per ADR-0032."
+    allowed_claim: "L1: Run record with mandatory tenantId, runId, mode (GRAPH|AGENT_LOOP); RunStatus PENDING/RUNNING/SUSPENDED/SUCCEEDED/FAILED/CANCELLED; nullable parentNodeKey+suspendedAt for interrupt-driven nesting; RunRepository SPI adds findByParentRunId + findByTenantAndStatus + findRootRuns(tenantId). Rule R-C.2.a target. findRootRuns shipped W0 per ADR-0032."
 
   idempotency_record_entity:
     status: implemented_unverified
@@ -357,7 +365,7 @@ capabilities:
       - agent-service/src/main/java/ascend/springai/service/runtime/idempotency/IdempotencyRecord.java
     tests:
       - agent-service/src/test/java/ascend/springai/service/runtime/idempotency/IdempotencyRecordTest.java
-    allowed_claim: "L1: IdempotencyRecord contract-spine entity with mandatory tenantId and idempotencyKey. Rule R-C.c target."
+    allowed_claim: "L1: IdempotencyRecord contract-spine entity with mandatory tenantId and idempotencyKey. Rule R-C.2.a target."
 
   orchestration_spi:
     status: implemented_unverified
@@ -621,7 +629,7 @@ capabilities:
       - agent-service/src/main/java/ascend/springai/service/runtime/runs/RunStatus.java
     tests:
       - agent-service/src/test/java/ascend/springai/service/runtime/runs/RunStateMachineTest.java
-    allowed_claim: "Shipped — RunStateMachine.validate(from, to) enforces legal DFA transitions; Run.withStatus/withSuspension call validate before constructing updated record; EXPIRED added as 7th terminal RunStatus value. Rule R-C.d active. RunStateMachineTest exhaustively covers legal + illegal transitions."
+    allowed_claim: "Shipped — RunStateMachine.validate(from, to) enforces legal DFA transitions; Run.withStatus/withSuspension call validate before constructing updated record; EXPIRED added as 7th terminal RunStatus value. Rule R-C.2.b active. RunStateMachineTest exhaustively covers legal + illegal transitions."
 
   run_lifecycle_spi:
     status: design_accepted
@@ -671,7 +679,7 @@ capabilities:
       - agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/RunContext.java
     tests:
       - agent-service/src/test/java/ascend/springai/service/runtime/architecture/TenantPropagationPurityTest.java
-    allowed_claim: "Shipped — TenantPropagationPurityTest ArchUnit rule enforces Rule R-C.e: no ascend.springai.service.runtime.* main class may import TenantContextHolder. RunContext.tenantId() is the canonical carrier. Test-scope exemption for TenantContextFilterTest."
+    allowed_claim: "Shipped — TenantPropagationPurityTest ArchUnit rule enforces Rule R-C.2.c: no ascend.springai.service.runtime.* main class may import TenantContextHolder. RunContext.tenantId() is the canonical carrier. Test-scope exemption for TenantContextFilterTest."
 
   logbook_mdc_tenant_id:
     status: design_accepted
@@ -714,7 +722,7 @@ capabilities:
     tests:
       - agent-service/src/test/java/ascend/springai/engine/orchestration/spi/OrchestrationSpiArchTest.java
       - agent-service/src/test/java/ascend/springai/service/runtime/architecture/TenantPropagationPurityTest.java
-    allowed_claim: "W0 clean (historical pre-ADR-0078 framing): the original `agent-service/pom.xml` dependency on the then-existing `agent-platform` was removed per ADR-0026 (it was a speculative reference with zero source imports). Post-ADR-0078 (Phase C consolidation, 2026-05-18) the `agent-platform` + `agent-runtime` modules were merged into `agent-service` with Rule R-C.e sub-package layering (`service.runtime.*` must not import `service.platform.*`). Post-ADR-0079 (T2.B2, 2026-05-18) the shared kernel (Run, RunContext, SuspendSignal, S2C SPI) was extracted into `agent-runtime-core` and the engine SPI into `agent-execution-engine` — superseded by ADR-0088. Post-ADR-0088 (rc13, 2026-05-20) `agent-runtime-core` was DISSOLVED; runs + idempotency consolidated into `agent-service`, orchestration SPI (RunMode + RunContext + SuspendSignal + Checkpointer + ExecutorDefinition) co-located with `agent-execution-engine.engine.orchestration.spi`, and S2C SPI relocated to `agent-bus.bus.spi.s2c`. The Maven-level direction constraint now reads: `agent-service` ↛ `agent-execution-engine` + `agent-bus` + `agent-middleware`; `agent-execution-engine` ↛ `agent-bus` + `agent-middleware`, never `agent-service`; `agent-bus` ↛ no inner peer. The 8-module reactor (`agent-client`, `agent-service`, `agent-middleware`, `agent-execution-engine`, `agent-bus`, `agent-evolve`, `spring-ai-ascend-dependencies`, `spring-ai-ascend-graphmemory-starter`) is the post-ADR-0088 truth — 9 → 8 modules."
+    allowed_claim: "W0 clean (historical pre-ADR-0078 framing): the original `agent-service/pom.xml` dependency on the then-existing `agent-platform` was removed per ADR-0026 (it was a speculative reference with zero source imports). Post-ADR-0078 (Phase C consolidation, 2026-05-18) the `agent-platform` + `agent-runtime` modules were merged into `agent-service` with Rule R-C.2.c sub-package layering (`service.runtime.*` must not import `service.platform.*`). Post-ADR-0079 (T2.B2, 2026-05-18) the shared kernel (Run, RunContext, SuspendSignal, S2C SPI) was extracted into `agent-runtime-core` and the engine SPI into `agent-execution-engine` — superseded by ADR-0088. Post-ADR-0088 (rc13, 2026-05-20) `agent-runtime-core` was DISSOLVED; runs + idempotency consolidated into `agent-service`, orchestration SPI (RunMode + RunContext + SuspendSignal + Checkpointer + ExecutorDefinition) co-located with `agent-execution-engine.engine.orchestration.spi`, and S2C SPI relocated to `agent-bus.bus.spi.s2c`. The Maven-level direction constraint now reads: `agent-service` ↛ `agent-execution-engine` + `agent-bus` + `agent-middleware`; `agent-execution-engine` ↛ `agent-bus` + `agent-middleware`, never `agent-service`; `agent-bus` ↛ no inner peer. The 8-module reactor (`agent-client`, `agent-service`, `agent-middleware`, `agent-execution-engine`, `agent-bus`, `agent-evolve`, `spring-ai-ascend-dependencies`, `spring-ai-ascend-graphmemory-starter`) is the post-ADR-0088 truth — 9 → 8 modules."
 
   idempotency_scope_w0:
     status: test_verified
@@ -1357,7 +1365,7 @@ capabilities:
     tests:
       - agent-service/src/test/java/ascend/springai/service/runtime/architecture/SpiPurityGeneralizedArchTest.java
       - gate/check_architecture_sync.sh
-    allowed_claim: "Section 4 #60 / Rule R-A shipped at L1.x — platform/business decoupling enforced by E48 SpiPurityGeneralizedArchTest (no Spring/platform/inmemory/Micrometer/OTel in any *.spi.* package) and Gate Rule R-C.b quickstart_present. docs/quickstart.md ships referenced from README.md so developers reach first-agent execution without source patches. CLAUDE.md restructured to Layer-0 / Layer-1; review-cycle scaffolding sunk to docs/governance/rule-history.md."
+    allowed_claim: "Section 4 #60 / Rule R-A shipped at L1.x — platform/business decoupling enforced by E48 SpiPurityGeneralizedArchTest (no Spring/platform/inmemory/Micrometer/OTel in any *.spi.* package) and Rule R-A.c quickstart_present (CI quickstart smoke job per ADR-0064 / W4). docs/quickstart.md ships referenced from README.md so developers reach first-agent execution without source patches. CLAUDE.md restructured to Layer-0 / Layer-1; review-cycle scaffolding sunk to docs/governance/rule-history.md."
 
   competitive_baselines:
     status: test_verified
@@ -1385,7 +1393,7 @@ capabilities:
       - spring-ai-ascend-graphmemory-starter/module-metadata.yaml
     tests:
       - gate/check_architecture_sync.sh
-    allowed_claim: "Section 4 #62 / Rule R-C.b shipped at L1.x — each of the 8 reactor modules (`agent-client`, `agent-service`, `agent-middleware`, `agent-execution-engine`, `agent-bus`, `agent-evolve`, `spring-ai-ascend-dependencies`, `spring-ai-ascend-graphmemory-starter` — post-ADR-0088 rc13; reactor 9 → 8 with `agent-runtime-core` dissolved) has a sibling module-metadata.yaml declaring module, kind (platform | domain | starter | bom | sample), version, semver_compatibility, architecture_doc, dfx_doc, spi_packages, allowed/forbidden_dependencies. Enforced by Gate Rule G-1 sub-clause .b module_metadata_present_and_complete + existing Gate Rule D-6 module_dep_direction + Rule G-8.c module topology parity (rc14). Runtime semver compatibility enforcement deferred per CLAUDE-deferred.md 31.b."
+    allowed_claim: "Section 4 #62 / Rule R-C.1 shipped at L1.x — each of the 8 reactor modules (`agent-client`, `agent-service`, `agent-middleware`, `agent-execution-engine`, `agent-bus`, `agent-evolve`, `spring-ai-ascend-dependencies`, `spring-ai-ascend-graphmemory-starter` — post-ADR-0088 rc13; reactor 9 → 8 with `agent-runtime-core` dissolved) has a sibling module-metadata.yaml declaring module, kind (platform | domain | starter | bom | sample), version, semver_compatibility, architecture_doc, dfx_doc, spi_packages, allowed/forbidden_dependencies. Enforced by Gate Rule G-1 sub-clause .b module_metadata_present_and_complete + existing Gate Rule D-6 module_dep_direction + Rule G-8.c module topology parity (rc14). Runtime semver compatibility enforcement deferred per CLAUDE-deferred.md 31.b."
 
   spi_dfx_tck_codesign:
     status: test_verified
