@@ -26,10 +26,10 @@ This table matches `README.md#Reading-path` step-for-step. Loading these in orde
 |---|---|---|---|
 | 1 | `architecture/workspace.dsl` + `architecture/README.md` | ALWAYS-LOAD | Architecture authority root (`唯一主入口` per ADR-0147 + ADR-0150). Structurizr DSL workspace + closure navigation. |
 | 1a | `architecture/features/function-points.dsl` + `architecture/features/capabilities.dsl` | ON-DEMAND | L1 feature inventory: which function points exist, who owns them, which ADR decided them, which tests verify them. |
-| 2 | `ARCHITECTURE.md` (root, L0) | ALWAYS-LOAD | Declarative L0 system boundary + 65 §4 architectural constraints. §0.6 declares rhetorical stance; §0.7 lists Constraint↔Rule pairs. |
+| 2 | `architecture/docs/L0/ARCHITECTURE.md` (root, L0) | ALWAYS-LOAD | Declarative L0 system boundary + 65 §4 architectural constraints. §0.6 declares rhetorical stance; §0.7 lists Constraint↔Rule pairs. |
 | 3 | `CLAUDE.md` | ALWAYS-LOAD | Enforceable rule kernel index. `## Rhetorical stance` block + `## Constraint ↔ Rule mapping` table. Full rule bodies under `docs/governance/rules/*.md` (load on demand). |
 | 3a | `docs/governance/rules/rule-<id>.md` + `docs/governance/principles/P-<X>.md` | ON-DEMAND | Expanded body for the specific rule / principle being touched. |
-| 4 | `architecture/docs/L1/README.md` + `architecture/docs/L1/<module>{.md,/}` (for the module you touch) | ALWAYS-LOAD | L1 module design. agent-service uses the per-view directory shape (5 4+1 view files + spi-appendix + features/ + ARCHITECTURE.md); other modules use the single-narrative `<module>.md` shape. |
+| 4 | `architecture/docs/L1/README.md` + `architecture/docs/L1/<module>{.md,/}` (for the module you touch) | ALWAYS-LOAD | L1 module design. agent-service uses the per-view directory shape (5 4+1 view files + spi-appendix + features/ + architecture/docs/L0/ARCHITECTURE.md); other modules use the single-narrative `<module>.md` shape. |
 | 5 | `docs/contracts/contract-catalog.md` | ALWAYS-LOAD | Runtime promise surface. Each contract names its authority ADR + enforcer + workspace `SAA Contract` element. |
 | 6 | `docs/quickstart.md` | OPTIONAL | Operational onboarding — boot + first-run walkthrough. |
 | 7 | `docs/overview.md` | OPTIONAL | Narrative tour for non-architecture readers. |

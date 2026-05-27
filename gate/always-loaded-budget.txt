@@ -104,7 +104,7 @@
 # baseline_metrics rewrite. Ceiling raised 110000 → 111500 (matches the
 # rc10/rc11 ratchet step of ~1.5K per wave).
 CLAUDE.md=46500
-ARCHITECTURE.md=98000
+architecture/docs/L0/ARCHITECTURE.md=98000
 AGENTS.md=8500
 docs/governance/SESSION-START-CONTEXT.md=8000
 # Structurizr workspace authority W5 (ADR-0147 + ADR-0149): +301 bytes to add

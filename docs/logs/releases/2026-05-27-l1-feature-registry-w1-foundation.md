@@ -11,6 +11,8 @@ authority: "ADR-0151 (L1 Feature Registry W1 Foundation)"
 **PR:** TBD
 **Plan:** `D:\.claude\plans\structurizr-d-chao-workspace-spring-ai-adaptive-hellman.md` (L1 Feature Registry & Uniform Module Mechanism Plan).
 
+> **Historical artifact frozen at SHA `7c7aad3`** (W1 merge commit on main). Baseline counts in §0 reflect the W1 snapshot (136 ADRs / 627 nodes / 1203 edges / 44 active engineering rules). The current canonical baseline post-W2-uniform-L1-and-L0-mounting (137 ADRs / 622 nodes / 1200 edges / 44 active engineering rules / 7 l1_modules_with_canonical_directory) lives in `docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics`; see `docs/logs/releases/2026-05-27-l1-feature-registry-w2-uniform-l1-and-l0-mounting.md` for the W2 update.
+
 ## 0. Canonical baselines (per Gate Rule 28)
 
 | Metric | Value |

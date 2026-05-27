@@ -32,7 +32,7 @@ authority: "ADR-0147 (Structurizr Workspace Authority) + ADR-0150 (Wave 8 docs c
 
 ## Cross-references
 
-- Authority ADR: [ADR-0081](../../../docs/adr/0081-resilience-contract-dual-surface-reconciliation.yaml) (ResilienceContract dual-surface reconciliation; covers the GraphMemoryRepository alignment).
-- Function point: `FP-GRAPH-MEMORY-STORE` in [`../features/function-points.dsl`](../../features/function-points.dsl) (workspace closure).
-- Module-metadata: [`spring-ai-ascend-graphmemory-starter/module-metadata.yaml`](../../../spring-ai-ascend-graphmemory-starter/module-metadata.yaml).
-- Workspace entry: [`architecture/workspace.dsl`](../../workspace.dsl) — `graphMemoryStarter` container declaration.
+- Authority ADR: [ADR-0081](../../../../docs/adr/0081-resilience-contract-dual-surface-reconciliation.yaml) (ResilienceContract dual-surface reconciliation; covers the GraphMemoryRepository alignment).
+- Function point: `FP-GRAPH-MEMORY-STORE` in [`../features/function-points.dsl`](../../../features/function-points.dsl) (workspace closure).
+- Module-metadata: [`spring-ai-ascend-graphmemory-starter/module-metadata.yaml`](../../../../spring-ai-ascend-graphmemory-starter/module-metadata.yaml).
+- Workspace entry: [`architecture/workspace.dsl`](../../../workspace.dsl) — `graphMemoryStarter` container declaration.

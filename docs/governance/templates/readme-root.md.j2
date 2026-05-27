@@ -80,11 +80,11 @@ share infrastructure:
 | `spring-ai-ascend-graphmemory-starter` | Bus & State Hub | Graph-memory auto-config starter |
 
 Each module declares its identity in `module-metadata.yaml`, its L1 design in
-`ARCHITECTURE.md`, and its five DFX dimensions in `docs/dfx/<module>.yaml`.
+`architecture/docs/L0/ARCHITECTURE.md`, and its five DFX dimensions in `docs/dfx/<module>.yaml`.
 Cross-service traffic on the Bus & State Hub plane is sliced into three
 physically isolated channels — `control` (PAUSE/KILL intents, never blocked),
 `data` (run payloads), `rhythm` (heartbeats). The full system boundary, the
-constraint corpus, and the SPI contracts live in [ARCHITECTURE.md](ARCHITECTURE.md);
+constraint corpus, and the SPI contracts live in [architecture/docs/L0/ARCHITECTURE.md](architecture/docs/L0/ARCHITECTURE.md);
 the narrative tour is [docs/overview.md](docs/overview.md).
 
 ## Extending the platform
@@ -110,7 +110,7 @@ Full matrix: [docs/cross-cutting/posture-model.md](docs/cross-cutting/posture-mo
 Whether you are a new human contributor or an AI assistant, follow this order for an unbiased architecture picture. Each step names the surface's **rhetorical stance** so you don't conflate it with another slice.
 
 1. **`architecture/workspace.dsl`** + **`architecture/README.md`** — the architecture authority (`唯一主入口` / sole main entry; ADR-0147 + ADR-0150). Structurizr DSL workspace carrying system/container/component structure, Feature/Capability/FunctionPoint instances, dependencies, contracts, decisions, and views.
-2. **`ARCHITECTURE.md`** (this repo root, L0 frozen) — **declarative** L0 system boundary + 65 numbered architectural constraints (§4 #1..#65). What the platform commits to structurally.
+2. **`architecture/docs/L0/ARCHITECTURE.md`** (this repo root, L0 frozen) — **declarative** L0 system boundary + 65 numbered architectural constraints (§4 #1..#65). What the platform commits to structurally.
 3. **`CLAUDE.md`** — **enforceable** Layer-0 governing principles (P-A..P-M) + Layer-1 engineering rules (D-/R-/G-/M- namespace). Each rule cites the §4 constraint it enforces.
 4. **`architecture/docs/L1/README.md`** — L1 module design index. Pick the module you're working on; read its `.md` or 4+1 directory.
 5. **`docs/contracts/contract-catalog.md`** — **runtime promise** surface (HTTP API + SPI + envelopes + OpenAPI). What the system commits to at runtime.
@@ -137,9 +137,9 @@ design contracts. Per-capability detail is the single source of truth in
 
 A Code-as-Contract gate keeps the documentation and the code in lockstep and
 fails closed on drift. Its current baseline:
-**65 §4 constraints · 136 ADRs · 143 active gate rules · 260 gate self-tests**,
+**65 §4 constraints · 137 ADRs · 143 active gate rules · 260 gate self-tests**,
 plus 13 Layer-0 governing principles, 44 active engineering rules, 176 enforcer
-rows, and a 627-node / 1203-edge architecture graph — all maintained in
+rows, and a 622-node / 1200-edge architecture graph — all maintained in
 [`docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics`](docs/governance/architecture-status.yaml)
 (the canonical source for every count); see [gate/README.md](gate/README.md) for
 how it runs.

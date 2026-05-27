@@ -2,18 +2,6 @@
 // Authority: ADR-0147 (Structurizr Workspace Authority). Gate: Rule G-13 (byte-identical regen).
 // Element count at emission: 25.
 
-surface_ARCHITECTURE_md = element "ARCHITECTURE.md" "GeneratedProjection" "Rendered from docs/governance/templates/root-architecture.md.j2 (templated)" "SAA GeneratedProjection" {
-    properties {
-        "saa.id" "SURFACE-ARCHITECTURE_MD"
-        "saa.kind" "generated_projection"
-        "saa.level" "L0"
-        "saa.view" "scenarios"
-        "saa.status" "shipped"
-        "saa.generated" "true"
-        "saa.sourceFile" "docs/governance/templates/root-architecture.md.j2"
-    }
-}
-
 surface_CLAUDE_md = element "CLAUDE.md" "GeneratedProjection" "Rendered from docs/governance/templates/claude-md.md.j2 (templated)" "SAA GeneratedProjection" {
     properties {
         "saa.id" "SURFACE-CLAUDE_MD"
@@ -38,9 +26,21 @@ surface_README_md = element "README.md" "GeneratedProjection" "Rendered from doc
     }
 }
 
-surface_architecture_docs_L1_agent_bus_md = element "architecture/docs/L1/agent-bus.md" "GeneratedProjection" "Rendered from docs/governance/templates/agent-bus-architecture.md.j2 (templated)" "SAA GeneratedProjection" {
+surface_architecture_docs_L0_ARCHITECTURE_md = element "architecture/docs/L0/ARCHITECTURE.md" "GeneratedProjection" "Rendered from docs/governance/templates/root-architecture.md.j2 (templated)" "SAA GeneratedProjection" {
     properties {
-        "saa.id" "SURFACE-ARCHITECTURE_DOCS_L1_AGENT-BUS_MD"
+        "saa.id" "SURFACE-ARCHITECTURE_DOCS_L0_ARCHITECTURE_MD"
+        "saa.kind" "generated_projection"
+        "saa.level" "L0"
+        "saa.view" "scenarios"
+        "saa.status" "shipped"
+        "saa.generated" "true"
+        "saa.sourceFile" "docs/governance/templates/root-architecture.md.j2"
+    }
+}
+
+surface_architecture_docs_L1_agent_bus_ARCHITECTURE_md = element "architecture/docs/L1/agent-bus/ARCHITECTURE.md" "GeneratedProjection" "Rendered from docs/governance/templates/agent-bus-architecture.md.j2 (templated)" "SAA GeneratedProjection" {
+    properties {
+        "saa.id" "SURFACE-ARCHITECTURE_DOCS_L1_AGENT-BUS_ARCHITECTURE_MD"
         "saa.kind" "generated_projection"
         "saa.level" "L0"
         "saa.view" "scenarios"
@@ -50,9 +50,9 @@ surface_architecture_docs_L1_agent_bus_md = element "architecture/docs/L1/agent-
     }
 }
 
-surface_architecture_docs_L1_agent_client_md = element "architecture/docs/L1/agent-client.md" "GeneratedProjection" "Rendered from docs/governance/templates/agent-client-architecture.md.j2 (templated)" "SAA GeneratedProjection" {
+surface_architecture_docs_L1_agent_client_ARCHITECTURE_md = element "architecture/docs/L1/agent-client/ARCHITECTURE.md" "GeneratedProjection" "Rendered from docs/governance/templates/agent-client-architecture.md.j2 (templated)" "SAA GeneratedProjection" {
     properties {
-        "saa.id" "SURFACE-ARCHITECTURE_DOCS_L1_AGENT-CLIENT_MD"
+        "saa.id" "SURFACE-ARCHITECTURE_DOCS_L1_AGENT-CLIENT_ARCHITECTURE_MD"
         "saa.kind" "generated_projection"
         "saa.level" "L0"
         "saa.view" "scenarios"
@@ -62,9 +62,9 @@ surface_architecture_docs_L1_agent_client_md = element "architecture/docs/L1/age
     }
 }
 
-surface_architecture_docs_L1_agent_evolve_md = element "architecture/docs/L1/agent-evolve.md" "GeneratedProjection" "Rendered from docs/governance/templates/agent-evolve-architecture.md.j2 (templated)" "SAA GeneratedProjection" {
+surface_architecture_docs_L1_agent_evolve_ARCHITECTURE_md = element "architecture/docs/L1/agent-evolve/ARCHITECTURE.md" "GeneratedProjection" "Rendered from docs/governance/templates/agent-evolve-architecture.md.j2 (templated)" "SAA GeneratedProjection" {
     properties {
-        "saa.id" "SURFACE-ARCHITECTURE_DOCS_L1_AGENT-EVOLVE_MD"
+        "saa.id" "SURFACE-ARCHITECTURE_DOCS_L1_AGENT-EVOLVE_ARCHITECTURE_MD"
         "saa.kind" "generated_projection"
         "saa.level" "L0"
         "saa.view" "scenarios"
@@ -74,9 +74,9 @@ surface_architecture_docs_L1_agent_evolve_md = element "architecture/docs/L1/age
     }
 }
 
-surface_architecture_docs_L1_agent_execution_engine_md = element "architecture/docs/L1/agent-execution-engine.md" "GeneratedProjection" "Rendered from docs/governance/templates/agent-execution-engine-architecture.md.j2 (templated)" "SAA GeneratedProjection" {
+surface_architecture_docs_L1_agent_execution_engine_ARCHITECTURE_md = element "architecture/docs/L1/agent-execution-engine/ARCHITECTURE.md" "GeneratedProjection" "Rendered from docs/governance/templates/agent-execution-engine-architecture.md.j2 (templated)" "SAA GeneratedProjection" {
     properties {
-        "saa.id" "SURFACE-ARCHITECTURE_DOCS_L1_AGENT-EXECUTION-ENGINE_MD"
+        "saa.id" "SURFACE-ARCHITECTURE_DOCS_L1_AGENT-EXECUTION-ENGINE_ARCHITECTURE_MD"
         "saa.kind" "generated_projection"
         "saa.level" "L0"
         "saa.view" "scenarios"
@@ -86,9 +86,9 @@ surface_architecture_docs_L1_agent_execution_engine_md = element "architecture/d
     }
 }
 
-surface_architecture_docs_L1_agent_middleware_md = element "architecture/docs/L1/agent-middleware.md" "GeneratedProjection" "Rendered from docs/governance/templates/agent-middleware-architecture.md.j2 (templated)" "SAA GeneratedProjection" {
+surface_architecture_docs_L1_agent_middleware_ARCHITECTURE_md = element "architecture/docs/L1/agent-middleware/ARCHITECTURE.md" "GeneratedProjection" "Rendered from docs/governance/templates/agent-middleware-architecture.md.j2 (templated)" "SAA GeneratedProjection" {
     properties {
-        "saa.id" "SURFACE-ARCHITECTURE_DOCS_L1_AGENT-MIDDLEWARE_MD"
+        "saa.id" "SURFACE-ARCHITECTURE_DOCS_L1_AGENT-MIDDLEWARE_ARCHITECTURE_MD"
         "saa.kind" "generated_projection"
         "saa.level" "L0"
         "saa.view" "scenarios"

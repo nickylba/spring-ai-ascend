@@ -6377,14 +6377,14 @@ G-9"
 test_rule_118_l1_dev_view_tree_pos() {
   # Positive: every active agent-*/ARCHITECTURE.md has a Development View block.
   local missing=""
-  for arch in architecture/docs/L1/agent-bus.md architecture/docs/L1/agent-client.md architecture/docs/L1/agent-evolve.md architecture/docs/L1/agent-execution-engine.md architecture/docs/L1/agent-middleware.md architecture/docs/L1/agent-service/ARCHITECTURE.md; do
+  for arch in architecture/docs/L1/agent-bus/ARCHITECTURE.md architecture/docs/L1/agent-client/ARCHITECTURE.md architecture/docs/L1/agent-evolve/ARCHITECTURE.md architecture/docs/L1/agent-execution-engine/ARCHITECTURE.md architecture/docs/L1/agent-middleware/ARCHITECTURE.md architecture/docs/L1/agent-service/ARCHITECTURE.md; do
     [[ -f "$arch" ]] || { missing="$missing $arch(file-missing)"; continue; }
     if ! grep -qE '^##[[:space:]].*Development View' "$arch"; then
       missing="$missing $arch(no-dev-view-section)"
     fi
   done
   if [[ -z "$missing" ]]; then
-    ok "rule_118_l1_dev_view_tree_pos" "Rule G-1.1.a / Rule 118: all 6 architecture/docs/L1/{agent-*.md,agent-service/ARCHITECTURE.md} have Development View section"
+    ok "rule_118_l1_dev_view_tree_pos" "Rule G-1.1.a / Rule 118: all 6 architecture/docs/L1/<module>/ARCHITECTURE.md have Development View section"
   else
     fail "rule_118_l1_dev_view_tree_pos" "Rule G-1.1.a violation:$missing"
   fi
@@ -6412,14 +6412,14 @@ EOF_NEG
 test_rule_119_l1_spi_appendix_pos() {
   # Positive: every active agent-*/ARCHITECTURE.md has an SPI Interface Appendix section.
   local missing=""
-  for arch in architecture/docs/L1/agent-bus.md architecture/docs/L1/agent-client.md architecture/docs/L1/agent-evolve.md architecture/docs/L1/agent-execution-engine.md architecture/docs/L1/agent-middleware.md architecture/docs/L1/agent-service/ARCHITECTURE.md; do
+  for arch in architecture/docs/L1/agent-bus/ARCHITECTURE.md architecture/docs/L1/agent-client/ARCHITECTURE.md architecture/docs/L1/agent-evolve/ARCHITECTURE.md architecture/docs/L1/agent-execution-engine/ARCHITECTURE.md architecture/docs/L1/agent-middleware/ARCHITECTURE.md architecture/docs/L1/agent-service/ARCHITECTURE.md; do
     [[ -f "$arch" ]] || { missing="$missing $arch(file-missing)"; continue; }
     if ! grep -qE 'SPI Interface Appendix|SPI[[:space:]]+Appendix' "$arch"; then
       missing="$missing $arch(no-spi-appendix)"
     fi
   done
   if [[ -z "$missing" ]]; then
-    ok "rule_119_l1_spi_appendix_pos" "Rule G-1.1.b / Rule 119: all 6 architecture/docs/L1/{agent-*.md,agent-service/ARCHITECTURE.md} have SPI Interface Appendix"
+    ok "rule_119_l1_spi_appendix_pos" "Rule G-1.1.b / Rule 119: all 6 architecture/docs/L1/<module>/ARCHITECTURE.md have SPI Interface Appendix"
   else
     fail "rule_119_l1_spi_appendix_pos" "Rule G-1.1.b violation:$missing"
   fi

@@ -79,9 +79,9 @@ authored:
 
 ## 4. Cross-links
 
-- L0: root [`ARCHITECTURE.md`](../../../../ARCHITECTURE.md) — platform-level 4+1
+- L0: root [`ARCHITECTURE.md`](../../L0/ARCHITECTURE.md) — platform-level 4+1
 - L1 module root: [`ARCHITECTURE.md`](ARCHITECTURE.md) — shipped-state grounding + dependencies + wave plan
-- Sibling L1 modules: [`agent-bus`](../agent-bus.md) · [`agent-client`](../agent-client.md) · [`agent-evolve`](../agent-evolve.md) · [`agent-execution-engine`](../agent-execution-engine.md) · [`agent-middleware`](../agent-middleware.md)
+- Sibling L1 modules: [`agent-bus`](../agent-bus/README.md) · [`agent-client`](../agent-client/README.md) · [`agent-evolve`](../agent-evolve/README.md) · [`agent-execution-engine`](../agent-execution-engine/README.md) · [`agent-middleware`](../agent-middleware/README.md)
 - L2: TBD — first L2 design will likely cover (a) Postgres RLS migration sequence, (b) Reactive Orchestrator backpressure protocol, (c) Run lifecycle extended for Session decoupling (per review §20 L2 zones)
 - Rule cards: [G-1](../../../../docs/governance/rules/rule-G-1.md), [G-1.1](../../../../docs/governance/rules/rule-G-1.1.md), [G-13](../../../../docs/governance/rules/rule-G-13.md), [R-C.2](../../../../docs/governance/rules/rule-R-C.2.md), [R-E](../../../../docs/governance/rules/rule-R-E.md), [R-J](../../../../docs/governance/rules/rule-R-J.md), [R-M](../../../../docs/governance/rules/rule-R-M.md)
 - Defect families: [`recurring-defect-families.md`](../../../../docs/governance/recurring-defect-families.md) — see entries #5, #8, #21-27 for rc55-related families.

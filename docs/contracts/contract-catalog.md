@@ -7,7 +7,7 @@
 
 This catalog is the **runtime promise** surface. A contract here is what the system COMMITS to at runtime — wire shape, route behavior, SPI signature, header semantics — distinct from:
 
-- **`ARCHITECTURE.md` §4 #1..#65** — declarative architectural constraints (what the platform commits to STRUCTURALLY).
+- **`architecture/docs/L0/ARCHITECTURE.md` §4 #1..#65** — declarative architectural constraints (what the platform commits to STRUCTURALLY).
 - **`CLAUDE.md` rules** — enforceable engineering rules (how each commitment is enforced).
 - **`architecture/docs/L1/<module>{.md,/}`** — L1 module design (how a module realises its slice of the contracts).
 - **`docs/governance/architecture-status.yaml#capabilities`** — per-capability shipped/deferred ledger (what's currently active).
@@ -28,7 +28,7 @@ Stable W0 routes: `GET /v1/health`, `GET /actuator/health`, `GET /actuator/prome
 
 **Inclusion rule:** Java `interface` types that represent named public extension points in the current reactor modules; not probes, not data carriers (records / sealed status types / exceptions), not implementations.
 
-SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime data MUST carry tenant scope (via explicit `tenantId` argument or `RunContext.tenantId()`). rc52 agent-middleware SPI packages import only `java.*` plus same-package sibling carriers; broader historical cross-package SPI residuals are documented in root `ARCHITECTURE.md §3.7` and must not be used as precedent for new SPI design. japicmp binary-compat from W1.
+SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime data MUST carry tenant scope (via explicit `tenantId` argument or `RunContext.tenantId()`). rc52 agent-middleware SPI packages import only `java.*` plus same-package sibling carriers; broader historical cross-package SPI residuals are documented in root `architecture/docs/L0/ARCHITECTURE.md §3.7` and must not be used as precedent for new SPI design. japicmp binary-compat from W1.
 
 **Active SPI interfaces (40 total):**
 

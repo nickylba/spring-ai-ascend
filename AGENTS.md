@@ -28,7 +28,7 @@ This file is intentionally a **thin operational wrapper** for Codex / autonomous
 A coding agent or LLM session reaches an **unbiased** architecture picture by loading these 7 surfaces in order. The order matches `README.md#Reading-path` step-for-step. Loading any one in isolation produces a partial view.
 
 1. `architecture/workspace.dsl` + `architecture/README.md` — architecture authority root (Structurizr DSL workspace + closure navigation; ADR-0147 + ADR-0150).
-2. `ARCHITECTURE.md` — declarative L0 system boundary + 65 §4 architectural constraints.
+2. `architecture/docs/L0/ARCHITECTURE.md` — declarative L0 system boundary + 65 §4 architectural constraints.
 3. `CLAUDE.md` — enforceable Layer-0 principles + Layer-1 rules (each rule cites the §4 constraint it enforces).
 4. `architecture/docs/L1/README.md` + `architecture/docs/L1/<module>{.md,/}` (for the module you touch) — L1 module design.
 5. `docs/contracts/contract-catalog.md` — runtime promise surface (wire shapes, route behavior, SPI signatures).
@@ -40,8 +40,8 @@ A coding agent or LLM session reaches an **unbiased** architecture picture by lo
 | Surface | Slice | What it carries | What it does NOT carry |
 |---|---|---|---|
 | `architecture/workspace.dsl` | machine-readable architecture model | structure + features + relationships + views + !docs + !adrs | enforcement, runtime promises, operational onboarding |
-| `ARCHITECTURE.md` | declarative L0 constraints | 65 §4 numbered architectural constraints + system boundary | enforcement, runtime contracts, L1 module design |
-| `CLAUDE.md` | enforceable rules | rule kernels + Layer-0 principles + Constraint↔Rule mapping | architecture (workspace.dsl owns it), constraints (ARCHITECTURE.md owns them) |
+| `architecture/docs/L0/ARCHITECTURE.md` | declarative L0 constraints | 65 §4 numbered architectural constraints + system boundary | enforcement, runtime contracts, L1 module design |
+| `CLAUDE.md` | enforceable rules | rule kernels + Layer-0 principles + Constraint↔Rule mapping | architecture (workspace.dsl owns it), constraints (architecture/docs/L0/ARCHITECTURE.md owns them) |
 | `docs/contracts/contract-catalog.md` | runtime promise surface | HTTP API + SPI + envelopes + OpenAPI + each contract's authority ADR + enforcer | declarative constraints, enforcement rules |
 | `architecture/docs/L1/<module>{.md,/}` | L1 module design | how this module realises its slice of the constraints | constraints themselves, rules, runtime contracts |
 | `docs/quickstart.md` | operational onboarding | boot + first-run walkthrough | architecture, rules, contracts |

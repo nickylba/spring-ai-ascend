@@ -38,7 +38,7 @@ architecture/
       agent-middleware.md
       graphmemory-starter.md
       agent-service/             # per-view 4+1 directory shape (graduated from single .md)
-        README.md, ARCHITECTURE.md, logical.md, process.md, physical.md,
+        README.md, architecture/docs/L0/ARCHITECTURE.md, logical.md, process.md, physical.md,
         development.md, scenarios.md, spi-appendix.md, features/, diagrams/
     L2/                          # deep technical designs
   decisions/                     # ADR markdown mirror (imported via !adrs)
@@ -65,7 +65,7 @@ Newcomers (human or AI) reach an unbiased architecture picture by reading in thi
 Adjacent surfaces (not architecture-design but operationally needed):
 
 - **`CLAUDE.md`** — enforceable rule kernels (Layer-0 principles + Layer-1 rules); read when you need to know "which rule does this enforce?"
-- **`ARCHITECTURE.md`** (root) — declarative L0 system boundary + 65 §4 constraints; read when you need the platform-level constraint corpus.
+- **`architecture/docs/L0/ARCHITECTURE.md`** (root) — declarative L0 system boundary + 65 §4 constraints; read when you need the platform-level constraint corpus.
 - **`docs/contracts/`** — runtime contract surface (OpenAPI, engine envelope, hooks, S2C callback, etc.); read when you need the contract a module commits to at runtime.
 - **`docs/quickstart.md`** — boot-and-first-run; read when you need to run the platform.
 

@@ -35,12 +35,12 @@ Per-module L1 design lives under `architecture/docs/L1/<module>.md` (single-narr
 
 This document is the **declarative L0** system boundary + 65 numbered architectural constraints (§4 #1..#65). It states what the platform commits to STRUCTURALLY. It does NOT carry:
 
-- **Enforcement logic** — read [`CLAUDE.md`](CLAUDE.md) rule kernels + `docs/governance/rules/*.md` cards for that.
-- **Runtime contracts** (wire shapes, route behavior, SPI signatures) — read [`docs/contracts/contract-catalog.md`](docs/contracts/contract-catalog.md) for that.
-- **L1 module design** (how a module realises its slice of the constraints) — read [`architecture/docs/L1/<module>{.md,/}`](architecture/docs/L1/) for that.
-- **Per-capability shipped/deferred ledger** — read [`docs/governance/architecture-status.yaml#capabilities`](docs/governance/architecture-status.yaml) for that.
+- **Enforcement logic** — read [`CLAUDE.md`](../../../CLAUDE.md) rule kernels + `docs/governance/rules/*.md` cards for that.
+- **Runtime contracts** (wire shapes, route behavior, SPI signatures) — read [`docs/contracts/contract-catalog.md`](../../../docs/contracts/contract-catalog.md) for that.
+- **L1 module design** (how a module realises its slice of the constraints) — read [`architecture/docs/L1/<module>{.md,/}`](../L1/) for that.
+- **Per-capability shipped/deferred ledger** — read [`docs/governance/architecture-status.yaml#capabilities`](../../../docs/governance/architecture-status.yaml) for that.
 
-Readers seeking "the architecture" should start at [`architecture/workspace.dsl`](architecture/workspace.dsl) (the machine-readable architecture authority root per ADR-0147 + ADR-0150). This document is one slice (the declarative constraint corpus), not the architecture as a whole.
+Readers seeking "the architecture" should start at [`architecture/workspace.dsl`](../../workspace.dsl) (the machine-readable architecture authority root per ADR-0147 + ADR-0150). This document is one slice (the declarative constraint corpus), not the architecture as a whole.
 
 ## 0.7 Constraint ↔ Rule cross-reference
 

@@ -92,7 +92,7 @@ templates:
     note: "W5 initial migration — verbatim .md.j2 seed; full SPI scan rendering (subsuming Rule G-8.b/e) deferred to W5-extended."
 
   - template: "docs/governance/templates/root-architecture.md.j2"
-    output: "ARCHITECTURE.md"
+    output: "architecture/docs/L0/ARCHITECTURE.md"
     context_loader: "root_architecture"
     bucket: "templated"
     authority_surfaces:
@@ -103,7 +103,7 @@ templates:
     note: "W6 initial migration — verbatim .md.j2 seed; baseline-row + module-list rendering (subsuming Rule G-2.d root portion) deferred to W6-extended."
 
   - template: "docs/governance/templates/agent-bus-architecture.md.j2"
-    output: "architecture/docs/L1/agent-bus.md"
+    output: "architecture/docs/L1/agent-bus/ARCHITECTURE.md"
     context_loader: "l1_architecture"
     bucket: "templated"
     authority_surfaces:
@@ -113,7 +113,7 @@ templates:
     note: "W7 initial migration — verbatim seed; dev-view tree + SPI appendix slotted in W7-extended."
 
   - template: "docs/governance/templates/agent-client-architecture.md.j2"
-    output: "architecture/docs/L1/agent-client.md"
+    output: "architecture/docs/L1/agent-client/ARCHITECTURE.md"
     context_loader: "l1_architecture"
     bucket: "templated"
     authority_surfaces:
@@ -123,7 +123,7 @@ templates:
     note: "W7 initial migration — verbatim seed."
 
   - template: "docs/governance/templates/agent-evolve-architecture.md.j2"
-    output: "architecture/docs/L1/agent-evolve.md"
+    output: "architecture/docs/L1/agent-evolve/ARCHITECTURE.md"
     context_loader: "l1_architecture"
     bucket: "templated"
     authority_surfaces:
@@ -133,7 +133,7 @@ templates:
     note: "W7 initial migration — verbatim seed."
 
   - template: "docs/governance/templates/agent-execution-engine-architecture.md.j2"
-    output: "architecture/docs/L1/agent-execution-engine.md"
+    output: "architecture/docs/L1/agent-execution-engine/ARCHITECTURE.md"
     context_loader: "l1_architecture"
     bucket: "templated"
     authority_surfaces:
@@ -143,7 +143,7 @@ templates:
     note: "W7 initial migration — verbatim seed."
 
   - template: "docs/governance/templates/agent-middleware-architecture.md.j2"
-    output: "architecture/docs/L1/agent-middleware.md"
+    output: "architecture/docs/L1/agent-middleware/ARCHITECTURE.md"
     context_loader: "l1_architecture"
     bucket: "templated"
     authority_surfaces:

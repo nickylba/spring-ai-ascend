@@ -251,7 +251,7 @@ for the full matrix.
 
 ## 6. Where to go next
 
-- Architecture and SPI surface: [`ARCHITECTURE.md`](../ARCHITECTURE.md).
+- Architecture and SPI surface: [`ARCHITECTURE.md`](../architecture/docs/L0/ARCHITECTURE.md).
 - HTTP contract surface: [`docs/contracts/`](contracts/).
 - Engineering rules you must honour: [`CLAUDE.md`](../CLAUDE.md).
 - DFX coverage per module: [`docs/dfx/`](dfx/).

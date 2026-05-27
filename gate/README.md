@@ -8,7 +8,7 @@
 
 ## What is this?
 
-The architecture-sync gate proves the document corpus is internally consistent at the current SHA — names, paths, counts, contracts, and wave-qualifier prose stay aligned with reality across `ARCHITECTURE.md`, the per-capability ledger, ADRs, contract catalogs, and release notes.
+The architecture-sync gate proves the document corpus is internally consistent at the current SHA — names, paths, counts, contracts, and wave-qualifier prose stay aligned with reality across `architecture/docs/L0/ARCHITECTURE.md`, the per-capability ledger, ADRs, contract catalogs, and release notes.
 
 It also interprets Maven whitebox-quality reports for SpotBugs, PMD, and Checkstyle: high-confidence correctness/safety and hard-style findings are blocking, while PMD maintainability findings are review triggers.
 
@@ -71,7 +71,7 @@ The bash script's header comment is the single source of truth for the rule list
 
 ## See also
 
-- [ARCHITECTURE.md](../ARCHITECTURE.md) — §4 #1–#65 are the constraints these rules enforce.
+- [architecture/docs/L0/ARCHITECTURE.md](../architecture/docs/L0/ARCHITECTURE.md) — §4 #1–#65 are the constraints these rules enforce.
 - [CLAUDE.md](../CLAUDE.md) — engineering Rule G-2 sub-clause .a (architecture-text truth) defines the prose-vs-enforcer contract; Rule R-C.a (Code-as-Contract) requires every active normative constraint to have an enforcer.
 - [docs/governance/architecture-status.yaml](../docs/governance/architecture-status.yaml) — the per-capability ledger Rules 1, 7, 19, 24 read.
 - [docs/governance/retracted-tags.txt](../docs/governance/retracted-tags.txt) — input for Rule 63 (`release_note_retracted_tag_qualified`).

@@ -14,7 +14,7 @@ This directory holds the **human-readable** L1 architecture narrative for every 
 L1 docs here describe each module's **design** (responsibilities, boundary contracts, SPI surfaces, key invariants). They do NOT carry:
 
 - Enforceable rules → those live in [`../../../CLAUDE.md`](../../../CLAUDE.md) (kernel) + [`../../../docs/governance/rules/`](../../../docs/governance/rules/) (full cards).
-- Numbered architectural constraints (§4 #1..#65) → those live in [`../../../ARCHITECTURE.md`](../../../ARCHITECTURE.md) (root, L0 declarative).
+- Numbered architectural constraints (§4 #1..#65) → those live in [`../L0/ARCHITECTURE.md`](../L0/ARCHITECTURE.md) (root, L0 declarative).
 - Runtime contracts (engine envelope, hooks, S2C callback, OpenAPI) → those live in [`../../../docs/contracts/`](../../../docs/contracts/).
 - Per-capability shipped/deferred ledger → that lives in [`../../../docs/governance/architecture-status.yaml`](../../../docs/governance/architecture-status.yaml).
 
@@ -24,13 +24,13 @@ Read this directory for "what is this module designed to do?" Read the surfaces 
 
 | Module | L1 entry | Plane | Status |
 |---|---|---|---|
-| `agent-bus` | [`agent-bus.md`](agent-bus.md) | Bus & State Hub | active |
-| `agent-client` | [`agent-client.md`](agent-client.md) | Edge Access | skeleton (W3+) |
-| `agent-evolve` | [`agent-evolve.md`](agent-evolve.md) | Evolution | skeleton (W3+) |
-| `agent-execution-engine` | [`agent-execution-engine.md`](agent-execution-engine.md) | Compute & Control | active (SPI + registry) |
-| `agent-middleware` | [`agent-middleware.md`](agent-middleware.md) | Compute & Control | active (SPI) |
+| `agent-bus` | [`agent-bus.md`](agent-bus/README.md) | Bus & State Hub | active |
+| `agent-client` | [`agent-client.md`](agent-client/README.md) | Edge Access | skeleton (W3+) |
+| `agent-evolve` | [`agent-evolve.md`](agent-evolve/README.md) | Evolution | skeleton (W3+) |
+| `agent-execution-engine` | [`agent-execution-engine.md`](agent-execution-engine/README.md) | Compute & Control | active (SPI + registry) |
+| `agent-middleware` | [`agent-middleware.md`](agent-middleware/README.md) | Compute & Control | active (SPI) |
 | `agent-service` | [`agent-service/`](agent-service/) | Compute & Control | active (rc55 4+1 per-view) |
-| `spring-ai-ascend-graphmemory-starter` | [`graphmemory-starter.md`](graphmemory-starter.md) | Bus & State Hub | active (in-memory ref impl) |
+| `spring-ai-ascend-graphmemory-starter` | [`graphmemory-starter.md`](graphmemory-starter/README.md) | Bus & State Hub | active (in-memory ref impl) |
 | `spring-ai-ascend-dependencies` | (no L1 design — BoM) | (build-time) | active |
 
 ## Per-module entry convention

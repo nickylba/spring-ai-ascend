@@ -4594,7 +4594,7 @@ if [[ $_r85_fail -eq 0 ]]; then pass_rule "catalog_spi_row_matches_module_spi_me
 # marker within +/-3 lines. Operationalises rc6 post-response review P0-2 closure.
 # ---------------------------------------------------------------------------
 _r86_fail=0
-_r86_arch="ARCHITECTURE.md"
+_r86_arch="architecture/docs/L0/ARCHITECTURE.md"
 _r86_pom="pom.xml"
 _r86_status_yaml="docs/governance/architecture-status.yaml"
 if [[ ! -f "$_r86_arch" ]]; then
