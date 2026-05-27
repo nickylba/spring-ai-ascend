@@ -324,3 +324,143 @@ featEngineDispatchAndHooks -> fpHookDispatch "engine feature contains hook dispa
         "saa.rel" "contains"
     }
 }
+
+// =============================================================================
+// W4 — agent-service deep-dive feature catalog (rc55 per-layer features).
+// =============================================================================
+// These FEAT- elements map 1:1 to the deep-dive markdown files under
+// architecture/docs/L1/agent-service/features/. They are a DIFFERENT
+// abstraction level than the cross-cutting FEAT- elements above (FEAT-RUN-LIFECYCLE-CONTROL
+// etc.) — these are agent-service-internal architectural layers per ADR-0138.
+
+featAgentServiceAccessLayer = element "Agent Service Access Layer" "Feature" "Protocol convergence + tenant/auth/idempotency + client capability publication" "SAA Feature" {
+    properties {
+        "saa.id" "FEAT-AGENT-SERVICE-ACCESS-LAYER"
+        "saa.kind" "feature"
+        "saa.level" "L1"
+        "saa.view" "development"
+        "saa.status" "shipped"
+        "saa.owner" "agent-service"
+        "saa.sourceAdr" "ADR-0138"
+        "saa.capabilityDomain" "agent-service-access-layer"
+        "saa.synopsis" "Layer 1 of the agent-service per-layer architecture (ADR-0138). Owns protocol convergence (HTTP / gRPC / WebSocket), tenant + auth binding (JWT.tenant cross-check, IdempotencyHeaderFilter), client capability publication via OpenAPI surface, and ingress for cursor / cancel / resume / S2C callback. Does NOT own Run aggregate state, Task control state, Session context state, engine dispatch, or model/tool translation. The deep-dive feature inventory (AS-L1-F01..F08) lives at architecture/docs/L1/agent-service/features/access-layer.md."
+        "saa.aiBoundary.canModifyCode" "true"
+        "saa.aiBoundary.canModifyContracts" "false"
+        "saa.aiBoundary.allowedStatusTransitions" "shipped->deprecated"
+        "saa.aiBoundary.requiresHumanReviewAt" "deprecated|removed"
+        "saa.aiBoundary.sandboxPolicyRef" "docs/governance/sandbox-policies.yaml#default_policy"
+        "saa.devPaths" "agent-service/src/main/java/com/huawei/ascend/service/runtime/api"
+        "saa.verificationTestFqns" "com.huawei.ascend.service.runtime.api.*IT"
+        "saa.verificationCommands" "./mvnw -pl agent-service -am verify"
+    }
+}
+
+featAgentServiceEngineDispatchExecution = element "Agent Service Engine Dispatch Execution" "Feature" "Engine adapter + executor dispatch (Layer 4)" "SAA Feature" {
+    properties {
+        "saa.id" "FEAT-AGENT-SERVICE-ENGINE-DISPATCH-EXECUTION"
+        "saa.kind" "feature"
+        "saa.level" "L1"
+        "saa.view" "development"
+        "saa.status" "shipped"
+        "saa.owner" "agent-service"
+        "saa.sourceAdr" "ADR-0138"
+        "saa.capabilityDomain" "agent-service-engine-dispatch"
+        "saa.synopsis" "Layer 4 of the agent-service per-layer architecture (ADR-0138). Owns engine-adapter dispatch (EngineRegistry.resolve(envelope) → typed ExecutorAdapter) and the executor invocation pathway that drives the Run state machine. The deep-dive inventory lives at architecture/docs/L1/agent-service/features/engine-dispatch-execution.md. Cross-cutting policies expressed as RuntimeMiddleware hooks (see FEAT-ENGINE-DISPATCH-AND-HOOKS for the cross-module Engine Contract feature)."
+        "saa.aiBoundary.canModifyCode" "true"
+        "saa.aiBoundary.canModifyContracts" "false"
+        "saa.aiBoundary.allowedStatusTransitions" "shipped->deprecated"
+        "saa.aiBoundary.requiresHumanReviewAt" "deprecated|removed"
+        "saa.aiBoundary.sandboxPolicyRef" "docs/governance/sandbox-policies.yaml#default_policy"
+        "saa.devPaths" "agent-service/src/main/java/com/huawei/ascend/service/runtime/engine"
+        "saa.verificationTestFqns" "com.huawei.ascend.service.runtime.engine.*IT"
+        "saa.verificationCommands" "./mvnw -pl agent-service -am verify"
+    }
+}
+
+featAgentServiceInternalEventQueue = element "Agent Service Internal Event Queue" "Feature" "Internal event queue infrastructure (Layer 5)" "SAA Feature" {
+    properties {
+        "saa.id" "FEAT-AGENT-SERVICE-INTERNAL-EVENT-QUEUE"
+        "saa.kind" "feature"
+        "saa.level" "L1"
+        "saa.view" "development"
+        "saa.status" "shipped"
+        "saa.owner" "agent-service"
+        "saa.sourceAdr" "ADR-0138"
+        "saa.capabilityDomain" "agent-service-event-queue"
+        "saa.synopsis" "Layer 5 of the agent-service per-layer architecture (ADR-0138). Owns in-process event queue infrastructure used by the runtime to decouple emit-side from consume-side concerns. The deep-dive lives at architecture/docs/L1/agent-service/features/internal-event-queue.md. This is the runtime's internal eventing primitive; cross-service eventing flows through agent-bus three-track channels (control/data/rhythm)."
+        "saa.aiBoundary.canModifyCode" "true"
+        "saa.aiBoundary.canModifyContracts" "false"
+        "saa.aiBoundary.allowedStatusTransitions" "shipped->deprecated"
+        "saa.aiBoundary.requiresHumanReviewAt" "deprecated|removed"
+        "saa.aiBoundary.sandboxPolicyRef" "docs/governance/sandbox-policies.yaml#default_policy"
+        "saa.devPaths" "agent-service/src/main/java/com/huawei/ascend/service/runtime/events"
+        "saa.verificationTestFqns" "com.huawei.ascend.service.runtime.events.*Test"
+        "saa.verificationCommands" "./mvnw -pl agent-service -am verify"
+    }
+}
+
+featAgentServiceSessionTaskManager = element "Agent Service Session Task Manager" "Feature" "Session + Task lifecycle (Layer 3)" "SAA Feature" {
+    properties {
+        "saa.id" "FEAT-AGENT-SERVICE-SESSION-TASK-MANAGER"
+        "saa.kind" "feature"
+        "saa.level" "L1"
+        "saa.view" "development"
+        "saa.status" "shipped"
+        "saa.owner" "agent-service"
+        "saa.sourceAdr" "ADR-0138"
+        "saa.capabilityDomain" "agent-service-session-task-manager"
+        "saa.synopsis" "Layer 3 of the agent-service per-layer architecture (ADR-0138). Owns Session and Task aggregate lifecycles — the entities above Run that group runs into user-visible interactions. Task state machine governs admission / suspension / completion at the user-interaction level; Session state machine groups tasks into a conversation context. The deep-dive lives at architecture/docs/L1/agent-service/features/session-task-manager.md."
+        "saa.aiBoundary.canModifyCode" "true"
+        "saa.aiBoundary.canModifyContracts" "false"
+        "saa.aiBoundary.allowedStatusTransitions" "shipped->deprecated"
+        "saa.aiBoundary.requiresHumanReviewAt" "deprecated|removed"
+        "saa.aiBoundary.sandboxPolicyRef" "docs/governance/sandbox-policies.yaml#default_policy"
+        "saa.devPaths" "agent-service/src/main/java/com/huawei/ascend/service/runtime/session"
+        "saa.verificationTestFqns" "com.huawei.ascend.service.runtime.session.*IT"
+        "saa.verificationCommands" "./mvnw -pl agent-service -am verify"
+    }
+}
+
+featAgentServiceTaskCentricControl = element "Agent Service Task Centric Control" "Feature" "Task-centric control plane (Layer 2)" "SAA Feature" {
+    properties {
+        "saa.id" "FEAT-AGENT-SERVICE-TASK-CENTRIC-CONTROL"
+        "saa.kind" "feature"
+        "saa.level" "L1"
+        "saa.view" "development"
+        "saa.status" "shipped"
+        "saa.owner" "agent-service"
+        "saa.sourceAdr" "ADR-0138"
+        "saa.capabilityDomain" "agent-service-task-control"
+        "saa.synopsis" "Layer 2 of the agent-service per-layer architecture (ADR-0138). Owns task-centric control: cursor flow + cancel re-authorization + resume/replay against Run state. This is the layer that translates client-side task semantics into runtime Run lifecycle operations. The deep-dive lives at architecture/docs/L1/agent-service/features/task-centric-control.md."
+        "saa.aiBoundary.canModifyCode" "true"
+        "saa.aiBoundary.canModifyContracts" "false"
+        "saa.aiBoundary.allowedStatusTransitions" "shipped->deprecated"
+        "saa.aiBoundary.requiresHumanReviewAt" "deprecated|removed"
+        "saa.aiBoundary.sandboxPolicyRef" "docs/governance/sandbox-policies.yaml#default_policy"
+        "saa.devPaths" "agent-service/src/main/java/com/huawei/ascend/service/runtime/runs"
+        "saa.verificationTestFqns" "com.huawei.ascend.service.runtime.runs.*IT"
+        "saa.verificationCommands" "./mvnw -pl agent-service -am verify"
+    }
+}
+
+featAgentServiceTranslationToolIntercept = element "Agent Service Translation Tool Intercept" "Feature" "Model/tool translation + intercept hooks (Layer 6)" "SAA Feature" {
+    properties {
+        "saa.id" "FEAT-AGENT-SERVICE-TRANSLATION-TOOL-INTERCEPT"
+        "saa.kind" "feature"
+        "saa.level" "L1"
+        "saa.view" "development"
+        "saa.status" "shipped"
+        "saa.owner" "agent-service"
+        "saa.sourceAdr" "ADR-0138"
+        "saa.capabilityDomain" "agent-service-translation-tool"
+        "saa.synopsis" "Layer 6 of the agent-service per-layer architecture (ADR-0138). Owns model/tool translation hooks: ModelGateway, tool authz boundary, prompt shaping, response normalisation. Intercepts model invocations to enforce platform policy before they reach provider SDKs. The deep-dive lives at architecture/docs/L1/agent-service/features/translation-tool-intercept.md."
+        "saa.aiBoundary.canModifyCode" "true"
+        "saa.aiBoundary.canModifyContracts" "false"
+        "saa.aiBoundary.allowedStatusTransitions" "shipped->deprecated"
+        "saa.aiBoundary.requiresHumanReviewAt" "deprecated|removed"
+        "saa.aiBoundary.sandboxPolicyRef" "docs/governance/sandbox-policies.yaml#default_policy"
+        "saa.devPaths" "agent-service/src/main/java/com/huawei/ascend/service/runtime/translation"
+        "saa.verificationTestFqns" "com.huawei.ascend.service.runtime.translation.*IT"
+        "saa.verificationCommands" "./mvnw -pl agent-service -am verify"
+    }
+}
