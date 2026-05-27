@@ -33,4 +33,4 @@ authority: "Absorbed from docs/logs/reviews/2026-05-26-agent-service-module-capa
 
 ## Originating source
 
-This file absorbs §6.5 of [`docs/logs/reviews/2026-05-26-agent-service-module-capability-feature-list.en.md`](../../../logs/reviews/2026-05-26-agent-service-module-capability-feature-list.en.md).
+This file absorbs §6.5 of [`docs/logs/reviews/2026-05-26-agent-service-module-capability-feature-list.en.md`](../../../../../docs/logs/reviews/2026-05-26-agent-service-module-capability-feature-list.en.md).

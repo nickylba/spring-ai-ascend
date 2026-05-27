@@ -71,7 +71,7 @@ primitive.
 
 The Layer 3 Internal Event Queue `(design_only — ADR-0141; no code
 home at rc55)` binds to the canonical three physical channels declared
-in [`docs/governance/bus-channels.yaml`](../../governance/bus-channels.yaml).
+in [`docs/governance/bus-channels.yaml`](../../../../docs/governance/bus-channels.yaml).
 Per Rule R-E + Principle P-E, **physical isolation** (channel choice)
 and **durability tier** (per-channel backend choice) are ORTHOGONAL
 axes; PR #71's single-tier-queue-with-3-storage-modes design was
@@ -101,7 +101,7 @@ untrusted-code execution requests to the Sandbox SPI in
 chain via `HookPoint.before_tool` events.
 
 **Sandbox policy subsumption** (per
-[`docs/governance/sandbox-policies.yaml`](../../governance/sandbox-policies.yaml)):
+[`docs/governance/sandbox-policies.yaml`](../../../../docs/governance/sandbox-policies.yaml)):
 the per-skill policy MUST NOT widen the default policy beyond what
 the physical sandbox can enforce. Rule R-L declares the 6 required
 keys (`outbound_network`, `filesystem_read`, `filesystem_write`,
@@ -162,8 +162,8 @@ flowchart LR
   cross-plane interaction at the message level.
 - Development: [`development.md`](development.md) — package tree +
   layer↔package matrix.
-- Module-root grounding: [`agent-service/ARCHITECTURE.md`](../../../agent-service/ARCHITECTURE.md)
+- Module-root grounding: [`agent-service/ARCHITECTURE.md`](ARCHITECTURE.md)
   §4 OSS dependencies + §6 Posture-aware defaults.
-- Governance manifests: [`bus-channels.yaml`](../../governance/bus-channels.yaml),
-  [`sandbox-policies.yaml`](../../governance/sandbox-policies.yaml),
-  [`skill-capacity.yaml`](../../governance/skill-capacity.yaml).
+- Governance manifests: [`bus-channels.yaml`](../../../../docs/governance/bus-channels.yaml),
+  [`sandbox-policies.yaml`](../../../../docs/governance/sandbox-policies.yaml),
+  [`skill-capacity.yaml`](../../../../docs/governance/skill-capacity.yaml).

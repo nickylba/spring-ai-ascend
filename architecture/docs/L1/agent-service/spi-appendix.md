@@ -149,4 +149,4 @@ agent-service CONSUMES SPIs from the modules declared in
 - Source: `agent-service/src/main/java/com/huawei/ascend/service/**/spi/*.java`.
 - Development View: [`development.md`](development.md) §1 + §2 (tree + layer matrix).
 - Logical View: [`logical.md`](logical.md) §6 (vocabulary glossary — distinct mechanisms not aliases).
-- Module-root grounding: [`agent-service/ARCHITECTURE.md`](../../../agent-service/ARCHITECTURE.md) §SPI Interface Appendix (legacy table retained for shipped-state context; this canonical appendix takes precedence per ADR-0143).
+- Module-root grounding: [`agent-service/ARCHITECTURE.md`](ARCHITECTURE.md) §SPI Interface Appendix (legacy table retained for shipped-state context; this canonical appendix takes precedence per ADR-0143).

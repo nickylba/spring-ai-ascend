@@ -190,5 +190,5 @@ MODIFIED (9):
 - W0 sibling sweep report: [`docs/logs/reviews/2026-05-26-agent-service-l1-sibling-sweep.en.md`](../reviews/2026-05-26-agent-service-l1-sibling-sweep.en.md)
 - Historical authoring record (rc53): [`docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.en.md`](../reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.en.md) (demoted per ADR-0143)
 - Plan file: `D:\.claude\plans\agentservice-l1-4-1-java-3-d-chao-worksp-squishy-steele.md` (rc55 wave plan)
-- Canonical 4+1 source: [`docs/L1/agent-service/README.md`](../../L1/agent-service/README.md)
-- Module-root grounding: [`agent-service/ARCHITECTURE.md`](../../../agent-service/ARCHITECTURE.md)
+- Canonical 4+1 source: [`docs/L1/agent-service/README.md`](../../../architecture/docs/L1/agent-service/README.md)
+- Module-root grounding: [`agent-service/ARCHITECTURE.md`](../../../architecture/docs/L1/agent-service/ARCHITECTURE.md)

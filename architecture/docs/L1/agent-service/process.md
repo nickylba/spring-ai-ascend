@@ -312,5 +312,5 @@ winner's CAS.
 - RunEvent emissions: every state-transition arrow's emission set
   cross-walks to [`logical.md`](logical.md) §7 (RunEvent sealed
   hierarchy + scenario-coverage matrix) and
-  [`docs/contracts/run-event.v1.yaml`](../../contracts/run-event.v1.yaml)
+  [`docs/contracts/run-event.v1.yaml`](../../../../docs/contracts/run-event.v1.yaml)
   for variant field definitions.
