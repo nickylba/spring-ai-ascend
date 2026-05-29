@@ -1,0 +1,1460 @@
+# Normalized ADR index -- the machine-readable enumeration of every normalized
+# ADR view, with each view's current authority state and routing pointers.
+#
+# Authority: ADR-0160 (ADR Governance Model) -- decision (2): "Normalized ADR
+# views -- docs/adr/normalized/ADR-NNNN.yaml, one per accepted ADR, plus
+# docs/adr/normalized/index.yaml." This file is that index. It is the structured
+# companion to the human-readable docs/adr/review-index.md: the AI reading path
+# (docs/governance/ai-reading-path.yaml step 3 "architecture_anchor") points
+# sessions here to learn the current decision-authority state of the ADR corpus
+# without re-reading raw historical prose (ADR-0160 consequences -- forward-looking).
+#
+# READABLE-INTERPRETATION DISCIPLINE (binding, ADR-0160 + ADR-0154 cascade):
+# this index is an interpretation layer OVER the normalized views
+# (docs/adr/normalized/ADR-NNNN.yaml) and the apex raw-ADR fact source
+# (architecture/facts/generated/adrs.json, the AdrFactExtractor projection of
+# docs/adr/*.yaml). It INVENTS NO ADR ids and NO relationships: every entry field
+# is transcribed from the view it points at (or, for corpus scope, from the fact
+# source); the supersedes / superseded_by lists are re-stated from the views, not
+# minted here. Authority cascade is unchanged: generated facts > DSL > Card/prose;
+# this index never outranks a generated fact, and a normalized view never outranks
+# a generated fact. The per-ADR authority detail (clean_decision_summary,
+# active_guidance clauses, non_authoritative_legacy_content) lives in the view
+# itself, NOT here -- this index carries only the structural routing fields so it
+# cannot drift from the views it enumerates.
+#
+# Schema source: docs/governance/adr-governance-policy.yaml (required fields +
+# closed five-value current_state set + state invariants) and
+# docs/governance/adr-taxonomy.yaml (decision_level / affected_levels /
+# decision_type altitude). Each view is validated against those by Rule G-28 via
+# gate/lib/check_adr_taxonomy.py; ledger totality + normalized-view coverage are
+# checked by gate/lib/check_historical_adr_governance.py. This index is NOT itself
+# a gate-schema input (the view validator filters to ADR-NNNN.yaml and skips
+# index.yaml); it is the enumeration surface the reading path and review consume.
+#
+# REGENERATION: this index is assembled by reading the on-disk normalized views
+# and counting the current_state each declares; it is regenerated, not
+# hand-amended. When a generator emits it, the generator obeys the Rule G-13
+# single-source byte-identical re-render contract (ADR-0119): re-read every file
+# under docs/adr/normalized/ (and architecture/facts/generated/adrs.json for
+# corpus scope), re-derive the entries + counts, and re-emit -- never edit a count
+# or an entry out of step with the views.
+#
+# UTC date for any date field (CI runs the gate in UTC; the local +08 date is
+# UTC-future and would fail Rule G-9.a).
+
+inventory_id: ADR-NORMALIZED-INDEX
+governance_infra: true
+wave: W5
+phase: ledger-and-index-assembly
+authority: ADR-0160
+schema_refs:
+  - docs/governance/adr-governance-policy.yaml
+  - docs/governance/adr-taxonomy.yaml
+source_of_truth:
+  - docs/adr/normalized/*.yaml
+  - architecture/facts/generated/adrs.json
+companions:
+  human_readable_review_index: docs/adr/review-index.md
+  per_adr_remediation_ledger: docs/governance/adr-remediation-ledger.yaml
+  corpus_census: docs/governance/remediation-inventory/adr-census.md
+last_updated: 2026-05-29
+
+# How architecture review uses each current_state (ADR-0160 decision (2) /
+# adr-governance-policy.yaml#current_states.review_behavior). The per-entry
+# `review_use` field below collapses the five states into the three review
+# partitions the reading path branches on; the precise per-state behavior is:
+#   active_guidance      Current decision authority. Citeable as governing architecture.
+#   partial_guidance     Some guidance still active, some content stale/lower-level/
+#                        superseded. Citeable ONLY through the view's active_guidance
+#                        clauses; its non_authoritative_legacy_content is not authority.
+#   superseded           Replaced by a later decision. NOT citeable as current
+#                        authority (history only); cite the superseded_by replacement.
+#   historical_evidence  Explains why the system evolved; governs nothing now.
+#                        Citeable for context only.
+#   remediation_record   Captures cleanup work or review findings. Citeable for
+#                        governance traceability, not architecture authority.
+#
+# review_use vocabulary (derived field; NOT a new authority axis):
+#   current_authority -> current_state in {active_guidance, partial_guidance};
+#                        citeable as governing architecture (partial only through
+#                        its active_guidance clauses).
+#   context_only      -> current_state in {historical_evidence, remediation_record};
+#                        citeable for context / governance traceability only.
+#   history_only      -> current_state == superseded; not citeable as current
+#                        authority -- cite the superseded_by replacement's view.
+review_use_vocabulary:
+  current_authority: "current_state in {active_guidance, partial_guidance}"
+  context_only: "current_state in {historical_evidence, remediation_record}"
+  history_only: "current_state == superseded"
+
+# Per-entry schema. One entry per normalized view file under
+# docs/adr/normalized/, sorted by ADR id. Every field is transcribed from the
+# view (or, for review_use, derived from its current_state):
+#   adr             ADR id (matches the view filename ADR-NNNN.yaml).
+#   normalized_path Repo-relative path to the normalized view (the per-ADR authority detail).
+#   raw_path        Repo-relative path to the raw ADR source the view reads.
+#   current_state   The view's declared current_state (closed five-value set).
+#   review_use      Derived review partition (see review_use_vocabulary above).
+#   decision_level  Where the decision is MADE (adr-taxonomy.yaml#decision_levels key).
+#   decision_type   The view's decision_type (allowed at decision_level per the taxonomy).
+#   affected_levels What the decision touches (adr-taxonomy.yaml#affected_level_vocabulary).
+#   view            ADR-0068 view axis token OR an authority-surface label.
+#   supersedes      ADR ids this decision replaces, re-stated from the view (not minted).
+#   superseded_by   ADR id(s) that replace this one, re-stated from the view (not minted).
+entries:
+- adr: ADR-0068
+  normalized_path: docs/adr/normalized/ADR-0068.yaml
+  raw_path: docs/adr/0068-layered-4plus1-and-architecture-graph.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L0
+  - L1
+  - L2
+  - DSL
+  - facts
+  - gate
+  view: scenarios
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0069
+  normalized_path: docs/adr/normalized/ADR-0069.yaml
+  raw_path: docs/adr/0069-l0-ironclad-rules.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: architecture_principle
+  affected_levels:
+  - L0
+  - L1
+  - gate
+  view: scenarios
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0070
+  normalized_path: docs/adr/normalized/ADR-0070.yaml
+  raw_path: docs/adr/0070-cursor-flow-and-skill-capacity-runtime.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: public_spi_surface
+  affected_levels:
+  - L1
+  - L2
+  - contract
+  - facts
+  - gate
+  view: process
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0071
+  normalized_path: docs/adr/normalized/ADR-0071.yaml
+  raw_path: docs/adr/0071-engine-contract-structural-wave.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: architecture_principle
+  affected_levels:
+  - L0
+  - L1
+  - L2
+  - contract
+  - gate
+  view: scenarios
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0072
+  normalized_path: docs/adr/normalized/ADR-0072.yaml
+  raw_path: docs/adr/0072-engine-envelope-and-strict-matching.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: public_spi_surface
+  affected_levels:
+  - L1
+  - L2
+  - contract
+  - facts
+  - gate
+  view: logical
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0073
+  normalized_path: docs/adr/normalized/ADR-0073.yaml
+  raw_path: docs/adr/0073-engine-hooks-and-runtime-middleware.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: public_spi_surface
+  affected_levels:
+  - L1
+  - L2
+  - contract
+  - facts
+  - gate
+  view: process
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0074
+  normalized_path: docs/adr/normalized/ADR-0074.yaml
+  raw_path: docs/adr/0074-s2c-capability-callback.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: cross_frame_contract
+  affected_levels:
+  - L1
+  - L2
+  - contract
+  view: process
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0075
+  normalized_path: docs/adr/normalized/ADR-0075.yaml
+  raw_path: docs/adr/0075-evolution-scope-boundary.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: cross_frame_contract
+  affected_levels:
+  - L1
+  - contract
+  - facts
+  - gate
+  view: logical
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0076
+  normalized_path: docs/adr/normalized/ADR-0076.yaml
+  raw_path: docs/adr/0076-r2-pilot-runtime-self-validation.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: architecture_principle
+  affected_levels:
+  - L0
+  - L1
+  - L2
+  - contract
+  - gate
+  view: process
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0077
+  normalized_path: docs/adr/normalized/ADR-0077.yaml
+  raw_path: docs/adr/0077-schema-first-domain-contracts.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L0
+  - L1
+  - contract
+  - gate
+  view: development
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0078
+  normalized_path: docs/adr/normalized/ADR-0078.yaml
+  raw_path: docs/adr/0078-agent-service-consolidation.yaml
+  current_state: active_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: module_responsibility
+  affected_levels:
+  - L1
+  - L2
+  - DSL
+  - facts
+  - gate
+  view: development
+  supersedes:
+  - ADR-0055
+  superseded_by: []
+- adr: ADR-0080
+  normalized_path: docs/adr/normalized/ADR-0080.yaml
+  raw_path: docs/adr/0080-resilience-contract-spi-package-alignment.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: public_spi_surface
+  affected_levels:
+  - L1
+  - L2
+  - contract
+  - facts
+  - gate
+  view: development
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0081
+  normalized_path: docs/adr/normalized/ADR-0081.yaml
+  raw_path: docs/adr/0081-resilience-contract-dual-surface-reconciliation.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: public_spi_surface
+  affected_levels:
+  - L1
+  - L2
+  - contract
+  - facts
+  view: logical
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0082
+  normalized_path: docs/adr/normalized/ADR-0082.yaml
+  raw_path: docs/adr/0082-graphmemory-ownership-canonical-and-topology-truth.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L0
+  - L1
+  - gate
+  view: development
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0086
+  normalized_path: docs/adr/normalized/ADR-0086.yaml
+  raw_path: docs/adr/0086-rule-namespace-ratchet.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L0
+  - gate
+  view: scenarios
+  supersedes:
+  - ADR-0083
+  - ADR-0084
+  - ADR-0085
+  superseded_by: []
+- adr: ADR-0087
+  normalized_path: docs/adr/normalized/ADR-0087.yaml
+  raw_path: docs/adr/0087-l0-rc12-authority-ratchet-and-deploy-truth.yaml
+  current_state: remediation_record
+  review_use: context_only
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L0
+  - contract
+  - facts
+  - gate
+  view: scenarios
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0088
+  normalized_path: docs/adr/normalized/ADR-0088.yaml
+  raw_path: docs/adr/0088-agent-runtime-core-dissolution.yaml
+  current_state: active_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: cross_module_policy
+  affected_levels:
+  - L0
+  - L1
+  - contract
+  - facts
+  - gate
+  view: development
+  supersedes:
+  - ADR-0079
+  superseded_by: []
+- adr: ADR-0089
+  normalized_path: docs/adr/normalized/ADR-0089.yaml
+  raw_path: docs/adr/0089-edge-plane-ingress-gateway-mandate.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: system_boundary
+  affected_levels:
+  - L0
+  - L1
+  - contract
+  - gate
+  view: physical
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0090
+  normalized_path: docs/adr/normalized/ADR-0090.yaml
+  raw_path: docs/adr/0090-rc14-cross-authority-parity-and-engine-semantic-home.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L0
+  - L1
+  - DSL
+  - gate
+  - facts
+  view: process
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0091
+  normalized_path: docs/adr/normalized/ADR-0091.yaml
+  raw_path: docs/adr/0091-rc15-structural-carrier-parity-and-terminal-state-scope.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L0
+  - L1
+  - contract
+  - gate
+  view: process
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0092
+  normalized_path: docs/adr/normalized/ADR-0092.yaml
+  raw_path: docs/adr/0092-ledger-acknowledgment-and-agent-os-scope-boundary.yaml
+  current_state: active_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: system_boundary
+  affected_levels:
+  - L0
+  - facts
+  view: scenarios
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0093
+  normalized_path: docs/adr/normalized/ADR-0093.yaml
+  raw_path: docs/adr/0093-rc16-recurring-family-comprehensive-closure-and-meta-scope-completeness.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L0
+  - gate
+  view: process
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0094
+  normalized_path: docs/adr/normalized/ADR-0094.yaml
+  raw_path: docs/adr/0094-rc17-recurring-defect-family-truth-and-rule-consolidation.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L0
+  - gate
+  view: process
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0095
+  normalized_path: docs/adr/normalized/ADR-0095.yaml
+  raw_path: docs/adr/0095-rc18-comprehensive-hardening.yaml
+  current_state: remediation_record
+  review_use: context_only
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L0
+  - gate
+  view: process
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0096
+  normalized_path: docs/adr/normalized/ADR-0096.yaml
+  raw_path: docs/adr/0096-rc19-meta-recursion-permanent-close.yaml
+  current_state: remediation_record
+  review_use: context_only
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L0
+  - gate
+  view: process
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0097
+  normalized_path: docs/adr/normalized/ADR-0097.yaml
+  raw_path: docs/adr/0097-rc20-meta-recursion-actually-close-plus-d9.yaml
+  current_state: remediation_record
+  review_use: context_only
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L0
+  - gate
+  view: process
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0098
+  normalized_path: docs/adr/normalized/ADR-0098.yaml
+  raw_path: docs/adr/0098-rc21-scenario-phase-contracts-and-new-discipline-rules.yaml
+  current_state: active_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L0
+  - gate
+  view: process
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0099
+  normalized_path: docs/adr/normalized/ADR-0099.yaml
+  raw_path: docs/adr/0099-rc22-l1-architecture-depth-and-grounding.yaml
+  current_state: active_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L0
+  - L1
+  - gate
+  view: development
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0100
+  normalized_path: docs/adr/normalized/ADR-0100.yaml
+  raw_path: docs/adr/0100-rc22-agent-service-l1-runtime-role-decomposition.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: module_responsibility
+  affected_levels:
+  - L1
+  - L2
+  - contract
+  - facts
+  view: scenarios
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0101
+  normalized_path: docs/adr/normalized/ADR-0101.yaml
+  raw_path: docs/adr/0101-rc22-polymorphic-deployment-topology.yaml
+  current_state: active_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: system_boundary
+  affected_levels:
+  - L0
+  - L1
+  - DSL
+  view: scenarios
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0102
+  normalized_path: docs/adr/normalized/ADR-0102.yaml
+  raw_path: docs/adr/0102-rc22-evolution-plane-online-offline-duality.yaml
+  current_state: active_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: architecture_principle
+  affected_levels:
+  - L0
+  - L1
+  - contract
+  view: scenarios
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0103
+  normalized_path: docs/adr/normalized/ADR-0103.yaml
+  raw_path: docs/adr/0103-rc22-agent-middleware-naming-and-capability-services-distribution.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: cross_module_policy
+  affected_levels:
+  - L0
+  - L1
+  - L2
+  view: development
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0104
+  normalized_path: docs/adr/normalized/ADR-0104.yaml
+  raw_path: docs/adr/0104-rc22-package-root-migration-to-com-huawei-ascend.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: package_root
+  affected_levels:
+  - L0
+  - L1
+  - facts
+  - gate
+  - contract
+  view: development
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0105
+  normalized_path: docs/adr/normalized/ADR-0105.yaml
+  raw_path: docs/adr/0105-rc32-residual-corrective-family-truth-and-sanitizer-fix.yaml
+  current_state: remediation_record
+  review_use: context_only
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L0
+  - gate
+  view: process
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0106
+  normalized_path: docs/adr/normalized/ADR-0106.yaml
+  raw_path: docs/adr/0106-run-version-two-phase-migration.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: global_constraint
+  affected_levels:
+  - L0
+  - L1
+  - L2
+  view: development
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0107
+  normalized_path: docs/adr/normalized/ADR-0107.yaml
+  raw_path: docs/adr/0107-federation-ancestor-reconstruction-via-runregistry.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: system_boundary
+  affected_levels:
+  - L0
+  - L1
+  - contract
+  - facts
+  view: physical
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0108
+  normalized_path: docs/adr/normalized/ADR-0108.yaml
+  raw_path: docs/adr/0108-tenant-reauth-widening-and-graph-isolation.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: cross_module_policy
+  affected_levels:
+  - L0
+  - L1
+  - contract
+  view: process
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0109
+  normalized_path: docs/adr/normalized/ADR-0109.yaml
+  raw_path: docs/adr/0109-s2c-and-ingress-server-identity-proof.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: global_constraint
+  affected_levels:
+  - L0
+  - L1
+  - contract
+  view: physical
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0110
+  normalized_path: docs/adr/normalized/ADR-0110.yaml
+  raw_path: docs/adr/0110-audit-tamper-evidence-and-hook-pii-failsafe.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: global_constraint
+  affected_levels:
+  - L0
+  - L1
+  - L2
+  - contract
+  view: logical
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0111
+  normalized_path: docs/adr/normalized/ADR-0111.yaml
+  raw_path: docs/adr/0111-sandbox-routing-vault-rotation-otlp-tenant-outbox-replay.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: global_constraint
+  affected_levels:
+  - L0
+  - L1
+  - L2
+  - contract
+  view: physical
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0112
+  normalized_path: docs/adr/normalized/ADR-0112.yaml
+  raw_path: docs/adr/0112-engine-stateless-executor-value-based-yield.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: architecture_principle
+  affected_levels:
+  - L0
+  - L1
+  - contract
+  - facts
+  view: logical
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0113
+  normalized_path: docs/adr/normalized/ADR-0113.yaml
+  raw_path: docs/adr/0113-hook-ordering-failsafe-coherence-and-tie-break.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L0
+  - L1
+  - L2
+  - contract
+  - facts
+  view: process
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0114
+  normalized_path: docs/adr/normalized/ADR-0114.yaml
+  raw_path: docs/adr/0114-implementation-feasibility-batched-closures.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: cross_module_policy
+  affected_levels:
+  - L0
+  - L1
+  - L2
+  - contract
+  - facts
+  view: process
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0115
+  normalized_path: docs/adr/normalized/ADR-0115.yaml
+  raw_path: docs/adr/0115-agent-service-l1-expansion-acceptance.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: module_responsibility
+  affected_levels:
+  - L0
+  - L1
+  - contract
+  view: logical
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0116
+  normalized_path: docs/adr/normalized/ADR-0116.yaml
+  raw_path: docs/adr/0116-rc36-kernel-truth-and-cancel-cas-corrective.yaml
+  current_state: remediation_record
+  review_use: context_only
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L0
+  - L1
+  - gate
+  view: process
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0117
+  normalized_path: docs/adr/normalized/ADR-0117.yaml
+  raw_path: docs/adr/0117-rc37-ascend-kunpeng-strategic-repositioning.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: architecture_principle
+  affected_levels:
+  - L0
+  - L1
+  view: scenarios
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0118
+  normalized_path: docs/adr/normalized/ADR-0118.yaml
+  raw_path: docs/adr/0118-rc38-audit-corrective-latent-correctness-and-deploy-packaging.yaml
+  current_state: remediation_record
+  review_use: context_only
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L0
+  - L1
+  - contract
+  - gate
+  view: scenarios
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0119
+  normalized_path: docs/adr/normalized/ADR-0119.yaml
+  raw_path: docs/adr/0119-single-source-rendering.yaml
+  current_state: active_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L0
+  - L1
+  - gate
+  view: scenarios
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0120
+  normalized_path: docs/adr/normalized/ADR-0120.yaml
+  raw_path: docs/adr/0120-brand-audience-b-alignment.yaml
+  current_state: active_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: architecture_principle
+  affected_levels:
+  - L0
+  - L1
+  view: scenarios
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0121
+  normalized_path: docs/adr/normalized/ADR-0121.yaml
+  raw_path: docs/adr/0121-model-gateway-spi.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: public_spi_surface
+  affected_levels:
+  - L1
+  - L2
+  - contract
+  - facts
+  view: development
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0122
+  normalized_path: docs/adr/normalized/ADR-0122.yaml
+  raw_path: docs/adr/0122-tool-skill-semantic-resolution.yaml
+  current_state: active_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: architecture_principle
+  affected_levels:
+  - L0
+  - L1
+  view: scenarios
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0123
+  normalized_path: docs/adr/normalized/ADR-0123.yaml
+  raw_path: docs/adr/0123-memory-unified-spi.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: public_spi_surface
+  affected_levels:
+  - L0
+  - L1
+  - L2
+  - contract
+  - facts
+  view: development
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0124
+  normalized_path: docs/adr/normalized/ADR-0124.yaml
+  raw_path: docs/adr/0124-vector-retrieval-embedding-spi.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: public_spi_surface
+  affected_levels:
+  - L0
+  - L1
+  - L2
+  - contract
+  - facts
+  view: development
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0125
+  normalized_path: docs/adr/normalized/ADR-0125.yaml
+  raw_path: docs/adr/0125-spring-ai-integration-boundary.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: system_boundary
+  affected_levels:
+  - L0
+  - L1
+  - contract
+  view: scenarios
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0126
+  normalized_path: docs/adr/normalized/ADR-0126.yaml
+  raw_path: docs/adr/0126-planner-spi.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: public_spi_surface
+  affected_levels:
+  - L0
+  - L1
+  - L2
+  - contract
+  - facts
+  view: development
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0127
+  normalized_path: docs/adr/normalized/ADR-0127.yaml
+  raw_path: docs/adr/0127-skill-spi-tool-unification.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: public_spi_surface
+  affected_levels:
+  - L1
+  - L2
+  - contract
+  - facts
+  view: development
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0128
+  normalized_path: docs/adr/normalized/ADR-0128.yaml
+  raw_path: docs/adr/0128-agent-first-class-entity.yaml
+  current_state: active_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: public_spi_surface
+  affected_levels:
+  - L1
+  - contract
+  view: development
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0129
+  normalized_path: docs/adr/normalized/ADR-0129.yaml
+  raw_path: docs/adr/0129-streaming-aware-model-gateway.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: system_boundary
+  affected_levels:
+  - L0
+  - L1
+  - contract
+  view: development
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0130
+  normalized_path: docs/adr/normalized/ADR-0130.yaml
+  raw_path: docs/adr/0130-structured-output-converter-spi.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: public_spi_surface
+  affected_levels:
+  - L1
+  - L2
+  - contract
+  - facts
+  view: development
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0131
+  normalized_path: docs/adr/normalized/ADR-0131.yaml
+  raw_path: docs/adr/0131-prompt-template-spi.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: public_spi_surface
+  affected_levels:
+  - L1
+  - L2
+  - contract
+  - facts
+  view: development
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0132
+  normalized_path: docs/adr/normalized/ADR-0132.yaml
+  raw_path: docs/adr/0132-chat-advisor-spi.yaml
+  current_state: active_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: architecture_principle
+  affected_levels:
+  - L0
+  - L1
+  - contract
+  view: development
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0133
+  normalized_path: docs/adr/normalized/ADR-0133.yaml
+  raw_path: docs/adr/0133-conversation-memory-spi-variant.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: public_spi_surface
+  affected_levels:
+  - L0
+  - L1
+  - L2
+  - contract
+  - facts
+  view: development
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0134
+  normalized_path: docs/adr/normalized/ADR-0134.yaml
+  raw_path: docs/adr/0134-tool-call-iteration-loop.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: cross_frame_contract
+  affected_levels:
+  - L0
+  - L1
+  - L2
+  - contract
+  view: process
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0135
+  normalized_path: docs/adr/normalized/ADR-0135.yaml
+  raw_path: docs/adr/0135-agent-session-as-run-projection.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: architecture_principle
+  affected_levels:
+  - L0
+  - L1
+  - contract
+  view: development
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0136
+  normalized_path: docs/adr/normalized/ADR-0136.yaml
+  raw_path: docs/adr/0136-vocabulary-reconciliation-pr71-task-vs-run.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: module_responsibility
+  affected_levels:
+  - L1
+  - L2
+  view: scenarios
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0137
+  normalized_path: docs/adr/normalized/ADR-0137.yaml
+  raw_path: docs/adr/0137-suspendsignal-canonical-interruptsignal-glossary.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: public_api_surface
+  affected_levels:
+  - L1
+  - L2
+  - facts
+  view: logical
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0138
+  normalized_path: docs/adr/normalized/ADR-0138.yaml
+  raw_path: docs/adr/0138-agent-service-five-layer-l1-ratification.yaml
+  current_state: active_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: module_responsibility
+  affected_levels:
+  - L1
+  - L2
+  - contract
+  view: logical
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0139
+  normalized_path: docs/adr/normalized/ADR-0139.yaml
+  raw_path: docs/adr/0139-fast-slow-path-narrowed-semantics.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: cross_frame_contract
+  affected_levels:
+  - L1
+  - L2
+  - gate
+  view: process
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0140
+  normalized_path: docs/adr/normalized/ADR-0140.yaml
+  raw_path: docs/adr/0140-engine-adapter-layer-split.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: module_responsibility
+  affected_levels:
+  - L1
+  - L2
+  - contract
+  - facts
+  view: logical
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0141
+  normalized_path: docs/adr/normalized/ADR-0141.yaml
+  raw_path: docs/adr/0141-internal-event-queue-design-only.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: module_responsibility
+  affected_levels:
+  - L1
+  - L2
+  - contract
+  view: logical
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0142
+  normalized_path: docs/adr/normalized/ADR-0142.yaml
+  raw_path: docs/adr/0142-run-aggregate-single-owner.yaml
+  current_state: active_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: module_responsibility
+  affected_levels:
+  - L1
+  - L2
+  - facts
+  view: logical
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0143
+  normalized_path: docs/adr/normalized/ADR-0143.yaml
+  raw_path: docs/adr/0143-review-log-demotion-l1-canonical-move.yaml
+  current_state: superseded
+  review_use: history_only
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L0
+  - L1
+  view: scenarios
+  supersedes: []
+  superseded_by:
+  - ADR-0150
+- adr: ADR-0144
+  normalized_path: docs/adr/normalized/ADR-0144.yaml
+  raw_path: docs/adr/0144-layer-vs-package-matrix.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: engineering_frame_boundary
+  affected_levels:
+  - L1
+  - L2
+  view: development
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0145
+  normalized_path: docs/adr/normalized/ADR-0145.yaml
+  raw_path: docs/adr/0145-run-event-sealed-hierarchy.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: cross_frame_contract
+  affected_levels:
+  - L1
+  - L2
+  - contract
+  view: logical
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0146
+  normalized_path: docs/adr/normalized/ADR-0146.yaml
+  raw_path: docs/adr/0146-suspend-reason-taxonomy-alignment-2026-05-22.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: cross_frame_contract
+  affected_levels:
+  - L1
+  - L2
+  view: logical
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0147
+  normalized_path: docs/adr/normalized/ADR-0147.yaml
+  raw_path: docs/adr/0147-structurizr-workspace-authority.yaml
+  current_state: active_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L0
+  - L1
+  - DSL
+  - facts
+  - gate
+  view: scenarios
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0148
+  normalized_path: docs/adr/normalized/ADR-0148.yaml
+  raw_path: docs/adr/0148-architecture-workspace-spike-results.yaml
+  current_state: historical_evidence
+  review_use: context_only
+  decision_level: L0
+  decision_type: architecture_principle
+  affected_levels:
+  - L0
+  - L1
+  view: scenarios
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0149
+  normalized_path: docs/adr/normalized/ADR-0149.yaml
+  raw_path: docs/adr/0149-structurizr-workspace-authority-w0-w5-shipped.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L0
+  - L1
+  - DSL
+  - facts
+  - gate
+  view: scenarios
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0150
+  normalized_path: docs/adr/normalized/ADR-0150.yaml
+  raw_path: docs/adr/0150-architecture-design-system-unification-under-structurizr.yaml
+  current_state: partial_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L0
+  - L1
+  - DSL
+  - gate
+  view: scenarios
+  supersedes:
+  - ADR-0143
+  superseded_by: []
+- adr: ADR-0151
+  normalized_path: docs/adr/normalized/ADR-0151.yaml
+  raw_path: docs/adr/0151-l1-feature-registry-canonical-schema.yaml
+  current_state: active_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L1
+  - DSL
+  - gate
+  view: scenarios
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0152
+  normalized_path: docs/adr/normalized/ADR-0152.yaml
+  raw_path: docs/adr/0152-uniform-l1-per-view-mechanism-and-l0-mounting.yaml
+  current_state: active_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L0
+  - L1
+  - DSL
+  - gate
+  view: scenarios
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0153
+  normalized_path: docs/adr/normalized/ADR-0153.yaml
+  raw_path: docs/adr/0153-l1-feature-registry-closure.yaml
+  current_state: active_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L1
+  - DSL
+  - gate
+  view: scenarios
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0154
+  normalized_path: docs/adr/normalized/ADR-0154.yaml
+  raw_path: docs/adr/0154-fact-layer-authority.yaml
+  current_state: active_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L1
+  - DSL
+  - contract
+  - facts
+  - gate
+  view: development
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0155
+  normalized_path: docs/adr/normalized/ADR-0155.yaml
+  raw_path: docs/adr/0155-agent-service-l1-v1-2-internal-module-design.yaml
+  current_state: active_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: module_responsibility
+  affected_levels:
+  - L1
+  - DSL
+  - contract
+  view: logical
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0156
+  normalized_path: docs/adr/normalized/ADR-0156.yaml
+  raw_path: docs/adr/0156-product-authority-and-traceability.yaml
+  current_state: active_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L1
+  - gate
+  view: development
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0157
+  normalized_path: docs/adr/normalized/ADR-0157.yaml
+  raw_path: docs/adr/0157-engineering-frame-ontology.yaml
+  current_state: active_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: engineering_frame_boundary
+  affected_levels:
+  - L1
+  - DSL
+  - gate
+  view: development
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0158
+  normalized_path: docs/adr/normalized/ADR-0158.yaml
+  raw_path: docs/adr/0158-engine-port-transport-agnostic-boundary.yaml
+  current_state: active_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: engineering_frame_boundary
+  affected_levels:
+  - L1
+  - DSL
+  - contract
+  - facts
+  - gate
+  view: development
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0159
+  normalized_path: docs/adr/normalized/ADR-0159.yaml
+  raw_path: docs/adr/0159-progressive-learning-curve-and-authority-lanes.yaml
+  current_state: active_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: architecture_principle
+  affected_levels:
+  - L0
+  - L1
+  - L2
+  - DSL
+  - contract
+  - facts
+  - gate
+  view: development
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0160
+  normalized_path: docs/adr/normalized/ADR-0160.yaml
+  raw_path: docs/adr/0160-adr-governance-model.yaml
+  current_state: active_guidance
+  review_use: current_authority
+  decision_level: L0
+  decision_type: governance_invariant
+  affected_levels:
+  - L0
+  - facts
+  - gate
+  view: scenarios
+  supersedes: []
+  superseded_by: []
+- adr: ADR-0161
+  normalized_path: docs/adr/normalized/ADR-0161.yaml
+  raw_path: docs/adr/0161-engineering-frame-package-cluster-anchor-and-card-over-dsl.yaml
+  current_state: active_guidance
+  review_use: current_authority
+  decision_level: L1
+  decision_type: engineering_frame_boundary
+  affected_levels:
+  - L1
+  - DSL
+  - facts
+  - gate
+  view: development
+  supersedes: []
+  superseded_by: []
+
+# Raw YAML ADRs present in the apex fact source
+# (architecture/facts/generated/adrs.json) that have NO normalized view. Per
+# ADR-0160 only an `accepted` raw ADR REQUIRES a normalized view; a purely
+# superseded/archived raw ADR may legitimately carry none (the replacement's view
+# is the authority). The sole entry here is ADR-0079 (raw status `superseded`,
+# superseded_by ADR-0088 -- re-stated in ADR-0088's normalized view supersedes
+# list): not a review-blocking gap, because it is not `accepted`. There are zero
+# `accepted` raw ADRs without a view (the G-28 acceptance bar is met).
+unclassified_raw_yaml_adrs:
+- adr: ADR-0079
+  raw_status: superseded
+
+# Aggregate counts -- a direct tally of the current_state each on-disk normalized
+# view declares, cross-referenced with the fact-layer corpus scope. These mirror
+# the human-readable tallies in docs/adr/review-index.md (assert no authority of
+# their own; an interpretation over the views + adrs.json). Corpus-scope note:
+# the fact layer enumerates only the YAML ADRs (the census baseline at source
+# commit 98a58c1 counted 88; ADR-0159 / ADR-0160 / ADR-0161 were added by the
+# progressive-learning-curve remediation after that commit, so the live fact
+# layer now carries 91). The 56 Markdown active/deferred and 11 locked Markdown
+# ADRs are real governing decisions absent from the fact layer (the standing gap
+# recorded in docs/governance/remediation-inventory/adr-census.md and ADR-0160
+# context); they are ledger-tracked, not yet normalized, and out of this index's
+# YAML-corpus scope.
+counts:
+  raw_yaml_adrs_in_fact_layer: 91
+  normalized_views: 90
+  raw_yaml_adrs_without_view: 1
+  by_current_state:
+    active_guidance: 26
+    partial_guidance: 55
+    superseded: 1
+    historical_evidence: 1
+    remediation_record: 7
+  sum_by_current_state: 90
+  allowed_as_current_authority: 81
+  blocked_from_review_authority: 9
+  allowed_only_as_context: 8

@@ -19,7 +19,7 @@ scope_surfaces:
   - gate/lib/check_adr_taxonomy.py
   - gate/lib/check_historical_adr_governance.py
 kernel: |
-  Architecture review reads the NORMALIZED ADR view, not raw historical prose. Every raw ADR enumerated in `architecture/facts/generated/adrs.json` MUST have a ledger entry in `docs/governance/adr-remediation-ledger.yaml`, and every `accepted` ADR MUST have a normalized view at `docs/adr/normalized/ADR-NNNN.yaml`. Each normalized view MUST satisfy `docs/governance/adr-governance-policy.yaml` (required fields + the closed five-value `current_state` set + per-state field invariants) AND `docs/governance/adr-taxonomy.yaml` (the per-`decision_level` `decision_type` altitude — a forbidden lower-altitude `decision_type` is layer-purity leakage and is rejected). Ratchet: advisory now, then changed-files-blocking, then full-blocking once the normalized corpus is complete.
+  Architecture review reads the NORMALIZED ADR view, not raw historical prose. Every raw ADR enumerated in `architecture/facts/generated/adrs.json` MUST have a ledger entry in `docs/governance/adr-remediation-ledger.yaml`, and every `accepted` ADR MUST have a normalized view at `docs/adr/normalized/ADR-NNNN.yaml` — this ledger-totality + normalized-view-coverage assertion (E193) is BLOCKING: the normalization wave back-filled the corpus to total coverage. Each normalized view MUST satisfy `docs/governance/adr-governance-policy.yaml` (required fields + the closed five-value `current_state` set + per-state field invariants) AND `docs/governance/adr-taxonomy.yaml` (the per-`decision_level` `decision_type` altitude — a forbidden lower-altitude `decision_type` is layer-purity leakage and is rejected); this per-view altitude validation (E192) stays advisory while its corpus is brought into altitude. Ratchet: E193 is at the full-blocking rung; E192 remains advisory, then changed-files-blocking, then full-blocking once every view is altitude-clean.
 ---
 
 # Rule G-28 — ADR Normalization
@@ -57,32 +57,36 @@ the review cites; the ledger guarantees no raw ADR is silently un-governed.
 
 ## How it works
 
-The single gate Rule 144 invokes two helpers in **advisory** mode (they report
-findings but never block while the dedicated normalization wave back-fills
-`docs/adr/normalized/`):
+The single gate Rule 144 invokes two helpers at different ratchet rungs:
 
-- `gate/lib/check_adr_taxonomy.py` (E192) — validates each normalized view
-  against the two policy surfaces. A `decision_type` that is forbidden at its
-  `decision_level` is reported as lower-altitude leakage; a `superseded` view
-  with no `superseded_by`, a `partial_guidance` view with no
-  `non_authoritative_legacy_content`, or a `historical_evidence` view that still
-  carries `active_guidance` each violate a per-state invariant.
-- `gate/lib/check_historical_adr_governance.py` (E193) — ledger totality +
-  normalized-view coverage. A missing `adrs.json` is fatal (the apex fact is
-  never an advisory condition); a missing ledger / empty normalized dir is a
-  finding the advisory mode surfaces without blocking.
+- `gate/lib/check_adr_taxonomy.py` (E192) — runs **advisory** (reports findings
+  but never blocks while the per-view altitude corpus is brought clean).
+  Validates each normalized view against the two policy surfaces. A
+  `decision_type` that is forbidden at its `decision_level` is reported as
+  lower-altitude leakage; a `superseded` view with no `superseded_by`, a
+  `partial_guidance` view with no `non_authoritative_legacy_content`, or a
+  `historical_evidence` view that still carries `active_guidance` each violate a
+  per-state invariant.
+- `gate/lib/check_historical_adr_governance.py` (E193) — runs **blocking**
+  (`--mode blocking`): ledger totality + normalized-view coverage. The
+  normalization wave back-filled the ledger and `docs/adr/normalized/` to total
+  coverage, so a non-zero helper rc — a raw ADR with no ledger entry, an
+  `accepted` ADR with no normalized view, OR a vanished apex `adrs.json` (fatal
+  in every mode) — now fails the gate.
 
 Neither helper invents an ADR id or a relationship — they cross-reference the
 generated raw-ADR set, the ledger, and the on-disk normalized views only.
 
 ## Ratchet
 
-advisory (this wave) → changed-files-blocking (a PR may not add or worsen a
-finding on a changed view) → full-blocking (the terminal posture once the
-normalized corpus is complete). The helper modes (`--mode advisory` /
-`changed-files-blocking` / `full-blocking` for the taxonomy helper;
-`advisory` / `changed-files` / `blocking` for the historical helper) implement
-the rungs; Rule 144 wires the advisory rung first.
+advisory → changed-files-blocking (a PR may not add or worsen a finding on a
+changed view) → full-blocking (the terminal posture once the corpus is complete).
+The helper modes (`--mode advisory` / `changed-files-blocking` / `full-blocking`
+for the taxonomy helper; `advisory` / `changed-files` / `blocking` for the
+historical helper) implement the rungs. The two helpers now sit at different
+rungs: **E193 (historical, ledger totality + view coverage) is at the
+full-blocking rung** — its corpus is complete; **E192 (taxonomy, per-view
+altitude) remains advisory** until every view is altitude-clean.
 
 ## Test fixtures
 

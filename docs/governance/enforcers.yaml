@@ -1854,8 +1854,10 @@
 # 2026-05-30 progressive-learning-curve-remediation W3 — ADR Governance Model
 # (Rule 144 / kernel Rule G-28; enforcers E192-E193).
 # Authority: docs/governance/rules/rule-G-28-adr-normalization.md + ADR-0160.
-# Both helpers ship advisory (the ADR-0160 ratchet starts soft); a missing
-# helper or vanished adrs.json fails closed.
+# E193 (historical: ledger totality + view coverage) is BLOCKING — the
+# normalization wave back-filled the corpus to total coverage. E192 (taxonomy:
+# per-view altitude) stays advisory until every view is altitude-clean (the
+# ADR-0160 ratchet). A missing helper or vanished adrs.json fails closed.
 # ---------------------------------------------------------------------------
 
 - id: E192
@@ -1873,5 +1875,5 @@
   level: L1
   view: scenarios
   artifact: gate/check_architecture_sync.sh#historical_adr_governance
-  asserts: "Rule 144 -- ledger totality (every raw ADR enumerated in architecture/facts/generated/adrs.json has a docs/governance/adr-remediation-ledger.yaml entry) + normalized-view coverage (every accepted ADR has a docs/adr/normalized/ADR-NNNN.yaml view). Backed by gate/lib/check_historical_adr_governance.py (modes advisory/changed-files/blocking); a missing adrs.json is fatal (exit 1) in every mode so a vanished apex fact never green-washes. Wired advisory at W3 landing per the ADR-0160 ratchet."
+  asserts: "Rule 144 -- ledger totality (every raw ADR enumerated in architecture/facts/generated/adrs.json has a docs/governance/adr-remediation-ledger.yaml entry) + normalized-view coverage (every accepted ADR has a docs/adr/normalized/ADR-NNNN.yaml view). Backed by gate/lib/check_historical_adr_governance.py (modes advisory/changed-files/blocking); a missing adrs.json is fatal (exit 1) in every mode so a vanished apex fact never green-washes. Wired BLOCKING (--mode blocking) once the ledger + normalized corpus reached total coverage; a raw ADR with no ledger entry or an accepted ADR with no view fails the gate."
   governance_infra: true

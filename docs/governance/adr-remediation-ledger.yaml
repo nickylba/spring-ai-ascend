@@ -6,12 +6,14 @@
 # a closed five-value set; architecture review reads the normalized view, not
 # raw prose). Coverage is TOTAL over docs/adr/*.{md,yaml} and docs/adr/locked/.
 #
-# SKELETON (version + empty entries). This file pins the SCHEMA and the closed
-# current_state vocabulary; the bulk per-ADR enumeration is authored by the
-# dedicated ADR-normalization wave (ADR-0160 consequences — "sequenced as its
-# own wave (plan Task 3 / Wave 1), shipping advisory first"). The `entries`
-# list is intentionally empty here; the normalization wave fills one entry per
-# raw ADR and ships the matching normalized views under docs/adr/normalized/.
+# POPULATED. This file pins the SCHEMA + the closed current_state vocabulary AND
+# now carries the bulk per-ADR enumeration authored by the ADR-normalization wave
+# (ADR-0160 consequences — "sequenced as its own wave (plan Task 3 / Wave 1),
+# shipping advisory first"). `entries` holds ONE entry per raw ADR id across
+# docs/adr/*.{md,yaml} + docs/adr/locked/*.md; the matching normalized views ship
+# under docs/adr/normalized/. The enumeration is a deterministic projection of
+# architecture/facts/generated/adrs.json + the normalized views + the raw ADR
+# sources — re-stated, never minted (see READABLE-INTERPRETATION DISCIPLINE below).
 #
 # READABLE-INTERPRETATION DISCIPLINE (binding, ADR-0160 + ADR-0154 cascade):
 # this ledger is an interpretation layer OVER the raw ADR sources and their
@@ -63,9 +65,18 @@ current_state_values:
 #   adr                ADR id exactly as the raw source declares it (e.g. ADR-0158).
 #                      MUST already exist in the raw sources / adrs.json — the
 #                      ledger mints no ids (Rule G-15 / ADR-0154 cascade).
+#   title              The ADR's title, re-stated from the fact layer
+#                      (adrs.json observed_value.title) for YAML ADRs, or from the
+#                      raw file's first heading for Markdown/locked ADRs (absent
+#                      from the YAML-only fact layer). ASCII-rendered for the
+#                      English-only output rule; the canonical glyphs live in the
+#                      raw source. A readability aid — invents no content.
 #   raw_path           Repo-relative path to the raw ADR source (docs/adr/*.{md,yaml}
 #                      or docs/adr/locked/*.md). REQUIRED so the fact-layer gap
 #                      (Markdown/locked ADRs absent from adrs.json) stays auditable.
+#                      For ADR-0155 (dual-source: a YAML structured authority plus a
+#                      Markdown engineering-prose companion) the path is the YAML
+#                      authority; the companion is non-authoritative prose.
 #   normalized_path    Repo-relative path to the normalized view
 #                      (docs/adr/normalized/ADR-NNNN.yaml). REQUIRED for every ADR
 #                      whose raw status is `accepted`; an accepted ADR cited as
@@ -73,7 +84,30 @@ current_state_values:
 #                      review-blocking condition. May be empty for raw statuses
 #                      that need no view (e.g. a purely archived/superseded record),
 #                      which the normalization wave fixes per state invariant.
-#   current_state      One of current_state_values above.
+#   current_state      One of current_state_values above. DERIVATION (re-stated,
+#                      never minted): for a YAML ADR that already has a normalized
+#                      view, the ledger MIRRORS the view's current_state (the view
+#                      is the authoritative per-ADR classification, Rule G-28). For
+#                      a superseded YAML ADR with no view (adrs.json status), it is
+#                      `superseded`. For a Markdown/locked ADR (absent from the
+#                      YAML-only fact layer, no view yet), it is read from the raw
+#                      decision: `active_guidance` for an accepted standing decision,
+#                      `superseded` when the raw prose declares a replacement.
+#   supersedes         ADR ids this ADR replaces, re-stated from the fact layer
+#                      (adrs.json observed_value.supersedes) and the raw-ADR prose;
+#                      [] when none. Edge present in the fact layer for the YAML
+#                      corpus; the ADR-0055 -> ADR-0026 edge is a Markdown-prose
+#                      grandfather edge the YAML-only extractor does not carry.
+#   superseded_by      ADR ids that replace this ADR — the RECONCILED reverse of the
+#                      supersedes edges across the whole corpus (the fact layer
+#                      stores only the forward edge; this column closes the chain).
+#                      [] when none.
+#   supersession_note  OPTIONAL. A clause-level / partial supersession that does NOT
+#                      flip this ADR's current_state (the ADR stays accepted but a
+#                      specific clause/plan inside it was superseded-in-part, e.g.
+#                      ADR-0019's variant names by ADR-0146). Recorded so the
+#                      grandfather decision is auditable without minting a full
+#                      supersedes edge. Omitted when there is no partial relation.
 #   remediation_action What was done (or must be done) to normalize this ADR:
 #                      e.g. "normalized view authored", "split active L0 clause
 #                      from superseded framing", "marked historical_evidence",
@@ -86,36 +120,1820 @@ current_state_values:
 #   due_wave           The remediation wave by which the follow-up is due
 #                      (e.g. W2), or empty when no follow-up remains.
 #
-# Example shape (illustrative only; NOT an entry — entries is empty in this skeleton):
+# Example shape (illustrative; the live entries follow below):
 #   - adr: ADR-XXXX
+#     title: "..."
 #     raw_path: docs/adr/XXXX-...yaml
 #     normalized_path: docs/adr/normalized/ADR-XXXX.yaml
 #     current_state: active_guidance
-#     remediation_action: ""
+#     supersedes: []
+#     superseded_by: []
+#     remediation_action: "..."
 #     required_follow_up: ""
 #     owner: chao
 #     due_wave: ""
+#
+# Field order per entry: adr, title, raw_path, normalized_path, current_state,
+# supersedes, superseded_by, [supersession_note], remediation_action,
+# required_follow_up, owner, due_wave.
 
-entries: []
+entries:
+  - adr: ADR-0001
+    title: "Java 21 + Spring Boot 4.0.5 as the runtime baseline"
+    raw_path: docs/adr/locked/0001-java-21-spring-boot-runtime.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0002
+    title: "Spring AI 2.0.0-M5 as the LLM gateway, not LangChain4j"
+    raw_path: docs/adr/locked/0002-spring-ai-llm-gateway.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0003
+    title: "Temporal Java SDK 1.35.0 for durable workflows, not Airflow / Step Functions"
+    raw_path: docs/adr/0003-temporal-durable-workflows.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0004
+    title: "PostgreSQL 16 with RLS + pgvector, not separate vector DB"
+    raw_path: docs/adr/locked/0004-postgres-primary-data-store.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0005
+    title: "Row-level security with SET LOCAL transaction-scoped GUC, not per-connection reset"
+    raw_path: docs/adr/locked/0005-tenant-isolation-guc-set-local.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0006
+    title: "ActionGuard 5-stage chain (cycle-9 truth-cut), not 11-stage"
+    raw_path: docs/adr/locked/0006-posture-model-dev-research-prod.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0007
+    title: "At-least-once outbox in Postgres, not Kafka, for v1"
+    raw_path: docs/adr/0007-outbox-postgres-not-kafka.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0008
+    title: "OPA sidecar for authorization, not in-process Cedar / custom"
+    raw_path: docs/adr/0008-resilience4j-circuit-breaker.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0009
+    title: "HashiCorp Vault (OSS) for secrets, not env vars / K8s Secrets only"
+    raw_path: docs/adr/0009-micrometer-observability.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0010
+    title: "Keycloak (OSS) as default IdP, but customer can BYO"
+    raw_path: docs/adr/locked/0010-spring-security-oauth2.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0011
+    title: "Spring Cloud Gateway as ingress, not Kong / Traefik"
+    raw_path: docs/adr/locked/0011-flyway-schema-migration.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0012
+    title: "Maven multi-module, not Gradle"
+    raw_path: docs/adr/0012-valkey-session-cache.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0013
+    title: "UUIDv7 for surrogate IDs, not snowflake / sequence"
+    raw_path: docs/adr/0013-vault-secrets-management.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0014
+    title: "3-posture model (dev/research/prod), not 5 or 2"
+    raw_path: docs/adr/locked/0014-contract-spine-versioning-policy.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0015
+    title: "Defer multi-framework dispatch (Python sidecar, LangChain4j) to W4+"
+    raw_path: docs/adr/locked/0015-layered-architecture-capability-model.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0016
+    title: "A2A Federation — Strategic Deferral to Post-W4"
+    raw_path: docs/adr/0016-a2a-federation-strategic-deferral.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0017
+    title: "Dev-time Trace Replay Surface — MCP Server, No Admin UI"
+    raw_path: docs/adr/0017-dev-time-trace-replay.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0018
+    title: "Sandbox Executor SPI for ActionGuard Bound Stage"
+    raw_path: docs/adr/0018-sandbox-executor-spi.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0019
+    title: "SuspendSignal: Checked-Exception Primitive and Sealed SuspendReason Taxonomy"
+    raw_path: docs/adr/0019-suspend-signal-and-suspend-reason-taxonomy.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    supersession_note: "variant names in this ADR's Decision Outcome are superseded-in-part by ADR-0146 (canonical 6-variant SuspendReason set); the ADR body stays accepted and is retained for historical record per the doc>ADR precedence rule"
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0020
+    title: "RunLifecycle SPI Separation and RunStatus Formal DFA"
+    raw_path: docs/adr/locked/0020-runlifecycle-spi-and-runstatus-formal-dfa.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0021
+    title: "Layered SPI Taxonomy: Cross-Tier Core vs Tier-Specific Adapters"
+    raw_path: docs/adr/0021-layered-spi-taxonomy.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0022
+    title: "PayloadCodec SPI and Typed Payload Contract"
+    raw_path: docs/adr/0022-payload-codec-spi.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0023
+    title: "Cross-Boundary Context Propagation: Tenant, Trace, MDC, Metric Tags"
+    raw_path: docs/adr/0023-cross-boundary-context-propagation.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0024
+    title: "Suspension Write Atomicity: Checkpointer and RunRepository Transactional Contract"
+    raw_path: docs/adr/0024-suspension-write-atomicity.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0025
+    title: "Checkpoint Ownership Boundary: Executor Resume Cursors vs Orchestrator Run Row"
+    raw_path: docs/adr/0025-checkpoint-ownership-boundary.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0027
+    title: "Idempotency Scope at W0: Header Validation Only, Dedup Deferred to W1"
+    raw_path: docs/adr/locked/0027-idempotency-scope-w0-header-validation.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    supersession_note: "the W1 deferral note of this ADR is superseded-in-part by ADR-0057 (durable idempotency claim/replay); the rest of the locked decision stands"
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0028
+    title: "Causal Payload Envelope and Semantic Ontology Tags"
+    raw_path: docs/adr/0028-causal-payload-envelope-and-semantic-ontology.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0029
+    title: "Cognition-Action Separation Principle"
+    raw_path: docs/adr/0029-cognition-action-separation.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0030
+    title: "Skill SPI: Lifecycle, Resource Matrix, and Posture-Mandatory Sandbox"
+    raw_path: docs/adr/0030-skill-spi-lifecycle-resource-matrix.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    supersession_note: "the pre-ADR-0070 skill-capacity-arbitration plan referenced here is superseded by the ADR-0070 SkillCapacityRegistry overload; the SPI lifecycle/resource matrix otherwise stands"
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0031
+    title: "Three-Track Channel Isolation for Northbound Streaming"
+    raw_path: docs/adr/0031-three-track-channel-isolation.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0032
+    title: "Scope-Based Run Hierarchy and Planner Contract Minimal"
+    raw_path: docs/adr/0032-scope-based-run-hierarchy-and-planner-contract-minimal.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0033
+    title: "Logical Identity Equivalence and Deployment-Locus Vocabulary"
+    raw_path: docs/adr/0033-logical-identity-equivalence-and-deployment-locus-vocabulary.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0034
+    title: "Memory and Knowledge Taxonomy at L0"
+    raw_path: docs/adr/0034-memory-and-knowledge-taxonomy-at-l0.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0035
+    title: "Posture Enforcement Single-Construction-Path"
+    raw_path: docs/adr/0035-posture-enforcement-single-construction-path.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0036
+    title: "Contract-Surface Truth Generalization"
+    raw_path: docs/adr/0036-contract-surface-truth-generalization.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0037
+    title: "Wave Authority Consolidation"
+    raw_path: docs/adr/0037-wave-authority-consolidation.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0038
+    title: "Skill SPI Resource Tier Classification"
+    raw_path: docs/adr/0038-skill-spi-resource-tier-classification.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0039
+    title: "Payload Migration Adapter Strategy"
+    raw_path: docs/adr/0039-payload-migration-adapter-strategy.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0040
+    title: "W1 HTTP Contract Reconciliation"
+    raw_path: docs/adr/0040-w1-http-contract-reconciliation.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0041
+    title: "Active-Corpus Truth Sweep"
+    raw_path: docs/adr/0041-active-corpus-truth-sweep.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    supersession_note: "the Section 3 exclusion list of this ADR is superseded-in-part by ADR-0043 (active normative doc catalog); the corpus-truth-sweep decision otherwise stands"
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0042
+    title: "ADR-0042: Test-Evidence Enforcement for Rule G-2 sub-clause .a (Gate Rule 19)"
+    raw_path: docs/adr/0042-test-evidence-enforcement-for-rule-25.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0043
+    title: "ADR-0043: Active Normative Doc Catalog and Peripheral Drift Prevention"
+    raw_path: docs/adr/0043-active-normative-doc-catalog-and-peripheral-drift-prevention.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0044
+    title: "ADR-0044: SPI Contract Precision and Memory Metadata Reconciliation"
+    raw_path: docs/adr/0044-spi-contract-precision-and-memory-metadata-reconciliation.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    supersession_note: "the original (tenantId, operationId) ResilienceContract extension plan is superseded-in-part by ADR-0070 / ADR-0081 (skill capacity uses (tenant, skill)); the SPI-precision reconciliation otherwise stands"
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0045
+    title: "ADR-0045: Shipped-Row Evidence Path Existence and Peripheral Wave-Qualifier Gate"
+    raw_path: docs/adr/0045-shipped-row-evidence-path-existence-and-peripheral-wave-qualifier.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0046
+    title: "ADR-0046: Release-Note Shipped-Surface Truth Gate"
+    raw_path: docs/adr/0046-release-note-shipped-surface-truth.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0047
+    title: "ADR-0047: Active-Entrypoint Truth and System-Boundary Prose Convention"
+    raw_path: docs/adr/0047-active-entrypoint-truth-and-system-boundary-prose-convention.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0048
+    title: "Service-Layer Microservice-Architecture Commitment"
+    raw_path: docs/adr/0048-service-layer-microservice-architecture-commitment.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0049
+    title: "C/S Dynamic Hydration Protocol and Cursor Handoff"
+    raw_path: docs/adr/0049-c-s-dynamic-hydration-protocol.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0050
+    title: "Workflow Intermediary Bus, Mailbox Backpressure, and Rhythm Track"
+    raw_path: docs/adr/0050-workflow-intermediary-mailbox-rhythm-track.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0051
+    title: "Memory and Knowledge Ownership Boundary"
+    raw_path: docs/adr/0051-memory-knowledge-ownership-boundary.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0052
+    title: "Skill Topology Scheduler and Capability Bidding"
+    raw_path: docs/adr/0052-skill-topology-scheduler-and-capability-bidding.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0053
+    title: "Cohesive Agent Swarm Execution — Workflow Authority Invariant + SpawnEnvelope"
+    raw_path: docs/adr/0053-cohesive-agent-swarm-execution.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0054
+    title: "Long-Connection Containment — Logical Runtime Handle Invariant"
+    raw_path: docs/adr/0054-long-connection-containment-runtime-handles.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0055
+    title: "ADR-0055 — Permit `agent-platform → agent-runtime`; Forbid the Reverse"
+    raw_path: docs/adr/0055-permit-platform-to-runtime-direction.md
+    normalized_path: ""
+    current_state: superseded
+    supersedes:
+      - "ADR-0026"
+    superseded_by:
+      - "ADR-0078"
+    remediation_action: "ledger-only (Markdown ADR absent from the YAML-only fact layer); marked superseded from raw-ADR prose (superseded by ADR-0078)"
+    required_follow_up: "author normalized view OR widen AdrFactExtractor to Markdown sources so this edge enters the fact layer"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0056
+    title: "ADR-0056 — JWT Validation and Tenant Claim Cross-Check"
+    raw_path: docs/adr/0056-jwt-validation-and-tenant-claim-cross-check.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0057
+    title: "ADR-0057 — Durable Idempotency Claim/Replay"
+    raw_path: docs/adr/0057-durable-idempotency-claim-replay.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0058
+    title: "ADR-0058 — Posture Boot Guard"
+    raw_path: docs/adr/0058-posture-boot-guard.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0059
+    title: "ADR-0059 — Code-as-Contract Architectural Enforcement (Introduces Rule R-C.a)"
+    raw_path: docs/adr/0059-code-as-contract-architectural-enforcement.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0060
+    title: "ADR-0060 — Phase L Reviewer Remediation (Closes P0-1, P0-2, P0-3, P1-1, P1-2, P1-4, P2-1)"
+    raw_path: docs/adr/0060-phase-l-reviewer-remediation.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    supersession_note: "supersedes-in-part a Section 5 risks subsection of an L1 release note (a doc surface, not an ADR); no ADR-to-ADR edge"
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0061
+    title: "ADR-0061 — Telemetry Vertical Layer"
+    raw_path: docs/adr/0061-telemetry-vertical-layer.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0062
+    title: "ADR-0062 — Trace ↔ Run ↔ Session Identity (N:M with session_id)"
+    raw_path: docs/adr/0062-trace-run-session-identity.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0063
+    title: "ADR-0063 — Client SDK Observability Contract (W3, design recorded at L1.x)"
+    raw_path: docs/adr/0063-client-sdk-observability-contract.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0064
+    title: "ADR-0064 — Layer-0 Governing Principles + CLAUDE.md Restructure"
+    raw_path: docs/adr/0064-layer-0-governing-principles.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0065
+    title: "ADR-0065 — Competitive Baselines (Four Pillars)"
+    raw_path: docs/adr/0065-competitive-baselines.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0066
+    title: "ADR-0066 — Independent Module Evolution"
+    raw_path: docs/adr/0066-independent-module-evolution.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0067
+    title: "ADR-0067 — SPI + DFX + TCK Co-Design"
+    raw_path: docs/adr/0067-spi-dfx-tck-codesign.md
+    normalized_path: ""
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "ledger-only (raw ADR absent from the YAML-only fact layer; AdrFactExtractor parses docs/adr/*.yaml only); current_state read from the raw decision"
+    required_follow_up: "author normalized view AND/OR widen AdrFactExtractor to the Markdown/locked sources (close the fact-layer gap)"
+    owner: chao
+    due_wave: W6
+  - adr: ADR-0068
+    title: "Layered 4+1 and Architecture Graph as Twin Sources of Truth"
+    raw_path: docs/adr/0068-layered-4plus1-and-architecture-graph.yaml
+    normalized_path: docs/adr/normalized/ADR-0068.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0069
+    title: "Layer-0 Ironclad Rules — promotion of LucioIT W1 §6/§7 to governing principles"
+    raw_path: docs/adr/0069-l0-ironclad-rules.yaml
+    normalized_path: docs/adr/normalized/ADR-0069.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0070
+    title: "Cursor Flow + Skill Capacity Runtime — activation of Rules 36.b and 41.b"
+    raw_path: docs/adr/0070-cursor-flow-and-skill-capacity-runtime.yaml
+    normalized_path: docs/adr/normalized/ADR-0070.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0071
+    title: "Engine Contract Structural Wave — umbrella for ADR-0072..0075 + L0 principle P-M"
+    raw_path: docs/adr/0071-engine-contract-structural-wave.yaml
+    normalized_path: docs/adr/normalized/ADR-0071.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0072
+    title: "Engine Envelope + Strict Matching — first L1 expression of P-M"
+    raw_path: docs/adr/0072-engine-envelope-and-strict-matching.yaml
+    normalized_path: docs/adr/normalized/ADR-0072.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0073
+    title: "Engine Lifecycle Hooks + Runtime-Owned Middleware SPI — second L1 expression of P-M"
+    raw_path: docs/adr/0073-engine-hooks-and-runtime-middleware.yaml
+    normalized_path: docs/adr/normalized/ADR-0073.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0074
+    title: "Server-to-Client (S2C) Capability Callback Protocol — third L1 expression of P-M"
+    raw_path: docs/adr/0074-s2c-capability-callback.yaml
+    normalized_path: docs/adr/normalized/ADR-0074.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0075
+    title: "Evolution Scope Boundary -- server-controlled evolution surface, fourth L1 expression of P-M"
+    raw_path: docs/adr/0075-evolution-scope-boundary.yaml
+    normalized_path: docs/adr/normalized/ADR-0075.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0076
+    title: "R2 Pilot - Runtime Self-Validates Engine Envelope Schema on Boot"
+    raw_path: docs/adr/0076-r2-pilot-runtime-self-validation.yaml
+    normalized_path: docs/adr/normalized/ADR-0076.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0077
+    title: "Schema-First Domain Contracts — codify the W2.x prose-enum prohibition (P-M cross-cutting)"
+    raw_path: docs/adr/0077-schema-first-domain-contracts.yaml
+    normalized_path: docs/adr/normalized/ADR-0077.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0078
+    title: "agent-service consolidation: fold agent-platform + agent-runtime into a single Maven module"
+    raw_path: docs/adr/0078-agent-service-consolidation.yaml
+    normalized_path: docs/adr/normalized/ADR-0078.yaml
+    current_state: active_guidance
+    supersedes:
+      - "ADR-0055"
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0079
+    title: "T2.B2 engine extraction with shared agent-runtime-core (resolves the Run/RunContext back-dep)"
+    raw_path: docs/adr/0079-engine-extraction-runtime-core.yaml
+    normalized_path: ""
+    current_state: superseded
+    supersedes: []
+    superseded_by:
+      - "ADR-0088"
+    remediation_action: "marked superseded (adrs.json status=superseded); no normalized view required for a superseded record"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0080
+    title: "ResilienceContract .spi package alignment + Rule R-D sub-clause .f prevention"
+    raw_path: docs/adr/0080-resilience-contract-spi-package-alignment.yaml
+    normalized_path: docs/adr/normalized/ADR-0080.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0081
+    title: "ResilienceContract dual-surface reconciliation (operation-policy + skill-capacity)"
+    raw_path: docs/adr/0081-resilience-contract-dual-surface-reconciliation.yaml
+    normalized_path: docs/adr/normalized/ADR-0081.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0082
+    title: "GraphMemoryRepository canonical ownership + module-metadata.yaml is single source of truth for SPI ownership topology"
+    raw_path: docs/adr/0082-graphmemory-ownership-canonical-and-topology-truth.yaml
+    normalized_path: docs/adr/normalized/ADR-0082.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0086
+    title: "Rule Namespace Ratchet — adopt P-/R-/D-/G-/M- prefix scheme"
+    raw_path: docs/adr/0086-rule-namespace-ratchet.yaml
+    normalized_path: docs/adr/normalized/ADR-0086.yaml
+    current_state: partial_guidance
+    supersedes:
+      - "ADR-0083"
+      - "ADR-0084"
+      - "ADR-0085"
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0087
+    title: "L0 rc12 authority ratchet + deploy-truth + contract truth + terminal-verb scope"
+    raw_path: docs/adr/0087-l0-rc12-authority-ratchet-and-deploy-truth.yaml
+    normalized_path: docs/adr/normalized/ADR-0087.yaml
+    current_state: remediation_record
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0088
+    title: "Dissolve agent-runtime-core; redistribute kernel SPI to semantic-home modules; align L0 reactor with 6-module narrative"
+    raw_path: docs/adr/0088-agent-runtime-core-dissolution.yaml
+    normalized_path: docs/adr/normalized/ADR-0088.yaml
+    current_state: active_guidance
+    supersedes:
+      - "ADR-0079"
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0089
+    title: "Edge-Plane Ingress Gateway Mandate — client → bus → server is the only allowed C2S topology"
+    raw_path: docs/adr/0089-edge-plane-ingress-gateway-mandate.yaml
+    normalized_path: docs/adr/normalized/ADR-0089.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0090
+    title: "rc14 Cross-Authority Parity + Engine Package Semantic-Home (L-α..L-η wave)"
+    raw_path: docs/adr/0090-rc14-cross-authority-parity-and-engine-semantic-home.yaml
+    normalized_path: docs/adr/normalized/ADR-0090.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0091
+    title: "rc15 Structural-Carrier Parity + Terminal-State Scope Widening (M-α..M-η wave)"
+    raw_path: docs/adr/0091-rc15-structural-carrier-parity-and-terminal-state-scope.yaml
+    normalized_path: docs/adr/normalized/ADR-0091.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0092
+    title: "Ultimate Architecture Ledger Acknowledgment + Agent-OS Scope Boundary"
+    raw_path: docs/adr/0092-ledger-acknowledgment-and-agent-os-scope-boundary.yaml
+    normalized_path: docs/adr/normalized/ADR-0092.yaml
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0093
+    title: "rc16 Recurring-Family Comprehensive Closure + META Scope Completeness"
+    raw_path: docs/adr/0093-rc16-recurring-family-comprehensive-closure-and-meta-scope-completeness.yaml
+    normalized_path: docs/adr/normalized/ADR-0093.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0094
+    title: "rc17 Recurring-Defect Family Truth + Rule Consolidation"
+    raw_path: docs/adr/0094-rc17-recurring-defect-family-truth-and-rule-consolidation.yaml
+    normalized_path: docs/adr/normalized/ADR-0094.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0095
+    title: "rc18 Comprehensive Hardening — Rule 111 Self-Hardening + Pattern Sweep + Naming/Structural Cleanup + Enforcer Normalization + META"
+    raw_path: docs/adr/0095-rc18-comprehensive-hardening.yaml
+    normalized_path: docs/adr/normalized/ADR-0095.yaml
+    current_state: remediation_record
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0096
+    title: "rc19 META-Recursion Permanent Close — Python YAML Parser + Rule 112/113/114 + Multi-Wave Runbook"
+    raw_path: docs/adr/0096-rc19-meta-recursion-permanent-close.yaml
+    normalized_path: docs/adr/normalized/ADR-0096.yaml
+    current_state: remediation_record
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0097
+    title: "rc20 — Meta-recursion actually-close + D-9 (no version/log metadata in code) + G-7 invocation extension"
+    raw_path: docs/adr/0097-rc20-meta-recursion-actually-close-plus-d9.yaml
+    normalized_path: docs/adr/normalized/ADR-0097.yaml
+    current_state: remediation_record
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0098
+    title: "rc21 — 6-phase scenario-loaded contracts + Rule G-10 (parallel-Linux-scripts) + Rule G-11 (phase-contract allocation coherence)"
+    raw_path: docs/adr/0098-rc21-scenario-phase-contracts-and-new-discipline-rules.yaml
+    normalized_path: docs/adr/normalized/ADR-0098.yaml
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0099
+    title: "rc22 — L1 Architecture Depth & Grounding (Rule G-1.1) + Tree-Parser + SPI-Appendix-Scanner"
+    raw_path: docs/adr/0099-rc22-l1-architecture-depth-and-grounding.yaml
+    normalized_path: docs/adr/normalized/ADR-0099.yaml
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0100
+    title: "rc22 — agent-service L1 runtime-role decomposition (5-component model + Run≤Task≤Session lifecycle + 3 new SPIs + Yield/SuspendSignal coexistence)"
+    raw_path: docs/adr/0100-rc22-agent-service-l1-runtime-role-decomposition.yaml
+    normalized_path: docs/adr/normalized/ADR-0100.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0101
+    title: "rc22 — Polymorphic Deployment Topology (Mode A Platform-Centric + Mode B Business-Centric) + deployment-loci SSOT"
+    raw_path: docs/adr/0101-rc22-polymorphic-deployment-topology.yaml
+    normalized_path: docs/adr/normalized/ADR-0101.yaml
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0102
+    title: "rc22 — Evolution Plane Online/Offline Duality (Offline T+1 + Online Dual-Track Fast/Slow) + 2×2 Mode×Modality matrix"
+    raw_path: docs/adr/0102-rc22-evolution-plane-online-offline-duality.yaml
+    normalized_path: docs/adr/normalized/ADR-0102.yaml
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0103
+    title: "rc22 — agent-middleware naming resolution (REJECT rename + REJECT 7th module) + Capability-Services distribution across the six modules"
+    raw_path: docs/adr/0103-rc22-agent-middleware-naming-and-capability-services-distribution.yaml
+    normalized_path: docs/adr/normalized/ADR-0103.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0104
+    title: "rc22 — Package-root migration (decision; rc22.5 executes)"
+    raw_path: docs/adr/0104-rc22-package-root-migration-to-com-huawei-ascend.yaml
+    normalized_path: docs/adr/normalized/ADR-0104.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0105
+    title: "rc32 — residual corrective + F-bulk-scrub-orphan-syntax registration + family-surface sanitizer glob expansion + per-rule timeout bump"
+    raw_path: docs/adr/0105-rc32-residual-corrective-family-truth-and-sanitizer-fix.yaml
+    normalized_path: docs/adr/normalized/ADR-0105.yaml
+    current_state: remediation_record
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0106
+    title: "Run.version field — two-phase W1.5 + W2 migration to avoid in-flight CAS gap"
+    raw_path: docs/adr/0106-run-version-two-phase-migration.yaml
+    normalized_path: docs/adr/normalized/ADR-0106.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0107
+    title: "Federation acyclicity — central RunRegistry ancestor reconstruction (caller list advisory)"
+    raw_path: docs/adr/0107-federation-ancestor-reconstruction-via-runregistry.yaml
+    normalized_path: docs/adr/normalized/ADR-0107.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0108
+    title: "Tenant re-authorization widening (read + resume) + GraphMemoryRepository tenant-scoped traversal"
+    raw_path: docs/adr/0108-tenant-reauth-widening-and-graph-isolation.yaml
+    normalized_path: docs/adr/normalized/ADR-0108.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0109
+    title: "S2C callback + ingress envelope — server-identity proof (mTLS fingerprint or signed JWT)"
+    raw_path: docs/adr/0109-s2c-and-ingress-server-identity-proof.yaml
+    normalized_path: docs/adr/normalized/ADR-0109.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0110
+    title: "Audit log tamper-evidence (per-tenant hash-chain + Merkle anchor) + Hook PII failsafe carve-out via @SafetyCritical"
+    raw_path: docs/adr/0110-audit-tamper-evidence-and-hook-pii-failsafe.yaml
+    normalized_path: docs/adr/normalized/ADR-0110.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0111
+    title: "Sandbox W2-W3 startup gate + Vault rotation policy + OTLP per-tenant binding + Outbox replay safety"
+    raw_path: docs/adr/0111-sandbox-routing-vault-rotation-otlp-tenant-outbox-replay.yaml
+    normalized_path: docs/adr/normalized/ADR-0111.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0112
+    title: "Engine stateless executor — value-based yield (no checked exception); A2A InterruptType ↔ SuspendReason mapping"
+    raw_path: docs/adr/0112-engine-stateless-executor-value-based-yield.yaml
+    normalized_path: docs/adr/normalized/ADR-0112.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0113
+    title: "Hook chain — two-level failure semantics (chain fail-fast + invocation failsafe) + @Order tie-break determinism"
+    raw_path: docs/adr/0113-hook-ordering-failsafe-coherence-and-tie-break.yaml
+    normalized_path: docs/adr/normalized/ADR-0113.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0114
+    title: "Implementation feasibility batched closures (10 R1-feasibility findings)"
+    raw_path: docs/adr/0114-implementation-feasibility-batched-closures.yaml
+    normalized_path: docs/adr/normalized/ADR-0114.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0115
+    title: "agent-service L1 expansion acceptance — dual modes, 4-layer state, Dual-Track router, A2A as protocol boundary"
+    raw_path: docs/adr/0115-agent-service-l1-expansion-acceptance.yaml
+    normalized_path: docs/adr/normalized/ADR-0115.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0116
+    title: "rc36 exhaustive-audit corrective: kernel-truth gate un-deadening + cancel-CAS + cross-authority alignment"
+    raw_path: docs/adr/0116-rc36-kernel-truth-and-cancel-cas-corrective.yaml
+    normalized_path: docs/adr/normalized/ADR-0116.yaml
+    current_state: remediation_record
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0117
+    title: "rc37 strategic repositioning: Ascend/Kunpeng hardware-synergy platform; drop FSI as lead vertical; resolve brand identity"
+    raw_path: docs/adr/0117-rc37-ascend-kunpeng-strategic-repositioning.yaml
+    normalized_path: docs/adr/normalized/ADR-0117.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0118
+    title: "rc38 audit-corrective: parallel-review latent-correctness + deploy-packaging fixes; register the non-atomic-run-status-write family"
+    raw_path: docs/adr/0118-rc38-audit-corrective-latent-correctness-and-deploy-packaging.yaml
+    normalized_path: docs/adr/normalized/ADR-0118.yaml
+    current_state: remediation_record
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0119
+    title: "Single-Source Rendering for derived architecture documents (release notes, READMEs, contract catalog, recurring-families.md, L1 ARCHITECTURE.md): Rule G-13 + Falcon 11-wave roadmap"
+    raw_path: docs/adr/0119-single-source-rendering.yaml
+    normalized_path: docs/adr/normalized/ADR-0119.yaml
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0120
+    title: "Brand & Audience B alignment: KEEP `spring-ai-ascend` identity and Audience B promise; close the L0 agentic-primitive contract gap"
+    raw_path: docs/adr/0120-brand-audience-b-alignment.yaml
+    normalized_path: docs/adr/normalized/ADR-0120.yaml
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0121
+    title: "ModelGateway SPI: tenant-scoped, hook-bound, pure-Java `ModelResponse invoke(ModelInvocation)` shape; Spring AI ChatModel is the reference adapter"
+    raw_path: docs/adr/0121-model-gateway-spi.yaml
+    normalized_path: docs/adr/normalized/ADR-0121.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0122
+    title: "Tool vs Skill semantic resolution: `Tool` is a `SkillKind` enum value; one unified `Skill` SPI and registry; Spring AI `ToolCallback` is one Skill adapter"
+    raw_path: docs/adr/0122-tool-skill-semantic-resolution.yaml
+    normalized_path: docs/adr/normalized/ADR-0122.yaml
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0123
+    title: "Memory unified SPI: `MemoryStore<K, V>` parameterized by `MemoryCategory` (M1-M6); CQRS split (MemoryReader / MemoryWriter); M3 SemanticMemoryStore + M5 KnowledgeMemoryStore marker interfaces land alongside existing M2/M4"
+    raw_path: docs/adr/0123-memory-unified-spi.yaml
+    normalized_path: docs/adr/normalized/ADR-0123.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0124
+    title: "VectorStore / Retriever / EmbeddingModel SPIs: tenant-scoped decorators of Spring AI types; RAG becomes a first-class platform extension seam"
+    raw_path: docs/adr/0124-vector-retrieval-embedding-spi.yaml
+    normalized_path: docs/adr/normalized/ADR-0124.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0125
+    title: "Spring AI integration boundary: Spring AI is the canonical Model / Tool / Vector / Embedding abstraction; platform SPIs are thin decorators"
+    raw_path: docs/adr/0125-spring-ai-integration-boundary.yaml
+    normalized_path: docs/adr/normalized/ADR-0125.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0126
+    title: "Planner SPI: `Planner.plan(PlanningRequest)` returning a `Plan` DAG (steps, dependencies, branch points, loop annotations); distinguishes planner OUTPUT from `plan-projection.v1.yaml` scheduler INPUT"
+    raw_path: docs/adr/0126-planner-spi.yaml
+    normalized_path: docs/adr/normalized/ADR-0126.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0127
+    title: "Skill SPI: unified lifecycle interface with `SkillKind` discriminator; Spring AI ToolCallback adapts via Wave C1; reuses existing SkillCapacityRegistry + ResilienceContract"
+    raw_path: docs/adr/0127-skill-spi-tool-unification.yaml
+    normalized_path: docs/adr/normalized/ADR-0127.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0128
+    title: "Agent first-class SPI: `Agent` binds (identity, modelBinding, toolBindings, memoryBindings, systemPrompt, safetyPolicy); `AgentDefinition` + `AgentRegistry` complete the entry-point surface"
+    raw_path: docs/adr/0128-agent-first-class-entity.yaml
+    normalized_path: docs/adr/normalized/ADR-0128.yaml
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0129
+    title: "Streaming-aware ModelGateway: pure-Java `Stream<ModelResponseChunk>` default; Spring AI ChatModel.stream(...) is the reference adapter source"
+    raw_path: docs/adr/0129-streaming-aware-model-gateway.yaml
+    normalized_path: docs/adr/normalized/ADR-0129.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0130
+    title: "StructuredOutputConverter<T> SPI: pure-Java generic converter shape; Spring AI BeanOutputConverter is the reference adapter source"
+    raw_path: docs/adr/0130-structured-output-converter-spi.yaml
+    normalized_path: docs/adr/normalized/ADR-0130.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0131
+    title: "PromptTemplate SPI: tenant-scoped, sealed-source, pure-Java template-rendering boundary; Spring AI PromptTemplate is the reference adapter"
+    raw_path: docs/adr/0131-prompt-template-spi.yaml
+    normalized_path: docs/adr/normalized/ADR-0131.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0132
+    title: "ChatAdvisor SPI: tenant-scoped, around-call interceptor chain over ModelGateway; HookDispatcher stays platform-internal"
+    raw_path: docs/adr/0132-chat-advisor-spi.yaml
+    normalized_path: docs/adr/normalized/ADR-0132.yaml
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0133
+    title: "ConversationMemory: MemoryStore<String, ConversationWindow> variant for windowed FIFO + token-budget pruning + summarise-and-compact"
+    raw_path: docs/adr/0133-conversation-memory-spi-variant.yaml
+    normalized_path: docs/adr/normalized/ADR-0133.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0134
+    title: "Tool-Call Iteration Loop: agent-driven vs. planner-driven execution modes for LLM <-> Tool <-> LLM iteration"
+    raw_path: docs/adr/0134-tool-call-iteration-loop.yaml
+    normalized_path: docs/adr/normalized/ADR-0134.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0135
+    title: "AgentSession as Run-Projection: no separate AgentSession SPI; conversation continuity is a (tenantId, conversationId) projection over the Run sequence + M2_EPISODIC ConversationMemory"
+    raw_path: docs/adr/0135-agent-session-as-run-projection.yaml
+    normalized_path: docs/adr/normalized/ADR-0135.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0136
+    title: "Vocabulary Reconciliation: PR 71 'Task' ≡ existing platform Task entity (not Run alias); Run / Task / Session / Memory 4-layer hierarchy preserved per ADR-0100"
+    raw_path: docs/adr/0136-vocabulary-reconciliation-pr71-task-vs-run.yaml
+    normalized_path: docs/adr/normalized/ADR-0136.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0137
+    title: "SuspendSignal remains canonical; InterruptSignal / InterruptReason are L1 glossary synonyms only (no Java rename per ADR-0100 §rejected-framings)"
+    raw_path: docs/adr/0137-suspendsignal-canonical-interruptsignal-glossary.yaml
+    normalized_path: docs/adr/normalized/ADR-0137.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0138
+    title: "agent-service 5-layer L1 ratification: PR 71 layers (Access / Session&Task / EventQueue / Task-Centric / EngineAdapter) ↔ ADR-0100 components (Dispatcher / Orchestrator / TaskCenter / SessionManager / EngineAdapter) + Run≤Task≤Session≤Memory lifecycle; reject single-queue + 3-mode; require tenantId-first ER + cancel-race-aware state machine"
+    raw_path: docs/adr/0138-agent-service-five-layer-l1-ratification.yaml
+    normalized_path: docs/adr/normalized/ADR-0138.yaml
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0139
+    title: "Fast-Path / Slow-Path narrowed semantics: Fast-Path = in-process reactive synchronous + tenantId/RLS preserved + metadata persistence mandatory; Slow-Path = persistent reactive + SuspendSignal + ResumeDispatcher; neither path may violate Rule R-G / R-H / R-J.a"
+    raw_path: docs/adr/0139-fast-slow-path-narrowed-semantics.yaml
+    normalized_path: docs/adr/normalized/ADR-0139.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0140
+    title: "Engine Adapter Layer split: Layer 5 in ADR-0138 5-layer model decomposes into Layer 5a (Engine Dispatch & Execution: EngineRegistry + ExecutorAdapter impls) and Layer 5b (Translation & Tool-Intercept: ContextProjector + PromptTemplate + StructuredOutputConverter + ChatAdvisor); RuntimeMiddleware moves exclusively into Layer 4 Control"
+    raw_path: docs/adr/0140-engine-adapter-layer-split.yaml
+    normalized_path: docs/adr/normalized/ADR-0140.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0141
+    title: "Internal Event Queue (ADR-0138 Layer 3) is a design_only sub-section of agent-service L1 until a service.queue/ sub-package + Boundary Contract land; current state shows the Layer 3 binding-only role over the three-track bus; no peer-layer code home exists at rc55"
+    raw_path: docs/adr/0141-internal-event-queue-design-only.yaml
+    normalized_path: docs/adr/normalized/ADR-0141.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0142
+    title: "Run aggregate (Run record + RunStatus + RunStateMachine + RunRepository) is OWNED EXCLUSIVELY by Layer 2 Session & Task Manager in the ADR-0138 5-layer L1 model; Layer 4 Task-Centric Control holds a typed reference and invokes RunRepository.updateIfNotTerminal(...) — Layer 4 never writes Run state directly"
+    raw_path: docs/adr/0142-run-aggregate-single-owner.yaml
+    normalized_path: docs/adr/normalized/ADR-0142.yaml
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0143
+    title: "rc53 review file 2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.{en,cn}.md is DEMOTED from canonical L1 4+1 source to historical authoring record; canonical 4+1 source moves to docs/L1/agent-service/{scenarios,logical,process,physical,development,spi-appendix}.md; agent-service/ARCHITECTURE.md §0.5 rewritten to point at the new canonical home"
+    raw_path: docs/adr/0143-review-log-demotion-l1-canonical-move.yaml
+    normalized_path: docs/adr/normalized/ADR-0143.yaml
+    current_state: superseded
+    supersedes: []
+    superseded_by:
+      - "ADR-0150"
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0144
+    title: "Layer ↔ Package matrix unifies the rc22 ADR-0100 5-component package-structural decomposition (Dispatcher/Orchestrator/Task/Session/Engine) with the rc53 ADR-0138 5-layer logical-view decomposition (Access/Manager/Queue/Control/Adapter); the two are NOT competing — they describe orthogonal views and the matrix is the canonical mapping"
+    raw_path: docs/adr/0144-layer-vs-package-matrix.yaml
+    normalized_path: docs/adr/normalized/ADR-0144.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0145
+    title: "Sealed RunEvent hierarchy specification: defines the polymorphic event type that EvolutionExport enum was designed to discriminate; specifies sealed variants required by S1-S5 scenarios; promotes Rule R-M.e (Every emitted RunEvent declares EvolutionExport) from vacuously-true to actively-gated; the actual Java sealed type lands in a follow-up impl-mode wave"
+    raw_path: docs/adr/0145-run-event-sealed-hierarchy.yaml
+    normalized_path: docs/adr/normalized/ADR-0145.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0146
+    title: "SuspendReason taxonomy canonical alignment to 2026-05-22 expansion-proposal-response mapping table: ratifies the 6-variant set {AwaitClientCallback, AwaitChildRun, AwaitToolResult, AwaitTimer, RequiresApproval, RateLimited} as the L1 authority; reconciles prior naming drift across ADR-0019 (AwaitChildren / AwaitExternal / AwaitApproval), ADR-0070 (AwaitChild), ADR-0074 (AwaitClientCallback canonical), and ADR-0112 Part B mapping table (ChildRun / AwaitTool / AwaitApproval); applies the audit's user-directive precedence rule (doc > ADR) to settle the drift"
+    raw_path: docs/adr/0146-suspend-reason-taxonomy-alignment-2026-05-22.yaml
+    normalized_path: docs/adr/normalized/ADR-0146.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0147
+    title: "Structurizr workspace closure as the architecture authoring root, with programmatic mounting"
+    raw_path: docs/adr/0147-structurizr-workspace-authority.yaml
+    normalized_path: docs/adr/normalized/ADR-0147.yaml
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0148
+    title: "Wave 0 spike results — Structurizr workspace authority feasibility"
+    raw_path: docs/adr/0148-architecture-workspace-spike-results.yaml
+    normalized_path: docs/adr/normalized/ADR-0148.yaml
+    current_state: historical_evidence
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0149
+    title: "Structurizr workspace authority — W0..W5 shipped; W6/W7 entry-criteria documented"
+    raw_path: docs/adr/0149-structurizr-workspace-authority-w0-w5-shipped.yaml
+    normalized_path: docs/adr/normalized/ADR-0149.yaml
+    current_state: partial_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0150
+    title: "Architecture design system unified under architecture/ — L1 corpus + module ARCHITECTURE.md consolidated; docs/ is work directory"
+    raw_path: docs/adr/0150-architecture-design-system-unification-under-structurizr.yaml
+    normalized_path: docs/adr/normalized/ADR-0150.yaml
+    current_state: partial_guidance
+    supersedes:
+      - "ADR-0143"
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0151
+    title: "L1 Feature Registry canonical schema — SAA Feature tag + AI Execution Boundary + 9-state lifecycle"
+    raw_path: docs/adr/0151-l1-feature-registry-canonical-schema.yaml
+    normalized_path: docs/adr/normalized/ADR-0151.yaml
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0152
+    title: "Uniform L1 per-view mechanism + L0 mounting under architecture/docs/L0/"
+    raw_path: docs/adr/0152-uniform-l1-per-view-mechanism-and-l0-mounting.yaml
+    normalized_path: docs/adr/normalized/ADR-0152.yaml
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0153
+    title: "L1 Feature Registry closure — Rule G-14 blocking flip + plan completion"
+    raw_path: docs/adr/0153-l1-feature-registry-closure.yaml
+    normalized_path: docs/adr/normalized/ADR-0153.yaml
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0154
+    title: "Fact-Layer Authority — generated structured facts as the AI's primary L1 input"
+    raw_path: docs/adr/0154-fact-layer-authority.yaml
+    normalized_path: docs/adr/normalized/ADR-0154.yaml
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0155
+    title: "AgentService L1 v1.2 — internal module design absorption (M1–M6 + 6 boundary reversals)"
+    raw_path: docs/adr/0155-agent-service-l1-v1-2-internal-module-design.yaml
+    normalized_path: docs/adr/normalized/ADR-0155.yaml
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0156
+    title: "Product Authority and Traceability Chain — ProductClaim as the binding axis between product, architecture, and governance"
+    raw_path: docs/adr/0156-product-authority-and-traceability.yaml
+    normalized_path: docs/adr/normalized/ADR-0156.yaml
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0157
+    title: "EngineeringFrame Ontology — structural axis between Module and FunctionPoint for dual-track architecture"
+    raw_path: docs/adr/0157-engineering-frame-ontology.yaml
+    normalized_path: docs/adr/normalized/ADR-0157.yaml
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0158
+    title: "Engine Boundary (EnginePort) — transport-agnostic Service↔Engine contract absorbed into agent-bus for the three deployment forms"
+    raw_path: docs/adr/0158-engine-port-transport-agnostic-boundary.yaml
+    normalized_path: docs/adr/normalized/ADR-0158.yaml
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0159
+    title: "Progressive Learning Curve and Authority Lanes — the eight-node software-engineering chain, its single-owner lanes, and the granularity ladder as decision authority"
+    raw_path: docs/adr/0159-progressive-learning-curve-and-authority-lanes.yaml
+    normalized_path: docs/adr/normalized/ADR-0159.yaml
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0160
+    title: "ADR Governance Model — every raw ADR has a ledger entry; every accepted ADR has a normalized view with five current_state values; architecture review reads the normalized view, not raw prose"
+    raw_path: docs/adr/0160-adr-governance-model.yaml
+    normalized_path: docs/adr/normalized/ADR-0160.yaml
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+  - adr: ADR-0161
+    title: "EngineeringFrame as Package-Cluster Anchor + Card-over-DSL — the Frame Card is a readable interpretation of DSL+facts, never authority"
+    raw_path: docs/adr/0161-engineering-frame-package-cluster-anchor-and-card-over-dsl.yaml
+    normalized_path: docs/adr/normalized/ADR-0161.yaml
+    current_state: active_guidance
+    supersedes: []
+    superseded_by: []
+    remediation_action: "normalized view authored; current_state mirrored from the view"
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
 
-# Coverage targets (advisory; ratified against the live corpus by the
-# normalization wave, NOT asserted as final counts here per ADR-0160 — "this
-# ADR asserts no final counts"). Recorded so the gate can later check totality:
-#   * Active YAML ADRs (docs/adr/*.yaml) — enumerated in
-#     architecture/facts/generated/adrs.json.
-#   * Active/deferred Markdown ADRs (docs/adr/*.md) — present in the raw sources,
-#     absent from adrs.json until AdrFactExtractor is widened.
-#   * Locked Markdown ADRs (docs/adr/locked/*.md) — present in the raw sources,
-#     absent from adrs.json.
-# The ledger is closed only when every raw ADR across these three sets has an
-# entry, and every `accepted` ADR has a normalized view (ADR-0160 acceptance
-# bar). The preferred long-term close of the format gap is widening the
-# extractor to the Markdown/locked sources so the ledger's enumeration becomes
-# a pure projection of adrs.json (ADR-0160 forward-looking).
+# Coverage targets (now RATIFIED against the live corpus). The ledger is closed
+# only when every raw ADR across the three source sets has an entry (it does) and
+# every `accepted` ADR has a normalized view (open for the Markdown/locked set —
+# tracked per entry as required_follow_up / due_wave W6). The preferred long-term
+# close of the format gap is widening AdrFactExtractor to the Markdown/locked
+# sources so this enumeration becomes a pure projection of adrs.json.
 coverage_scope:
+  # The ledger holds ONE entry per raw ADR id across these three source sets;
+  # coverage is TOTAL (every raw ADR id appears exactly once). Tallies below are a
+  # readable projection of the live corpus + the generated fact layer + the
+  # normalized views — re-stated, not asserted as independent authority.
   raw_sources:
     - docs/adr/*.yaml
     - docs/adr/*.md
     - docs/adr/locked/*.md
   fact_layer_source: architecture/facts/generated/adrs.json
   census: docs/governance/remediation-inventory/adr-census.md
+  tallies:
+    entries_total: 157            # one per raw ADR id (unique; ADR-0155 dual-source counted once on its YAML authority)
+    raw_yaml_adrs: 91            # docs/adr/*.yaml (the AdrFactExtractor corpus)
+    raw_markdown_adrs: 55        # Markdown-ONLY ADR ids under docs/adr/*.md (56 ADR *.md files exist, but ADR-0155 also has a YAML source and resolves to it; excludes INDEX.md / README.md / ADR-CLASSIFICATION.md; all absent from the fact layer)
+    raw_locked_adrs: 11          # docs/adr/locked/*.md (absent from the fact layer)
+    with_normalized_view: 90     # every YAML ADR except the one superseded record (ADR-0079)
+    by_current_state:
+      active_guidance: 91
+      partial_guidance: 55
+      superseded: 3
+      historical_evidence: 1
+      remediation_record: 7
+    supersession_edges:
+      with_supersedes: 5        # entries that replace at least one ADR
+      with_superseded_by: 3     # entries replaced by a later ADR (reconciled reverse of supersedes)
+      with_partial_supersession_note: 6  # clause-level grandfather notes (state NOT flipped)
+  # COUNT RECONCILIATION: the adr-census.md snapshot (W0) reported 144 = 88 YAML +
+  # 56 Markdown ADRs and 11 locked, taken before ADR-0159/0160/0161 (and their
+  # normalized views) landed. The live corpus is 157 unique raw ADR ids
+  # (91 YAML + 55 Markdown + 11 locked, with ADR-0155 sharing a YAML + Markdown
+  # source and counted once). This ledger enumerates the LIVE corpus; the census is
+  # regenerated separately and will re-converge on the same totals.
+  # SUPERSESSION CHAINS reconciled here (forward edge from the fact layer / raw
+  # prose; reverse edge closed by this ledger):
+  #   ADR-0078 supersedes ADR-0055; ADR-0055 supersedes ADR-0026 (Markdown grandfather edge)
+  #   ADR-0086 supersedes ADR-0083 / ADR-0084 / ADR-0085 (archived under docs/logs/adr-amendment-narratives/)
+  #   ADR-0088 supersedes ADR-0079
+  #   ADR-0150 supersedes ADR-0143
+  # GRANDFATHER decisions (recorded, not minted as full edges): the four archived
+  # targets (ADR-0026 / ADR-0083 / ADR-0084 / ADR-0085) live under
+  # docs/logs/adr-amendment-narratives/ and are intentionally OUTSIDE coverage_scope
+  # (raw_sources is docs/adr/ + docs/adr/locked/ only); they appear here solely as
+  # the named targets of a supersedes edge so the chain stays auditable. Clause-level
+  # partial supersessions (ADR-0146 over ADR-0019 variant names; ADR-0057 over the
+  # ADR-0027 W1 deferral note; ADR-0043 over the ADR-0041 Section 3 list; ADR-0070 /
+  # ADR-0081 over the ADR-0030 / ADR-0044 capacity plan; ADR-0060 over an L1
+  # release-note section) are carried as per-entry supersession_note, leaving the
+  # affected ADR's current_state unchanged.

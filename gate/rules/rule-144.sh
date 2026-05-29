@@ -16,13 +16,17 @@
 #     historical_adr_governance) — ledger totality (every raw ADR in adrs.json
 #     has a docs/governance/adr-remediation-ledger.yaml entry) + normalized-view
 #     coverage (every accepted ADR has a normalized view).
-# Both run in ADVISORY mode here: they report findings but never block, because
-# the dedicated normalization wave back-fills docs/adr/normalized/ after this
-# gate lands. The helper-missing branch still fails closed. Promotion to
-# changed-files-blocking then full-blocking is the ADR-0160 ratchet, tracked in
-# the rule card. A missing python interpreter is a vacuous pass (Rule G-7 lists
-# WSL as the canonical env); a missing PyYAML surfaces as the helper's own
-# config error, reported but (advisory) non-blocking.
+# The taxonomy helper (E192) runs ADVISORY here: it reports findings but does not
+# block. The historical-ADR helper (E193) is BLOCKING: the dedicated
+# normalization wave back-filled the ledger + docs/adr/normalized/ to TOTAL
+# coverage (every raw ADR in adrs.json has a ledger entry; every accepted ADR has
+# a normalized view), so the ledger-totality + normalized-view-coverage assertion
+# is the ADR-0160 ratchet's full-blocking rung and an un-entried raw ADR or an
+# accepted ADR with no view now fails the gate. The helper-missing branch still
+# fails closed; a non-zero helper rc (a vanished apex adrs.json, OR a real
+# coverage finding under --mode blocking) is a hard fail. A missing python
+# interpreter is a vacuous pass (Rule G-7 lists WSL as the canonical env); a
+# missing PyYAML surfaces as the helper's own config error.
 #
 # scope_surfaces: docs/governance/adr-taxonomy.yaml, docs/governance/adr-governance-policy.yaml, docs/governance/adr-remediation-ledger.yaml, docs/adr/normalized/*, architecture/facts/generated/adrs.json, gate/lib/check_adr_taxonomy.py, gate/lib/check_historical_adr_governance.py
 # ---------------------------------------------------------------------------
@@ -49,17 +53,20 @@ if [[ ! -f "$_r144_hist_helper" ]]; then
 elif [[ -z "$GATE_PYTHON_BIN" ]]; then
   : # vacuous pass on hosts without python (Rule G-7 lists WSL as canonical env)
 else
-  _r144_hist_out=$("$GATE_PYTHON_BIN" "$_r144_hist_helper" --mode advisory 2>&1)
+  _r144_hist_out=$("$GATE_PYTHON_BIN" "$_r144_hist_helper" --mode blocking 2>&1)
   _r144_hist_rc=$?
-  # A missing adrs.json is fatal in the helper (rc 1 even in advisory mode) —
-  # surface it as a real fail here so a vanished apex fact never green-washes.
+  # Blocking: a non-zero rc is either a fatal ERROR (a vanished apex adrs.json —
+  # the helper exits 1 in every mode) or a real coverage finding (a raw ADR with
+  # no ledger entry, or an accepted ADR with no normalized view). Surface the
+  # first ERROR/BLOCKING line so neither a vanished apex fact nor a coverage gap
+  # ever green-washes.
   if [[ $_r144_hist_rc -ne 0 ]]; then
-    _r144_hist_err=$(printf '%s' "$_r144_hist_out" | grep -E '^ERROR:' | head -1)
+    _r144_hist_err=$(printf '%s' "$_r144_hist_out" | grep -E '^(ERROR|BLOCKING):' | head -1)
     fail_rule "historical_adr_governance" "${_r144_hist_err:-historical-ADR governance helper exited $_r144_hist_rc} -- Rule G-28 / E193"
     _r144_hist_fail=1
   else
-    _r144_hist_sum=$(printf '%s' "$_r144_hist_out" | grep -E '^(ADVISORY|OK):' | tail -1)
-    [[ -n "$_r144_hist_sum" ]] && echo "ADVISORY (Rule G-28 / E193): $_r144_hist_sum"
+    _r144_hist_sum=$(printf '%s' "$_r144_hist_out" | grep -E '^OK:' | tail -1)
+    [[ -n "$_r144_hist_sum" ]] && echo "PASS (Rule G-28 / E193): $_r144_hist_sum"
   fi
 fi
 [[ $_r144_hist_fail -eq 0 ]] && pass_rule "historical_adr_governance"
