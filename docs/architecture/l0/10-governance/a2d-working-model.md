@@ -79,6 +79,7 @@ H3 人类审核例外和发布风险
 | [a2d-views.md](a2d-views.md) | 双视图模型、验收口径和最小工作包 |
 | [a2d-phases/](a2d-phases/) | AI 阶段契约（按阶段加载） |
 | [change-governance.md](change-governance.md) | 变更分级规则 |
+| [layer-update-protocol.md](layer-update-protocol.md) | 多层更新协议（L0/L1/L2 联动工作顺序） |
 | [architecture-review-process.md](architecture-review-process.md) | 评审流程和 Finding 格式 |
 | [document-artifact-catalog.md](document-artifact-catalog.md) | 目录职责索引 |
 

@@ -1,6 +1,6 @@
 ---
 level: L0
-view: scenarios
+view: governance
 status: draft
 ---
 
@@ -46,13 +46,13 @@ Principle -> Capability -> Ownership -> Contract -> Scenario
 | L0 Principles | [l0/00-overview/system-principles.md](l0/00-overview/system-principles.md) | 把治理原则翻译为交付约束 |
 | Glossary | [l0/00-overview/glossary.md](l0/00-overview/glossary.md) | 统一术语，避免 Task / Run / Agent / Skill 混用 |
 | Capability | [01-capabilities/capability-map.md](l0/01-capabilities/capability-map.md) | 从能力出发映射模块和验证方式 |
-| Module | [02-modules/module-responsibility-cards.md](l0/02-modules/module-responsibility-cards.md) | 核心模块责任卡 |
-| Module Development Pack | [02-modules/agent-service/](l0/02-modules/agent-service/) | `agent-service` 准入式迁移、L1 逻辑设计和并行开发切片 |
-| State | [03-state/state-ownership-matrix.md](l0/03-state/state-ownership-matrix.md) | 状态唯一 owner、writer、reader 和 forbidden writer |
-| ADR Drafts | [04-adrs/](l0/04-adrs/) | 交付视角的 ADR 草案，不替代 `docs/adr/` |
+| Module | [04-modules/module-responsibility-cards.md](l0/04-modules/module-responsibility-cards.md) | 核心模块责任卡 |
+| Module Development Pack | [04-modules/agent-service/](l0/04-modules/agent-service/) | `agent-service` 兼容入口；权威 L1 4+1 位于 `l0/l1/agent-service/` |
+| State | [06-state/state-ownership-matrix.md](l0/06-state/state-ownership-matrix.md) | 状态唯一 owner、writer、reader 和 forbidden writer |
+| ADR Drafts | [03-adrs/](l0/03-adrs/) | 交付视角的 ADR 草案，不替代 `docs/adr/` |
 | ICD | [05-contracts/human-readable/](l0/05-contracts/human-readable/) | 人类可读交互契约 |
 | Contract YAML | [05-contracts/machine-readable/](l0/05-contracts/machine-readable/) | 可生成 mock、stub、contract test 的草案 |
-| Scenario | [06-scenarios/](l0/06-scenarios/) | BA-* 业务活动级核心场景、technical sub-scenarios 和可测试断言 |
+| Scenario | [02-scenarios/](l0/02-scenarios/) | BA-* 业务活动级核心场景、technical sub-scenarios 和可测试断言 |
 | Invariants | [07-invariants/architecture-invariants.md](l0/07-invariants/architecture-invariants.md) | 可检查架构不变量 |
 | Harness | [08-harness/](l0/08-harness/) | 模块 harness 规格 |
 | Verification | [09-verification/verification-matrix.md](l0/09-verification/verification-matrix.md) | 设计项到验证方式的矩阵 |
@@ -72,7 +72,7 @@ Principle -> Capability -> Ownership -> Contract -> Scenario
 4. 如果本目录与权威来源冲突，以权威来源为准，并在 [constraint-and-design-inventory.md](l0/constraint-and-design-inventory.md) 记录 Conflict。
 5. 机器可读 YAML 是 harness-first 草案，进入生产契约前必须迁移或同步到 `docs/contracts/` 并补齐 ADR、catalog 和 gate 绑定。
 6. 文档自身必须遵守 [Architecture Documentation Constraints](l0/10-governance/architecture-documentation-constraints.md)；过程检查发现的新模式问题要回填到该文件。
-7. 核心场景必须是 BA-* 业务活动场景；S1-S6 这类机制场景只能作为 `06-scenarios/technical/` 下的技术子场景。
+7. 核心场景必须是 BA-* 业务活动场景；S1-S6 这类机制场景只能作为 `02-scenarios/technical/` 下的技术子场景。
 8. 版本意图、版本架构边界、需求归一化、场景建模、能力拆解、模块设计、harness、实现任务和版本归档必须遵守 [A2D Working Model](l0/10-governance/a2d-working-model.md)；目录只作为活动产物的归档位置。
 9. 新增、删除、改名或改变职责的目录必须同步更新 [Document Artifact Catalog](l0/10-governance/document-artifact-catalog.md)；目录内部文件由目录 README 或模块级 catalog 继续展开。
 10. L1 必须挂在 `l0/l1/<service>/` 下；L2 必须挂在对应 L1 服务目录的 `l2/<topic>/` 下。

@@ -12,7 +12,7 @@ human_review_density: light
 
 按顺序执行以下活动（跳过不影响本版本的）：
 
-### 活动 A1：架构准入判定
+### 活动 1：架构准入判定
 
 在生成产物前，先对每个待处理项做准入分类。分类集合固定为 9 类：
 
@@ -33,7 +33,7 @@ Reject                    # 不进入本次设计
 
 产出归档：`10-governance/admission-decisions/<id>.md`
 
-### 活动 A2：场景建模
+### 活动 2：场景建模
 
 - 从业务需求生成或更新 BA-* 业务活动场景
 - 抽取技术子场景
@@ -41,7 +41,7 @@ Reject                    # 不进入本次设计
 
 产出归档：`02-scenarios/BA-xxx-*.md`、`02-scenarios/technical/Sx-*.md`
 
-### 活动 A3：能力拆解
+### 活动 3：能力拆解
 
 - 从场景抽取能力候选
 - 建立能力与模块的承接关系
@@ -49,7 +49,7 @@ Reject                    # 不进入本次设计
 
 产出归档：`01-capabilities/capability-map.md`
 
-### 活动 A4：模块责任承接
+### 活动 4：模块责任承接
 
 - 生成或更新模块责任卡
 - 明确职责、非职责、状态责任、协作边界
@@ -57,7 +57,7 @@ Reject                    # 不进入本次设计
 
 产出归档：`04-modules/module-responsibility-cards.md`、`04-modules/<module>/README.md`
 
-### 活动 A5：状态与契约设计
+### 活动 5：状态与契约设计
 
 - 抽取状态对象，确认 owner / writer / reader
 - 生成或更新 human-readable ICD
@@ -66,7 +66,7 @@ Reject                    # 不进入本次设计
 
 产出归档：`06-state/`、`05-contracts/`、`07-invariants/`
 
-### 活动 A6：模块详细设计
+### 活动 6：模块详细设计
 
 - 对需要进入并行开发的模块，生成模块设计包
 - 对旧设计做准入判定：保留、修正、下沉、废弃

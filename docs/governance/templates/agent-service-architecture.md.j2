@@ -11,22 +11,22 @@ authority: "ADR-0078 (agent-service consolidation) + ADR-0068 (Layered 4+1) + AD
 
 # agent-service — L1 architecture (2026-05-26 rc55 canonical materialization)
 
-> Owner: AgentService team | Wave: W0..W3 | Maturity: shipped (post-Phase-C consolidation of agent-platform + agent-runtime + rc22 5-component decomposition + rc53 5-layer L1 4+1 ratification + rc55 canonical 4+1 materialization under `docs/L1/agent-service/`)
-> Last refreshed: 2026-05-26 (rc55 — canonical 4+1 source moved to `docs/L1/agent-service/` per ADR-0143; this file narrowed to scenarios-view-only with shipped-state grounding)
+> Owner: AgentService team | Wave: W0..W3 | Maturity: shipped (post-Phase-C consolidation of agent-platform + agent-runtime + rc22 5-component decomposition + rc53 5-layer L1 4+1 ratification + rc55 canonical 4+1 materialization under `docs/architecture/l0/l1/agent-service/`)
+> Last refreshed: 2026-05-26 (rc55 — canonical 4+1 source moved to `docs/architecture/l0/l1/agent-service/` per ADR-0143; this file narrowed to scenarios-view-only with shipped-state grounding)
 > Governing rule: Rule R-C — Code-as-Contract (formerly Rule 28; ADR-0059 + ADR-0086 namespace ratchet).
 > Every constraint below maps to at least one row in `docs/governance/enforcers.yaml`.
 
 ## 0.5 Canonical L1 4+1 View Source (rc55 materialization — ADR-0143)
 
-The canonical 4+1 view of this module (Scenarios + Logical + Process + Development + Physical) lives as 5 per-view files under `docs/L1/agent-service/`, per [ADR-0143](../docs/adr/0143-review-log-demotion-l1-canonical-move.yaml):
+The canonical 4+1 view of this module (Scenarios + Logical + Process + Development + Physical) lives as 5 per-view files under `docs/architecture/l0/l1/agent-service/`, per [ADR-0143](../docs/adr/0143-review-log-demotion-l1-canonical-move.yaml):
 
-- **Index:** [`docs/L1/agent-service/README.md`](../docs/L1/agent-service/README.md)
-- **Scenarios View:** [`docs/L1/agent-service/scenarios.md`](../docs/L1/agent-service/scenarios.md) — S1-S5 canonical scenarios
-- **Logical View:** [`docs/L1/agent-service/logical.md`](../docs/L1/agent-service/logical.md) — 5-layer diagram (with ADR-0140 5a/5b Engine Adapter split + ADR-0142 Run aggregate single-owner + ADR-0141 Internal Event Queue design_only sub-section), ER, state machines, SuspendSignal flow, RunEvent hierarchy per ADR-0145, vocabulary glossary
-- **Process View:** [`docs/L1/agent-service/process.md`](../docs/L1/agent-service/process.md) — sequence diagrams P1-P6 (including the cancel-race-loser sequence O3)
-- **Physical View:** [`docs/L1/agent-service/physical.md`](../docs/L1/agent-service/physical.md) — 5-plane deployment + RLS + 3-track bus + sandbox
-- **Development View:** [`docs/L1/agent-service/development.md`](../docs/L1/agent-service/development.md) — package tree (cross-walked vs filesystem) + Layer↔Package matrix per [ADR-0144](../docs/adr/0144-layer-vs-package-matrix.yaml) + 5 L2 Boundary Contracts (Rule G-1.1.c)
-- **SPI Appendix:** [`docs/L1/agent-service/spi-appendix.md`](../docs/L1/agent-service/spi-appendix.md) — 9 active SPIs with 4-way parity (Rule G-1.1.b)
+- **Index:** [`docs/architecture/l0/l1/agent-service/README.md`](../docs/architecture/l0/l1/agent-service/README.md)
+- **Scenarios View:** [`docs/architecture/l0/l1/agent-service/scenarios.md`](../docs/architecture/l0/l1/agent-service/scenarios.md) — S1-S5 canonical scenarios
+- **Logical View:** [`docs/architecture/l0/l1/agent-service/logical.md`](../docs/architecture/l0/l1/agent-service/logical.md) — 5-layer diagram (with ADR-0140 5a/5b Engine Adapter split + ADR-0142 Run aggregate single-owner + ADR-0141 Internal Event Queue design_only sub-section), ER, state machines, SuspendSignal flow, RunEvent hierarchy per ADR-0145, vocabulary glossary
+- **Process View:** [`docs/architecture/l0/l1/agent-service/process.md`](../docs/architecture/l0/l1/agent-service/process.md) — sequence diagrams P1-P6 (including the cancel-race-loser sequence O3)
+- **Physical View:** [`docs/architecture/l0/l1/agent-service/physical.md`](../docs/architecture/l0/l1/agent-service/physical.md) — 5-plane deployment + RLS + 3-track bus + sandbox
+- **Development View:** [`docs/architecture/l0/l1/agent-service/development.md`](../docs/architecture/l0/l1/agent-service/development.md) — package tree (cross-walked vs filesystem) + Layer↔Package matrix per [ADR-0144](../docs/adr/0144-layer-vs-package-matrix.yaml) + 5 L2 Boundary Contracts (Rule G-1.1.c)
+- **SPI Appendix:** [`docs/architecture/l0/l1/agent-service/spi-appendix.md`](../docs/architecture/l0/l1/agent-service/spi-appendix.md) — 9 active SPIs with 4-way parity (Rule G-1.1.b)
 
 **Historical note:** the rc53 review file [`docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.en.md`](../docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.en.md) (+ `.cn.md` sibling) was the original authoring surface for the §§14-20 view content. Per ADR-0143 it is now a **historical authoring record** (freeze-marked); the canonical 4+1 source is the per-view files above. Where the rc53 review file and the canonical per-view files disagree, the canonical files win.
 

@@ -1,6 +1,6 @@
 ---
 level: L1
-view: scenarios
+view: governance
 status: draft
 ---
 
