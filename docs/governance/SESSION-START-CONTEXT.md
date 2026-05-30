@@ -20,6 +20,8 @@ The architecture lives in **two coupled forms** (per ADR-0068 + ADR-0147 + ADR-0
 
 ## Reading order
 
+> **For a top-down, product-first orientation, read [`docs/onboarding/ai-understanding-path.md`](../onboarding/ai-understanding-path.md) first** (source: [`ai-reading-path.yaml`](ai-reading-path.yaml)) — the canonical eight-node SE learning curve read product-first. The architecture-first table below is the structural-traversal session map; the two are coherent (same surfaces, different entry altitude).
+
 This table matches `README.md#Reading-path` step-for-step. Loading these in order produces a complete, unbiased architecture picture.
 
 | Step | Open | Load | Purpose |

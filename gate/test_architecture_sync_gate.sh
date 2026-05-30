@@ -9668,6 +9668,144 @@ EOF
 }
 
 # ---------------------------------------------------------------------------
+# Rule 148 — ai_reading_path (kernel Rule G-31, enforcer E198).
+# Self-test fixtures for gate/lib/check_ai_reading_path.py. The full unit-level
+# coverage lives in gate/test_ai_reading_path.py; these inline fixtures satisfy
+# Rule 89 / E122 sub-check (c) (every prevention-wave Rule >=80 has >=1
+# test_rule_<N>_* fixture in this harness) and smoke the three checks + the
+# advisory rung end-to-end against a synthetic scratch repo.
+# ---------------------------------------------------------------------------
+_g31_reading_path_scratch() {
+  # Materialize a CLEAN reading-path repo the helper reports with 0 findings in
+  # every mode: a minimal data file (step 1 = entry docs, step 2 = a product
+  # step with one present + one planned surface), every present surface + the
+  # companion + the one fact file, the always-load session doc, and a companion
+  # mirror that back-references the YAML and covers both steps.
+  local sroot="$1"
+  mkdir -p "$sroot/gate/lib" \
+           "$sroot/docs/governance" \
+           "$sroot/docs/onboarding" \
+           "$sroot/product" \
+           "$sroot/architecture/facts/generated"
+  cp "$PWD/gate/lib/check_ai_reading_path.py" "$sroot/gate/lib/check_ai_reading_path.py"
+  cat > "$sroot/docs/governance/ai-reading-path.yaml" <<'EOF'
+version: 1
+status: active
+companion_human_form: docs/onboarding/ai-understanding-path.md
+entry_contract:
+  factual_claim_switch:
+    read_before_prose:
+      - architecture/facts/generated/code-symbols.json
+orientation_learning_path:
+  - step: 1
+    name: repository_entry
+    surfaces:
+      - path: README.md
+        presence: present
+      - path: AGENTS.md
+        presence: present
+  - step: 2
+    name: product_definition
+    surfaces:
+      - path: product/PRODUCT.md
+        presence: present
+      - path: architecture/mappings/future-map.yaml
+        presence: planned
+EOF
+  printf 'see docs/governance/ai-reading-path.yaml\n' > "$sroot/README.md"
+  printf 'see docs/onboarding/ai-understanding-path.md\n' > "$sroot/AGENTS.md"
+  printf '# product\n' > "$sroot/product/PRODUCT.md"
+  printf '{"facts": []}\n' > "$sroot/architecture/facts/generated/code-symbols.json"
+  printf 'session start\nsee docs/governance/ai-reading-path.yaml\n' > "$sroot/docs/governance/SESSION-START-CONTEXT.md"
+  printf '# companion\nsource: docs/governance/ai-reading-path.yaml\n## Step 1\n## Step 2\n' > "$sroot/docs/onboarding/ai-understanding-path.md"
+}
+
+test_rule_148_ai_reading_path_greenfield_pos() {
+  # POSITIVE: no reading-path data file yet -> vacuously clean in every mode.
+  local helper="$PWD/gate/lib/check_ai_reading_path.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_148_ai_reading_path_greenfield_pos" "Rule G-31 / Rule 148: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_148_ai_reading_path_greenfield_pos" "Rule G-31 / Rule 148: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r148_greenfield"
+  mkdir -p "$sroot/gate/lib"
+  cp "$helper" "$sroot/gate/lib/check_ai_reading_path.py"
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_ai_reading_path.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 0 ]] && echo "$out" | grep -q "greenfield"; then
+    ok "rule_148_ai_reading_path_greenfield_pos" "Rule G-31 / Rule 148: an absent reading-path data file is vacuously clean (greenfield)"
+  else
+    fail "rule_148_ai_reading_path_greenfield_pos" "Rule G-31 / Rule 148 greenfield case unexpected: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+test_rule_148_ai_reading_path_clean_pos() {
+  # POSITIVE: a complete reading path (every present surface + companion + fact
+  # file resolves, every entry doc routes, the companion covers every step)
+  # passes full-blocking with 0 findings.
+  local helper="$PWD/gate/lib/check_ai_reading_path.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_148_ai_reading_path_clean_pos" "Rule G-31 / Rule 148: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_148_ai_reading_path_clean_pos" "Rule G-31 / Rule 148: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r148_clean"
+  _g31_reading_path_scratch "$sroot"
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_ai_reading_path.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 2 ]]; then
+    ok "rule_148_ai_reading_path_clean_pos" "Rule G-31 / Rule 148: helper config error (likely PyYAML absent) — skipped: $(echo "$out" | head -1)"
+    return
+  fi
+  if [[ $rc -eq 0 ]] && echo "$out" | grep -q "0 finding(s)"; then
+    ok "rule_148_ai_reading_path_clean_pos" "Rule G-31 / Rule 148: a complete, routed reading path passes full-blocking (0 findings)"
+  else
+    fail "rule_148_ai_reading_path_clean_pos" "Rule G-31 / Rule 148 clean case unexpected: rc=$rc out=$(echo "$out" | head -2)"
+  fi
+}
+
+test_rule_148_ai_reading_path_missing_marker_neg() {
+  # NEGATIVE: strip the canonical-path reference from an entry doc -> the helper
+  # reports MISSING-MARKER, and full-blocking exits 1 on it. Advisory tolerance
+  # is proved by the unit-level gate/test_ai_reading_path.py; here we lock the
+  # full-blocking terminal rung that a routing gap is a real finding.
+  local helper="$PWD/gate/lib/check_ai_reading_path.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_148_ai_reading_path_missing_marker_neg" "Rule G-31 / Rule 148: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_148_ai_reading_path_missing_marker_neg" "Rule G-31 / Rule 148: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r148_missing_marker"
+  _g31_reading_path_scratch "$sroot"
+  # Drop the canonical-path reference from README (an entry doc) -> MISSING-MARKER.
+  printf 'no canonical marker here\n' > "$sroot/README.md"
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_ai_reading_path.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 2 ]]; then
+    ok "rule_148_ai_reading_path_missing_marker_neg" "Rule G-31 / Rule 148: helper config error (likely PyYAML absent) — skipped: $(echo "$out" | head -1)"
+    return
+  fi
+  if [[ $rc -eq 1 ]] && echo "$out" | grep -q "MISSING-MARKER"; then
+    ok "rule_148_ai_reading_path_missing_marker_neg" "Rule G-31 / Rule 148: an entry doc that does not route onto the path fails full-blocking (MISSING-MARKER)"
+  else
+    fail "rule_148_ai_reading_path_missing_marker_neg" "Rule G-31 / Rule 148 missing-marker case did not fail as expected: rc=$rc out=$(echo "$out" | head -2)"
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #
 # Each test_rule*() function is independent (uses its own $scratch/r<N>_*

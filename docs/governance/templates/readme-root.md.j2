@@ -107,6 +107,8 @@ Full matrix: [docs/cross-cutting/posture-model.md](docs/cross-cutting/posture-mo
 
 ## Reading path
 
+> **AI agents and new engineers: the canonical, product-first orientation order now lives in [`docs/onboarding/ai-understanding-path.md`](docs/onboarding/ai-understanding-path.md)** (machine-readable source: [`docs/governance/ai-reading-path.yaml`](docs/governance/ai-reading-path.yaml)). It walks the eight-node systems-engineering chain product-first — Product → Requirement → L0 Architecture → EngineeringFrame → FunctionPoint → Contract → generated facts → gate — so you reach code only after product, requirement, and architecture. The architecture-first list below remains a valid structural slice; prefer the product-first path for a top-down picture.
+
 Whether you are a new human contributor or an AI assistant, follow this order for an unbiased architecture picture. Each step names the surface's **rhetorical stance** so you don't conflate it with another slice.
 
 1. **`architecture/workspace.dsl`** + **`architecture/README.md`** — the architecture authority (`唯一主入口` / sole main entry; ADR-0147 + ADR-0150). Structurizr DSL workspace carrying system/container/component structure, Feature/Capability/FunctionPoint instances, dependencies, contracts, decisions, and views.
@@ -137,8 +139,8 @@ design contracts. Per-capability detail is the single source of truth in
 
 A Code-as-Contract gate keeps the documentation and the code in lockstep and
 fails closed on drift. Its current baseline:
-**65 §4 constraints · 139 ADRs · 161 active gate rules · 328 gate self-tests**,
-plus 13 Layer-0 governing principles, 59 active engineering rules, and 196 enforcer rows, with a 696-node / 1359-edge architecture graph — all maintained in
+**65 §4 constraints · 139 ADRs · 162 active gate rules · 331 gate self-tests**,
+plus 13 Layer-0 governing principles, 60 active engineering rules, and 197 enforcer rows, with a 698-node / 1361-edge architecture graph — all maintained in
 [`docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics`](docs/governance/architecture-status.yaml)
 (the canonical source for every count); see [gate/README.md](gate/README.md) for
 how it runs.

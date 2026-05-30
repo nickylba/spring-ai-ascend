@@ -81,6 +81,7 @@ Enforced by [`rule-G-7.md`](docs/governance/rules/rule-G-7.md).
 |---|---|---|
 | Product authority — claims, personas, journey | `product/PRODUCT.md`, `claims.yaml`, `personas.yaml`, `journey.md` | Tier-1 auto-loaded |
 | Persona onboarding | `docs/onboarding/{developer,sre,architect,compliance-reviewer}.md` | On disk; not auto-loaded |
+| AI reading path — the canonical product-first orientation order (eight-node SE curve) | `docs/onboarding/ai-understanding-path.md` (companion) · `docs/governance/ai-reading-path.yaml` (machine-readable source) | On disk; not auto-loaded |
 | Architecture of record | `architecture/workspace.dsl`, `architecture/docs/L0/ARCHITECTURE.md` | On-demand via `/design-mode` |
 | L1 module design | `architecture/docs/L1/<module>/` | On-demand |
 | Architecture + governance rule cards (full bodies) | `docs/governance/rules/rule-*.md` | On-demand via phase contracts |

@@ -53,6 +53,7 @@ declares allocation.
 | G-28 | ADR Normalization | **P** | [`rule-G-28.md`](../rules/rule-G-28.md) |
 | G-29 | Frame-Card / DSL Parity | **P** | [`rule-G-29.md`](../rules/rule-G-29.md) |
 | G-30 | FunctionPoint Readiness | **P** | [`rule-G-30.md`](../rules/rule-G-30.md) |
+| G-31 | AI Reading Path Integrity | **P** | [`rule-G-31.md`](../rules/rule-G-31.md) |
 | M-1 | Skeleton Module Has No Production Java | **P** | [`rule-M-1.md`](../rules/rule-M-1.md) |
 | M-2 | Domain Contract Discipline (schema-first + design-only registration + DFX-stem truth) | **P** | [`rule-M-2.md`](../rules/rule-M-2.md) |
 | R-A | Business/Platform Decoupling Enforcement | **P** | [`rule-R-A.md`](../rules/rule-R-A.md) |

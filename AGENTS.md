@@ -25,6 +25,8 @@ This file is intentionally a **thin operational wrapper** for Codex / autonomous
 
 ## For AI assistants — load this set
 
+> **The canonical, product-first orientation order is [`docs/onboarding/ai-understanding-path.md`](docs/onboarding/ai-understanding-path.md)** (machine-readable source: [`docs/governance/ai-reading-path.yaml`](docs/governance/ai-reading-path.yaml)). It is the eight-node systems-engineering reading curve read product-first (Product → Requirement → L0 → EngineeringFrame → FunctionPoint → Contract → generated facts → gate); an agent that reads code before product builds the wrong thing efficiently. Prefer it for a top-down picture; the structural list below remains a valid slice.
+
 A coding agent or LLM session reaches an **unbiased** architecture picture by loading these surfaces in order. The order matches `README.md#Reading-path` step-for-step. Loading any one in isolation produces a partial view.
 
 **For any factual claim about code, contracts, tests, dependencies, runtime behaviour, or verification**, read `architecture/facts/generated/*.json` BEFORE prose (Rule G-15 / ADR-0154). Generated facts outrank prose; if prose disagrees with a fact, the fact wins. AI agents MUST NOT directly author or refresh files under `architecture/facts/generated/` — they are produced only by deterministic extractor binaries under `tools/architecture-workspace/` (Rule G-15.c).

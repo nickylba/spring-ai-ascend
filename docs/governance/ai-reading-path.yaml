@@ -1,0 +1,282 @@
+# AI Reading Path -- the governed, product-first orientation sequence for any AI
+# agent (or new engineer) entering this repository.
+#
+# Authority: ADR-0159 (Progressive Learning Curve and Authority Lanes) -- the
+# eight-node SE learning curve and the L1..L8 authority-lane partition; and
+# ADR-0160 (ADR Governance Model) -- which fixes step 3 ("architecture_anchor")
+# to route sessions at docs/adr/normalized/index.yaml + docs/adr/review-index.md
+# for current decision-authority state. The canonical sequence this file
+# publishes is specified in the 2026-05-29 engineering-governance
+# systemic-remediation review, section 7.1.
+#
+# Companion human-readable mirror: docs/onboarding/ai-understanding-path.md.
+# This YAML is the machine-readable source; the Markdown mirror is the prose
+# surface; they MUST stay in lockstep (same step ids, same order, same surfaces).
+#
+# READABLE-INTERPRETATION DISCIPLINE (binding, ADR-0154 + ADR-0159 cascade):
+# this file is an ONBOARDING / NAVIGATION surface (lane L2-AI-ONBOARDING per
+# ADR-0159). It is NOT an authority over architecture, decisions, or facts. It
+# INVENTS NO element ids, NO ADR ids, NO relationships, NO statuses: every
+# surface path it lists is an existing artifact, and every claim about what a
+# surface OWNS is a pointer into that surface's own authority lane, not a
+# restatement of its content here. Authority cascade is unchanged and one-way:
+#
+#   generated facts  >  DSL  >  Card / prose
+#
+# This reading path never outranks any surface it points at. When a factual
+# claim must be made about code, contracts, tests, dependencies, runtime
+# behavior, or verification, the factual_claim_switch below redirects the reader
+# to architecture/facts/generated/*.json BEFORE any prose -- generated facts are
+# the apex source for implementation truth (ADR-0154).
+#
+# Product-first: the path opens at repository collaboration rules, then the
+# PRODUCT definition (the WHY), and only then descends the structural /
+# evidence / decision axes. Reading product-last is the anti-pattern this file
+# exists to prevent: an agent that reads code before product builds the wrong
+# thing efficiently.
+
+version: 1
+status: active
+generated_at: 2026-05-30           # UTC
+authority_adrs:
+  - ADR-0159                       # Progressive Learning Curve + Authority Lanes
+  - ADR-0160                       # ADR Governance Model (step-3 architecture_anchor routing)
+companion_human_form: docs/onboarding/ai-understanding-path.md
+
+# ---------------------------------------------------------------------------
+# Entry contract -- the two rules every session obeys before reading prose.
+# ---------------------------------------------------------------------------
+entry_contract:
+  ordering_rule: >-
+    AI agents must load this path in order unless the task is explicitly
+    narrower (a scoped bugfix in one known frame may start at that frame's
+    card). A broad, architecture-touching, or product-touching task starts at
+    step 1 and descends. Skipping the product step (step 2) to read code first
+    is forbidden.
+  authority_rule: >-
+    The path is a navigation aid, not an authority. Where this path's prose and
+    a pointed-at surface disagree, the surface wins; where a surface and a
+    generated fact disagree, the generated fact wins (ADR-0154 cascade:
+    generated facts > DSL > Card/prose).
+
+  # The factual-claim switch: for any claim in these categories, read the named
+  # generated fact files BEFORE reading any hand-authored prose. Generated facts
+  # are never hand-edited (they are extractor projections of the source tree and
+  # the ADR corpus) and are the apex truth for implementation state.
+  factual_claim_switch:
+    applies_to:
+      - code
+      - contracts
+      - tests
+      - dependencies
+      - runtime_behavior
+      - verification
+    read_before_prose:
+      - "architecture/facts/generated/code-symbols.json"      # class + method inventory (JVM descriptors)
+      - "architecture/facts/generated/contract-surfaces.json" # HTTP / SPI / async contract operations
+      - "architecture/facts/generated/tests.json"             # test-class inventory + verifies edges
+      - "architecture/facts/generated/module-build.json"      # reactor modules + build dependencies
+      - "architecture/facts/generated/runtime-config.json"    # posture-aware config + runtime knobs
+      - "architecture/facts/generated/adrs.json"              # extracted ADR facts (AdrFactExtractor projection)
+    fact_id_formats:
+      class:        "code-symbol/<kebab-fqn>          (FQN dots -> hyphens, lowercase)"
+      method:       "entry in the class fact public_methods[] (JVM descriptor)"
+      test_class:   "test/<kebab-fqn>"
+      contract_op:  "contract-op/<kebab-op-id>"
+    discipline: >-
+      When generated facts exist for a claim, cite the fact id (or a gate
+      reference), not merely a prose file name. A claim of implementation truth
+      without a fact id or gate reference is not acceptable where facts exist.
+
+# ---------------------------------------------------------------------------
+# Orientation learning path -- the 8-node SE curve, product-first.
+#
+# Each step names: the SE node it covers, the authority lane(s) it draws from
+# (ADR-0159 L1..L8), the surfaces to read, what the reader should understand on
+# exit, and (where relevant) what the surfaces deliberately do NOT carry so the
+# reader does not look for L2/code detail in an L0/L1 surface.
+#
+# `presence` annotates surfaces that are part of the governed target model but
+# may not yet exist on disk (a parallel-wave repository): `present` = on disk
+# now; `planned` = named by the governed model, lands in a later wave. A
+# `planned` surface is still listed so the path is stable across the wave that
+# creates it; readers skip absent `planned` surfaces without error.
+# ---------------------------------------------------------------------------
+orientation_learning_path:
+
+  - step: 1
+    name: repository_entry
+    se_node: "Orientation (how this team -- humans + AI -- collaborate)"
+    authority_lane: L2-AI-ONBOARDING
+    surfaces:
+      - path: "README.md"
+        presence: present
+      - path: "CLAUDE.md"
+        presence: present
+      - path: "AGENTS.md"
+        presence: present
+    expected_understanding:
+      - "How to collaborate in this repository (phase-entry skills, daily principles)."
+      - "Which sources are authoritative for which kind of question."
+      - "When generated facts outrank prose (the ADR-0154 cascade)."
+    not_here:
+      - "Product claims -- step 2."
+      - "Architecture decisions / constraints -- step 3."
+      - "Implementation truth -- the generated facts (factual_claim_switch)."
+
+  - step: 2
+    name: product_definition
+    se_node: "Product Definition -> Requirement Definition (ISO/IEC/IEEE 29148)"
+    authority_lane: L1-PRODUCT
+    surfaces:
+      - path: "product/PRODUCT.md"
+        presence: present
+      - path: "product/claims.yaml"
+        presence: present
+      - path: "product/requirements.yaml"
+        presence: present
+      - path: "product/personas.yaml"
+        presence: present
+      - path: "product/journey.md"
+        presence: present
+    expected_understanding:
+      - "What product outcome the repository serves and for which personas."
+      - "Which value claims (ProductClaim) are active."
+      - "Which requirements are in scope and which are explicit non-goals."
+      - "Where the v1.0 financial-vertical line is drawn vs the roadmap."
+    not_here:
+      - "Java classes, package roots, module gates, source-file migrations."
+      - "Runtime promises -- step 6 (contracts) + the generated facts."
+
+  - step: 3
+    name: architecture_anchor
+    se_node: "L0 Architecture (ISO/IEC/IEEE 42010 + C4 context/container)"
+    authority_lane: [L3-DSL-GRAPH, L4-L0-ARCHITECTURE, L_ADR-GOVERNANCE]
+    surfaces:
+      - path: "architecture/workspace.dsl"
+        presence: present
+        role: "DSL graph -- the sole architecture authority root (element ids + relationships + views)."
+      - path: "architecture/README.md"
+        presence: present
+        role: "What the workspace closure carries + the 4-item user-facing surface map."
+      - path: "architecture/docs/L0/ARCHITECTURE.md"
+        presence: present
+        role: "L0 -- system boundary, the numbered architectural constraint corpus (section 4), cross-module invariants."
+      - path: "docs/adr/normalized/index.yaml"
+        presence: present
+        role: "Current decision-authority state of the ADR corpus (per-ADR authority state + supersession routing), without re-reading raw prose (ADR-0160)."
+      - path: "docs/adr/review-index.md"
+        presence: present
+        role: "Human-readable companion to the normalized ADR index."
+    expected_understanding:
+      - "System boundary (what is inside vs outside the platform)."
+      - "Architecture element identities (modules, containers, components) from the DSL."
+      - "Current decision-authority state -- which ADR clauses still govern."
+      - "Global / cross-module architectural constraints."
+    not_here:
+      - "Class names, method names, test-class lists, route implementation detail (those live at L2 / contracts / generated facts)."
+      - "Raw historical ADR prose for authority -- the normalized index supersedes prose for current authority."
+
+  - step: 4
+    name: engineering_frame_anchor
+    se_node: "EngineeringFrame (C4 Component / arc42 L2) -- a Java package / package-cluster anchor"
+    authority_lane: L5-L1-ARCHITECTURE
+    surfaces:
+      - path: "architecture/features/engineering-frames.dsl"
+        presence: present
+        role: "Structural axis authority -- EngineeringFrame elements + Module-contains-Frame + Frame-anchors-FunctionPoint edges (ADR-0157)."
+      - path: "architecture/docs/L1/engineering-frames.md"
+        presence: present
+        role: "Collective structural narrative -- the Module -> EngineeringFrame -> FunctionPoint map across all domain modules."
+      - path: "architecture/docs/L1/frames/"
+        presence: present
+        role: "Frame Cards -- one readable per-frame card (boundary classes/interfaces, usable SPI surface, in/out-of-scope responsibilities, anchored FunctionPoints, relevant contracts/facts/gates). Card-over-DSL: cards invent nothing (ADR-0161)."
+      - path: "architecture/docs/L1/"
+        presence: present
+        role: "Per-module L1 design (module responsibility, boundary contracts, SPI surfaces, invariants)."
+    expected_understanding:
+      - "Which EngineeringFrames exist and which module / plane owns each."
+      - "Which package root or package-cluster each frame anchors (the engineering anchor in Java terms)."
+      - "Which classes / interfaces form a frame's stable boundary and which SPI surface other frames may use."
+      - "Which FunctionPoints each frame anchors (the structure -> behavior join)."
+    not_here:
+      - "Private method call chains, persistence/SQL/RLS detail, line-level facts, test inventory -- those live at L2 / contracts / generated facts, never in an L1 frame surface."
+    dual_track_note: >-
+      EngineeringFrame is the engineering LANDING + navigation object, not the
+      behavioral proof object. A Feature TRAVERSES a frame (derived from
+      Feature-requires-FunctionPoint + Frame-anchors-FunctionPoint); a Feature
+      NEVER owns a frame. The behavioral proof object is the FunctionPoint
+      (step 5).
+
+  - step: 5
+    name: demand_to_behavior_mapping
+    se_node: "Feature + FunctionPoint -- the value axis joins the structure axis"
+    authority_lane: [L1-PRODUCT, L5-L1-ARCHITECTURE, L6-L2-DESIGN, L9-EXPLICIT-MAPPING]
+    surfaces:
+      - path: "architecture/features/features.dsl"
+        presence: present
+        role: "Value / demand axis -- SAA Feature elements (value threads) with AI Execution Boundary + 9-state lifecycle. A Feature drives + traverses; it does not structurally own."
+      - path: "architecture/features/function-points.dsl"
+        presence: present
+        role: "FunctionPoint inventory -- the behavioral join point (concrete method / scenario / API verb)."
+      - path: "architecture/mappings/ai-understanding-map.yaml"
+        presence: planned
+        role: "Explicit queryable dual-track map (value/structure/join/evidence/decision/governance axes per FunctionPoint). Lands in the explicit-mapping wave; skip if absent."
+      - path: "architecture/docs/L2/"
+        presence: present
+        role: "L2 -- per-FunctionPoint technical detailed design (class/method anchor, sequence, state transition, persistence, error path, test mapping). The home for the L2/runtime detail that L0/L1 must NOT carry."
+    expected_understanding:
+      - "Which Features require which FunctionPoints (value axis)."
+      - "Which FunctionPoints are anchored by which EngineeringFrames (structure axis)."
+      - "Which L2 designs own the implementation detail for each FunctionPoint."
+    not_here:
+      - "Global policy, product claims, or cross-module principles -- those are higher-altitude (steps 2-3)."
+
+  - step: 6
+    name: contract_and_evidence
+    se_node: "Contract Surface -> Implementation Facts (generated) -> Verification & Gate"
+    authority_lane: [L7-RUNTIME-CONTRACTS, L_GENERATED-FACTS, L8-GOVERNANCE]
+    surfaces:
+      - path: "docs/contracts/contract-catalog.md"
+        presence: present
+        role: "Contract catalog -- the runtime-promise surface (wire shape, route behavior, SPI signatures)."
+      - path: "docs/contracts/"
+        presence: present
+        role: "Per-contract OpenAPI / AsyncAPI / SPI v1 schemas."
+      - path: "architecture/facts/generated/"
+        presence: present
+        role: "Generated facts -- the apex implementation-truth source (code symbols, contract surfaces, tests, build/runtime facts, extracted ADR facts). Never hand-edited."
+      - path: "gate/README.md"
+        presence: present
+        role: "Gate overview -- the canonical entrypoint + what the architecture-sync gate proves."
+      - path: "gate/check_architecture_sync.sh"
+        presence: present
+        role: "The serial canonical gate script (the executable conformance check; run via WSL/Linux per Rule G-7)."
+      - path: "docs/governance/architecture-status.yaml"
+        presence: present
+        role: "Per-capability shipped / deferred ledger + the canonical baseline counts. The conformance-state single source of truth."
+    expected_understanding:
+      - "Which runtime promises (contracts) the platform commits to."
+      - "Which generated facts prove the current implementation state (cite fact ids, not prose)."
+      - "Which gates must pass before work is accepted, and what the current baselines are."
+    not_here:
+      - "Product rationale or architecture taxonomy -- those are higher-altitude (steps 2-4)."
+
+# ---------------------------------------------------------------------------
+# Output discipline -- what an AI session must cite when it makes claims after
+# reading this path. Mirrors section 7.2 of the governing review.
+# ---------------------------------------------------------------------------
+output_discipline:
+  cite_ids_not_prose_for:
+    - code symbols
+    - contracts
+    - tests
+    - feature state
+    - function_point state
+    - engineering_frame state
+    - adr authority state
+    - gate coverage
+  rule: >-
+    When generated facts exist for the subject of a claim, cite the fact id or
+    a gate reference. Do not assert implementation truth from prose alone where
+    a generated fact is available.
