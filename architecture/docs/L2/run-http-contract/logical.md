@@ -2,7 +2,7 @@
 level: L2
 view: logical
 feature: run-http-contract
-status: scaffold
+status: active
 relates_to:
   - "architecture/docs/L1/agent-service/logical.md"
   - "architecture/docs/L1/agent-service/features/access-layer.md"
@@ -12,23 +12,29 @@ authority: "ADR-0040 (W1 HTTP contract reconciliation) + ADR-0070 (Cursor Flow) 
 
 # `run-http-contract` — Logical View (wire contract)
 
-> **Scaffold placeholder.** This file is the L2 detail sink for the
-> `POST /v1/runs` **wire contract**. The binding wire authority is
+> **Migrated wire-contract home (active).** This file is the L2 detail sink for
+> the `POST /v1/runs` **wire contract** — the run-lifecycle status behaviour the
+> layer-purity verdict flagged as L2 detail and that L0 §4 #37 no longer
+> enumerates. The binding wire authority is
 > [`../../../../docs/contracts/openapi-v1.yaml`](../../../../docs/contracts/openapi-v1.yaml)
-> operation `createRun`; everything below is a readable expansion of that
-> operation, NOT a second source of truth. The full prose migration out of the
-> L1 / L0 surfaces (the run-lifecycle status behaviour that the layer-purity
-> verdict flagged as L2 detail) lands in a later reconcile wave. No field name,
-> status code, or operation id below is minted here — each is cited from the
-> OpenAPI source.
+> operation `createRun` (extracted fact `contract-op/createrun`); everything
+> below is a readable expansion of that operation and its `getRun` /
+> `cancelRun` siblings, NOT a second source of truth. No field name, status
+> code, or operation id below is minted here — each is cited from the OpenAPI
+> source / its `contract-op/*` fact.
 
 ## 1. Operation surface
 
-| Verb + route | OpenAPI `operationId` | Success | Cursor / body |
-|---|---|---|---|
-| `POST /v1/runs` | `createRun` | `202 Accepted` | returns `TaskCursor` (Cursor Flow per ADR-0070; the request never blocks). |
-| `GET /v1/runs/{runId}` | `getRun` | `200 OK` | returns `RunResponse`. |
-| `POST /v1/runs/{runId}/cancel` | `cancelRun` | `200 OK` | state transition (DELETE intentionally NOT used for run resources). |
+| Verb + route | OpenAPI `operationId` | Fact id | Success | Cursor / body |
+|---|---|---|---|---|
+| `POST /v1/runs` | `createRun` | `contract-op/createrun` | `202 Accepted` | returns `TaskCursor` (Cursor Flow per ADR-0070; the request never blocks). |
+| `GET /v1/runs/{runId}` | `getRun` | `contract-op/getrun` | `200 OK` | returns `RunResponse`. |
+| `POST /v1/runs/{runId}/cancel` | `cancelRun` | `contract-op/cancelrun` | `200 OK` | state transition (DELETE intentionally NOT used for run resources). |
+
+Fact ids resolve in
+[`../../../facts/generated/contract-surfaces.json`](../../../facts/generated/contract-surfaces.json)
+(each `contract-op/*` carries the canonical `http_method`, `path`, and
+`response_status_codes`).
 
 Required headers on every non-health route (source: OpenAPI `parameters`):
 
@@ -65,7 +71,8 @@ Source: `openapi-v1.yaml#/components/schemas/TaskCursor`.
 ## 4. Run-lifecycle HTTP status-code matrix
 
 This is the wire-level status behaviour that the layer-purity verdict ruled
-belongs at L2 (not in L0 §4 or the L1 logical/process prose). Source: the
+belongs at L2 — migrated out of L0 §4 #37, which now owns only the
+cross-document invariant, not the status codes below. Source: the
 `responses` blocks of `createRun`, `getRun`, `cancelRun` in `openapi-v1.yaml`,
 plus the `code` enumeration in `ErrorEnvelope`.
 

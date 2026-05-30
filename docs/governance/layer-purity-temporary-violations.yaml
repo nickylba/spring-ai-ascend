@@ -65,7 +65,7 @@
 
 schema_version: 1
 authority: ADR-0159
-last_updated: 2026-05-29
+last_updated: 2026-05-30
 status: advisory
 list_closed: true
 
@@ -86,16 +86,6 @@ violations:
     sunset_date: 2026-06-30
     scan_ref: "§1.2 (heaviest L0 leak)"
     defensible_part: "The 'Run has a formal DFA' identity stays at L0; the transition table, withStatus->validate call chain, HTTP 200/409, and optimistic-lock CAS predicate migrate."
-
-  - id: LPV-l0-telemetry-wire-format
-    layer: L0
-    file: architecture/docs/L0/ARCHITECTURE.md
-    locus: "§0.5.3 : 99"
-    category: L6-wire-format
-    trigger: "Wire format: OTLP/HTTP (Langfuse-compatible attribute namespace gen_ai.* + langfuse.*) ... Sampling is posture-aware (dev=100 %, research=10 %, prod=1 % head + tail-on-error at W4)."
-    migrate_to: "docs/telemetry/policy.md + docs/contracts/*.v1.yaml"
-    sunset_date: 2026-06-30
-    scan_ref: "§1.2"
 
   - id: LPV-l0-tenant-rls-guc
     layer: L0
@@ -149,38 +139,6 @@ violations:
     migrate_to: "docs/contracts/*.v1.yaml + architecture/docs/L2/<event-channel-frame>/"
     sunset_date: 2026-06-30
     scan_ref: "§1.2"
-
-  - id: LPV-l0-runs-api-status-verb
-    layer: L0
-    file: architecture/docs/L0/ARCHITECTURE.md
-    locus: "§4 #37 : 702-710"
-    category: L4-http-status-route-verb
-    trigger: "X-Tenant-Id header stays required ... (403 on mismatch). The initial run status is PENDING ... POST /v1/runs/{id}/cancel (not DELETE)"
-    migrate_to: "docs/contracts/*.v1.yaml (OpenAPI route x verb x status)"
-    sunset_date: 2026-06-30
-    scan_ref: "§1.2 (verdict cites #37 explicitly)"
-
-  - id: LPV-l0-runcontext-shape
-    layer: L0
-    file: architecture/docs/L0/ARCHITECTURE.md
-    locus: "§4 #41 : 732-737"
-    category: L7-method-signature
-    trigger: "RunContext is classified as interface (not record); ... embeddingModelVersion is the canonical field name ..."
-    migrate_to: "docs/contracts/*.v1.yaml (SPI shape) + architecture/facts/generated/code-symbols.json"
-    sunset_date: 2026-06-30
-    scan_ref: "§1.2 (verdict cites #41 explicitly)"
-    defensible_part: "The Gate Rule 17 citation portion is D3-defensible; the interface-vs-record classification and canonical field name migrate."
-
-  - id: LPV-l0-spi-method-subset
-    layer: L0
-    file: architecture/docs/L0/ARCHITECTURE.md
-    locus: "§4 #44 : 755-768"
-    category: L7-method-signature
-    trigger: "Method lists on shipped SPIs must be a subset of the canonical interface (e.g. RunContext is runId/tenantId/checkpointer/suspendForChild - posture() is forbidden ...)"
-    migrate_to: "docs/contracts/*.v1.yaml (SPI) + architecture/facts/generated/code-symbols.json"
-    sunset_date: 2026-06-30
-    scan_ref: "§1.2 (verdict cites #44 explicitly)"
-    defensible_part: "The release-note-truth constraint framing may stay; the enumerated SPI method lists + forbidden method name migrate."
 
   # ======================================================================
   # L1 agent-service — the verdict's primary L1 leak site (scan §2.1-§2.4)

@@ -2,7 +2,7 @@
 level: L2
 view: process
 feature: run-http-contract
-status: scaffold
+status: active
 relates_to:
   - "architecture/docs/L1/agent-service/process.md"
   - "architecture/docs/L1/agent-service/features/access-layer.md"
@@ -12,17 +12,16 @@ authority: "ADR-0057 (durable idempotency claim/replay) + ADR-0040 (W1 HTTP cont
 
 # `run-http-contract` — Process View (idempotency body-lifetime)
 
-> **Scaffold placeholder.** This file is the L2 detail sink for the
-> **idempotency body-lifetime** of `POST /v1/runs` — the runtime sequence that
-> decides `idempotency_conflict` vs `idempotency_body_drift` vs (W2) cached
-> replay. The binding authority is ADR-0057 plus the `409` response semantics
-> of `createRun` in
+> **Migrated body-lifetime home (active).** This file is the L2 detail sink for
+> the **idempotency body-lifetime** of `POST /v1/runs` — the runtime sequence
+> that decides `idempotency_conflict` vs `idempotency_body_drift` vs (W2) cached
+> replay. The binding authority is ADR-0057 plus the `409` response semantics of
+> `createRun` (fact `contract-op/createrun`) in
 > [`../../../../docs/contracts/openapi-v1.yaml`](../../../../docs/contracts/openapi-v1.yaml).
 > The L1 process view ([`../../L1/agent-service/process.md`](../../L1/agent-service/process.md)
 > §P1) shows the same idempotency gate at structural altitude; this sink carries
-> its wire-level expansion. The full migration of the body-lifetime prose out of
-> L1 lands in a later reconcile wave. Nothing below mints a new status code or
-> error code — each is cited from the OpenAPI source / ADR-0057.
+> its wire-level expansion. Nothing below mints a new status code or error code
+> — each is cited from the OpenAPI source / ADR-0057.
 
 ## 1. Body-lifetime states (W1 claim-only)
 

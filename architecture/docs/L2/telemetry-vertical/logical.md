@@ -1,7 +1,7 @@
 ---
 level: L2
 view: logical
-status: scaffold
+status: active
 authority: "ADR-0061 (Telemetry Vertical Layer) §1–§2 + ADR-0062 (Trace/Run/Session identity) + ADR-0073 (Engine Hooks) + ADR-0157 (EngineeringFrame Ontology, EF-HOOK-SURFACE)"
 relates_to: [ADR-0061, ADR-0062, ADR-0073, ADR-0157]
 extends: [ADR-0061]

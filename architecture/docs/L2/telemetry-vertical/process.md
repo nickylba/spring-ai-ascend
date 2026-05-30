@@ -1,7 +1,7 @@
 ---
 level: L2
 view: process
-status: scaffold
+status: active
 authority: "ADR-0061 (Telemetry Vertical Layer) §3–§5 + ADR-0017 (trace_store dual-write / MCP replay) + ADR-0062 (Trace/Run/Session identity) + ADR-0063 (traceresponse correlation)"
 relates_to: [ADR-0061, ADR-0017, ADR-0062, ADR-0063]
 extends: [ADR-0061]

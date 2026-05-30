@@ -2,7 +2,7 @@
 level: L2
 view: logical
 feature: run-http-contract
-status: scaffold
+status: active
 relates_to:
   - "architecture/docs/L1/agent-service/logical.md"
   - "architecture/docs/L1/agent-service/process.md"
@@ -22,12 +22,15 @@ belong in L0 / L1 prose:
 - on-wire request / response envelope field shapes;
 - the idempotency body-lifetime sequence (claim hash, body-drift, replay).
 
-> **Scaffold status.** This directory is the *sink home* created at the
-> L2-scaffolding wave. The per-view files below are placeholders that name the
-> authoritative source surfaces and sketch the contract; the actual prose
-> migration out of L0 / L1 lands in a later reconcile wave. Until then the
-> binding wire authority remains the OpenAPI document (see Authority below) —
-> these files interpret it, they do not replace it.
+> **Migrated detail home (active).** The L0 §4 #37 constraint
+> ([`../../L0/ARCHITECTURE.md`](../../L0/ARCHITECTURE.md)) now owns only the
+> cross-document *invariant* (cross-check-not-replace tenant, DFA-initial run
+> status, cancel-as-transition); the verbs, routes, status codes, and header
+> names it used to enumerate were migrated here and into the OpenAPI surface.
+> The binding wire authority remains the OpenAPI document (see Authority below)
+> — these files are a readable interpretation of it, they do not replace it.
+> Every operation id, status code, and field name below is cited from a
+> `contract-op/*` fact or the OpenAPI source; none is minted here.
 
 ## Authority chain (read top-down)
 
@@ -40,7 +43,11 @@ from the authoritative surfaces, in cascade order:
    operation `createRun` (`POST /v1/runs`), with `getRun` and `cancelRun` as
    the sibling run-lifecycle verbs. Schemas `CreateRunRequest`, `TaskCursor`,
    `RunResponse`, `ErrorEnvelope`; parameters `TenantIdHeader`,
-   `IdempotencyKeyHeader`.
+   `IdempotencyKeyHeader`. The extracted operation facts (the IDs L0 §4 #37
+   cites) are `contract-op/createrun`, `contract-op/getrun`, and
+   `contract-op/cancelrun` in
+   [`../../../facts/generated/contract-surfaces.json`](../../../facts/generated/contract-surfaces.json)
+   — each carries the canonical `http_method`, `path`, and `response_status_codes`.
 2. **L1 module design (structural parent)** — the agent-service Access Layer
    (Layer 1), where `POST /v1/runs` is the ingress edge:
    [`../../L1/agent-service/features/access-layer.md`](../../L1/agent-service/features/access-layer.md)
@@ -58,17 +65,20 @@ from the authoritative surfaces, in cascade order:
 
 | File | View | Carries |
 |---|---|---|
-| [`logical.md`](logical.md) | logical | `POST /v1/runs` request / response wire shapes + the run-lifecycle HTTP status-code matrix (the migrated wire contract placeholder). |
+| [`logical.md`](logical.md) | logical | `POST /v1/runs` request / response wire shapes + the run-lifecycle HTTP status-code matrix (the wire detail migrated out of L0 §4 #37). |
 | [`process.md`](process.md) | process | Idempotency body-lifetime sequence — claim hash, `idempotency_conflict` vs `idempotency_body_drift`, W2 replay branch. |
 
-A view is added only when its detail actually migrates here; this scaffold ships
-the two views the L2 README's trigger row named for `run-http-contract`.
+A view is added only when its detail actually migrates here; this sink homes the
+two views the L2 corpus index's trigger row named for `run-http-contract`.
 
 ## What stays upstream (NOT migrated here)
 
 Per the verdict keep-list, the following remain at L0 / L1 and are only
 *referenced* from this sink, never duplicated:
 
+- the L0 §4 #37 *cross-document consistency invariant* (cross-check-not-replace
+  tenant identity, DFA-initial run status, cancel-as-state-transition) — L0 owns
+  the invariant; this sink owns the verbs, routes, status codes, and headers;
 - naming `RunController` / the Access Layer as a boundary identity;
 - the development-view package decomposition of the Access Layer;
 - citing the ArchUnit / gate enforcer that pins the boundary.

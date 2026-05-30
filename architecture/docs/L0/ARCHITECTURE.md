@@ -21,7 +21,7 @@ This document is the **L0 root** of the Layered 4+1 corpus introduced by Rule G-
 | §1 System boundary | L0 | scenarios | golden-link / north-star description |
 | §0.5.1 Tenant vertical | L0 | logical | domain concept (`TenantContext` carrier) |
 | §0.5.2 Posture vertical | L0 | process | boot-time / fail-closed semantics |
-| §0.5.3 Telemetry vertical | L0 | process | cross-cutting flow, OTLP wire format |
+| §0.5.3 Telemetry vertical | L0 | process | cross-cutting flow; carrier + entities only (export/sink detail at L2) |
 | §2 Module layout | L0 | development | package + module decomposition |
 | §3 Threat model | L0 | physical | trust boundaries + sandbox topology |
 | §4 (#1–#65) Architectural constraints | L0 | scenarios | constraint corpus (each #N carries its own view in the graph) |
@@ -92,20 +92,13 @@ Carrier: `TenantContext` (HTTP edge ThreadLocal, valid for one request) + `RunCo
 
 Carrier: `APP_POSTURE={dev|research|prod}` read once at boot. `AppPostureGate` and `PostureBootGuard` enforce posture-aware fail-closed defaults at construction and startup. References: §4 #2, §4 #32, ADR-0058.
 
-### 0.5.3 Telemetry Vertical (NEW — L1.x contract surface)
+### 0.5.3 Telemetry Vertical
 
-Carrier: `TraceContext` SPI (companion to `RunContext`) + W3C `traceparent` propagation at the HTTP edge + Logback MDC (`tenant_id`, `trace_id`, `span_id`, `run_id`). The vertical owns three entities — `Trace`, `Span`, and `LlmCall` — defined in ADR-0061. Every LLM call, tool invocation, state transition, and middleware adapter emission goes through this vertical via the `Hook SPI` (§4 #16) or `TraceContext` (§4 #53–#59); no layer emits telemetry directly.
+**Constraint.** Telemetry is a named cross-cutting vertical with a single carrier — the `TraceContext` SPI (companion to `RunContext`) — and three boundary entities `Trace`, `Span`, `LlmCall` (ADR-0061). Every LLM call, tool invocation, state transition, and middleware adapter emission MUST flow through it via the Hook SPI (§4 #16) or `TraceContext`; no horizontal layer emits telemetry directly. The replay surface is MCP-only (§4 #59), preserving the §1 "no Admin UI" exclusion. The vertical ships staged (per-wave rollout in the L2 sink).
 
-Wire format: OTLP/HTTP (Langfuse-compatible attribute namespace `gen_ai.*` + `langfuse.*`). Hybrid sink: OTLP exporter + `trace_store` Postgres dual-write per ADR-0017. Sampling is posture-aware (dev=100 %, research=10 %, prod=1 % head + tail-on-error at W4). MCP-only replay surface per §4 #59 preserves the §1 "no admin UI" exclusion.
+This is the **structural** statement only. The runtime detail it used to carry — export/sink mechanics, attribute namespaces, the propagation handshake, MDC field shapes, per-posture sampling, the reference-hook inventory, and the per-wave artefact rollout — is L2 component-altitude detail in the [`../L2/telemetry-vertical/`](../L2/telemetry-vertical/) sink (required by Rule G-27); the telemetry-policy SSOT is [`docs/telemetry/policy.md`](../../../docs/telemetry/policy.md).
 
-Staged rollout:
-
-- **L1.x**: ARCHITECTURE.md §4 #53–#59; ADR-0061/0062/0063; `TraceContext` SPI (Noop impl); `TraceExtractFilter` (HTTP edge, no OTel SDK dep); MDC expansion; `Run.traceId` + `Run.sessionId` columns (nullable); ArchUnit + integration enforcers that do not require the OTel SDK.
-- **W2**: OTel SDK + `opentelemetry-spring-boot-starter`; OTLP exporter; Hook SPI un-frozen (§4 #16) with reference hooks (`TokenCounterHook`, `PiiRedactionHook`, `CostAttributionHook`, `LlmSpanEmitterHook`); `trace_store` Postgres + dual-write; `Run.traceId` NOT NULL.
-- **W3**: `springai-ascend-client` (Java/Kotlin) per ADR-0063; `Score` entity; cost dashboards.
-- **W4**: MCP replay tools (`get_run_trace`, `list_runs`, `get_llm_call`, `list_sessions`) per ADR-0017.
-
-References: §4 #53–#59, ADR-0061/0062/0063, `docs/telemetry/policy.md`.
+References: §4 #16, §4 #53–#59; ADR-0061/0062/0063/0017; EngineeringFrame `EF-HOOK-SURFACE` (`agent-middleware`); contract [`docs/contracts/engine-hooks.v1.yaml`](../../../docs/contracts/engine-hooks.v1.yaml).
 
 ---
 
@@ -699,15 +692,19 @@ repo-wide.
     removal; removal without an adapter wrapper is a ship-blocking defect. See ADR-0039,
     `payload_migration_adapter`.
 
-37. **W1 HTTP contract reconciliation.** W1 tenant identity: `X-Tenant-Id` header stays required;
-    W1 adds JWT `tenant_id` claim cross-check against the header value (403 on mismatch). The
-    initial run status is `PENDING` (matching `RunStatus` enum and RunStateMachine DFA). Cancellation
-    is a state transition expressed as `POST /v1/runs/{id}/cancel` (not `DELETE`); run records survive
-    cancellation as terminal records. Gate Rule 16 enforces these three points across the five active
-    HTTP contract documents. Gate Rule 16a (the tenant-model check) uses case-sensitive matching and
-    catches both the original three literal phrasings and replacement-implying verb forms applied to
-    `TenantContextFilter` (i.e., verb-to-JWT constructs that imply the header is discarded rather
-    than cross-checked). Full forbidden-phrasing list: see ADR-0040, `w1_http_contract_reconciliation`.
+37. **W1 HTTP contract reconciliation (cross-document consistency invariant).** One invariant binds
+    every active HTTP contract document to a single W1 tenant-and-cancel story: tenant identity is
+    *cross-checked*, never *replaced* (a JWT claim is added alongside the caller-asserted tenant, not
+    substituted for it); a run begins in its DFA-initial status; cancellation is a state transition on
+    a surviving run record, not resource deletion. L0 owns the invariant, not the wire detail. The
+    verbs, routes, status codes, header names, and initial `RunStatus` value are runtime-contract facts
+    below L0: the wire authority is the OpenAPI surface (facts `contract-op/createrun`,
+    `contract-op/getrun`, `contract-op/cancelrun`, sourced from `docs/contracts/openapi-v1.yaml`) and
+    its readable expansion is the L2 sink
+    [`../L2/run-http-contract/`](../L2/run-http-contract/) plus
+    [`docs/contracts/http-api-contracts.md`](../../../docs/contracts/http-api-contracts.md). Gate Rule
+    16 enforces the invariant; Rule 16a (case-sensitive) catches replacement-implying verb forms on the
+    tenant filter. Forbidden-phrasing list and rationale: ADR-0040, `w1_http_contract_reconciliation`.
 
 38. **Active-corpus truth sweep.** No active document outside `docs/archive/` and `docs/logs/reviews/`
     may reference the two deleted plan paths (the engineering plan and the roadmap archived under
@@ -729,11 +726,15 @@ repo-wide.
     source layers. Gate Rules 18 (widened), 20, 21, 22, and 23 enforce this at commit time.
     See ADR-0043, `active_normative_doc_catalog`.
 
-41. **SPI catalog precision matches Java source.** The `contract-catalog.md` SPI table MUST
-    match each SPI's actual Java signature at W0: `RunContext` is classified as `interface` (not
-    `record`); scope invariants are per-SPI (tenant-scoped, run-scoped, or operation-scoped);
-    `embeddingModelVersion` is the canonical field name per ADR-0034. Gate Rule 17 is extended
-    to verify `RunContext` is labeled "interface" in the catalog. See ADR-0044,
+41. **SPI catalog precision matches Java source (catalog-truth invariant).** The runtime-contract
+    catalog `docs/contracts/contract-catalog.md` MUST describe every SPI exactly as its Java source
+    declares it — type kind (`interface` / `record` / sealed carrier), per-SPI scope (tenant-, run-, or
+    operation-scoped), and canonical field/method names. L0 owns the *no-drift invariant*, not the
+    signatures: those are generated facts in `architecture/facts/generated/code-symbols.json` (e.g.
+    `RunContext` → `code-symbol/com-huawei-ascend-bus-spi-engine-runcontext`, kind `interface`), curated
+    in `contract-catalog.md §2`. Per the authority cascade (generated facts > DSL > catalog/prose), a
+    fact wins any disagreement. Gate Rule 17 enforces this against the
+    catalog (incl. verifying `RunContext` is labelled "interface", not a record). See ADR-0044,
     `spi_contract_precision_and_memory_metadata_reconciliation`.
 
 42. **Shipped-row evidence paths must resolve on disk.** Every `l2_documents:` entry and
@@ -752,20 +753,18 @@ repo-wide.
     (`peripheral_wave_qualifier`) enforces this at commit time. Closes the PERIPHERAL-DRIFT
     class defect at the gate level. See ADR-0045, `peripheral_wave_qualifier`.
 
-44. **Release-note shipped-surface truth.** Every shipped row in `docs/logs/releases/*.md` MUST
-    reference real Java symbols and real test classes. Group labels (e.g. "Orchestration SPI")
-    must match the actual Java surface, or carry an explicit `W1`/`W2`/`W3`/`W4` qualifier or
-    `design-only` / `deferred` / `not shipped` / `remains design` marker for future-wave names.
-    Method lists on shipped SPIs must be a subset of the canonical interface (e.g. `RunContext`
-    is `runId`/`tenantId`/`checkpointer`/`suspendForChild` — `posture()` is forbidden because
-    it does not exist on the interface). Test attributions must name the test that actually
-    performs the asserted check (`OpenApiContractIT` for OpenAPI snapshot diff; `ApiCompatibilityTest`
-    is ArchUnit-only). Module placement and component-breadth claims must match the code's call
-    sites (`AppPostureGate` belongs under Runtime Kernel, not HTTP Edge; only `SyncOrchestrator`,
-    `InMemoryRunRegistry`, `InMemoryCheckpointer` call it — not "all runtime components"). Gate
-    Rule 26 (`release_note_shipped_surface_truth`) enforces this with four sub-checks (26a name
-    guard, 26b method-list guard, 26c test attribution, 26d scope guard). Closes the
-    GATE-SCOPE-GAP class defect for the release-artifact class. See ADR-0046.
+44. **Release-note shipped-surface truth (release-artifact-vs-source invariant).** Every shipped row
+    in `docs/logs/releases/*.md` MUST reference real Java symbols and test classes, and any group
+    label or method/component claim MUST match the actual Java surface (or carry a `W1`–`W4` qualifier
+    or a `design-only` / `deferred` / `not shipped` / `remains design` marker for future-wave names).
+    L0 owns the *no-overclaim invariant*; the surfaces themselves are generated facts, not L0 text —
+    an SPI's canonical method set is its `public_methods` in
+    `architecture/facts/generated/code-symbols.json`, and test attributions resolve in
+    `architecture/facts/generated/tests.json` (a release note may name a subset; an invented member
+    such as `posture()`, or attributing an OpenAPI snapshot diff to an ArchUnit-only test, fails the
+    gate — a member list is read from the facts, never hard-coded). Gate Rule 26 enforces all four
+    sub-checks (26a name, 26b method-list, 26c test attribution, 26d scope) against the release notes.
+    Closes the GATE-SCOPE-GAP class defect for the release-artifact class. See ADR-0046.
 
 45. **Active-entrypoint truth and system-boundary prose convention.** Two
     sub-constraints, both enforced under ADR-0047:

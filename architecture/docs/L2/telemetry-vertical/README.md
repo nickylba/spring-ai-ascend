@@ -1,7 +1,7 @@
 ---
 level: L2
 view: scenarios
-status: scaffold
+status: active
 authority: "ADR-0061 (Telemetry Vertical Layer) + ADR-0062 (Trace/Run/Session identity) + ADR-0063 (Client SDK observability) + ADR-0017 (dev-time trace replay) + ADR-0073 (Engine Hooks) + ADR-0157 (EngineeringFrame Ontology)"
 relates_to: [ADR-0061, ADR-0062, ADR-0063, ADR-0017, ADR-0073, ADR-0157]
 ---
@@ -69,12 +69,19 @@ altitudes that the verdict separates.
 
 ## Staging
 
-The Telemetry Vertical ships staged (L0 §0.5.3): L1.x is the contract surface
-(`TraceContext` Noop SPI, `TraceExtractFilter`, MDC expansion, nullable `Run`
-columns, no OTel SDK), W2 un-freezes the Hook SPI and the reference emission
-hooks, W3 adds the client SDK, W4 adds the MCP replay surface. This L2 home is
-the drain target the verdict requires; it is populated as the W2 Telemetry
-Vertical lands, ahead of the consumer impls.
+The Telemetry Vertical ships staged (L0 §0.5.3 declares the staging *fact*; the
+per-wave artefact rollout is L2 detail and is drained here). L1.x is the contract
+surface, W2 un-freezes the Hook SPI and the reference emission hooks, W3 adds the
+client SDK, W4 adds the MCP replay surface. This L2 home is the drain target the
+verdict requires; it is populated as the W2 Telemetry Vertical lands, ahead of the
+consumer impls.
+
+| Stage | Artefacts pulled in (L2 rollout detail) |
+|---|---|
+| **L1.x** | `TraceContext` SPI (`NoopTraceContext` impl); `TraceExtractFilter` (HTTP edge, no OTel SDK dependency); Logback MDC expansion (`tenant_id` / `trace_id` / `span_id` / `run_id`); `Run.traceId` + `Run.sessionId` columns (nullable); ArchUnit + integration enforcers that do not require the OTel SDK. Authority: L0 §4 #53–#59, ADR-0061/0062/0063. |
+| **W2** | OTel SDK + `opentelemetry-spring-boot-starter`; OTLP/HTTP exporter; Hook SPI un-frozen (L0 §4 #16) with the reference emission hooks (`TokenCounterHook`, `PiiRedactionHook`, `CostAttributionHook`, `LlmSpanEmitterHook`, `ToolSpanEmitterHook`); `trace_store` Postgres + outbox dual-write; `Run.traceId` NOT NULL. The reference hooks are catalogued as FunctionPoints in [`logical.md`](logical.md) §4; the sink + sampling are in [`process.md`](process.md) §4. |
+| **W3** | `springai-ascend-client` (Java/Kotlin) observability contract per ADR-0063; the `Score` (Langfuse eval/feedback) entity (reserved at L1.x, see [`logical.md`](logical.md) §2); cost dashboards over the dual-write store. |
+| **W4** | MCP replay tools (`get_run_trace`, `list_runs`, `get_llm_call`, `list_sessions`) per ADR-0017; tail-on-error sampling in posture=prod. The replay surface is MCP-only (preserves the L0 §1 "no Admin UI" exclusion); see [`process.md`](process.md) §5. |
 
 ## Gate behaviour
 
