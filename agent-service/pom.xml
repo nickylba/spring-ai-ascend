@@ -227,9 +227,12 @@
         Bring canonical contract YAMLs onto the classpath for runtime
         self-validation (ADR-0076 R2 pilot). EngineRegistry.readYaml() tries
         filesystem first, then classpath fallback at "/docs/contracts/<name>.yaml".
+        The source authority now lives under docs/contracts/func, but the
+        packaged classpath target intentionally remains docs/contracts to
+        preserve existing runtime path semantics.
       -->
       <resource>
-        <directory>${project.basedir}/../docs/contracts</directory>
+        <directory>${project.basedir}/../docs/contracts/func</directory>
         <targetPath>docs/contracts</targetPath>
         <includes>
           <include>engine-envelope.v1.yaml</include>
