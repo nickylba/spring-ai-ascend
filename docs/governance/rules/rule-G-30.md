@@ -12,6 +12,7 @@ kernel_cap: 8
 governance_infra: true
 scope_surfaces:
   - docs/governance/feature-readiness-policy.yaml
+  - docs/governance/feature-readiness-baseline.yaml
   - architecture/features/function-points.dsl
   - architecture/features/engineering-frames.dsl
   - architecture/features/features.dsl
@@ -22,7 +23,7 @@ scope_surfaces:
   - architecture/docs/L2
   - gate/lib/check_feature_readiness.py
 kernel: |
-  A FunctionPoint is the behavioral JOIN POINT of the progressive learning curve — the single object a requirement demands, anchored by exactly one EngineeringFrame, described by a contract, evidenced by generated facts, verified by tests, enforced by gates. Rule G-30 evaluates every `SAA FunctionPoint` element in `architecture/features/function-points.dsl` against the readiness bar its `saa.status` resolves to under the policy `docs/governance/feature-readiness-policy.yaml` (`status_vocabulary`: `design_only` → `proposed` requires nothing; `mock_functional` → `active` requires an EngineeringFrame `anchors` edge + an L2 detailed-design landing; `shipped` → the full per-axis acceptance bar). The acceptance bar is stated per axis: STRUCTURE — anchored by exactly one EngineeringFrame + an owning-module `implements` edge; VALUE — at least one Feature `requires` it; EVIDENCE — a contract ref or an explicit no-contract rationale, a generated-fact reference that resolves in `architecture/facts/generated/*.json`, a test ref or an approved exception, and a gate reference; DECISION — `saa.sourceAdr` resolves to a normalized ADR view (`docs/adr/normalized/ADR-NNNN.yaml`) in `active_guidance` or `partial_guidance` (the two citeable states). It also enforces the OWNERSHIP INVARIANT: only an EngineeringFrame may `anchors` a FunctionPoint — a `ProductClaim`, `Requirement`, or `Feature` source on an `anchors` edge is a structural lie (the derived `Feature --traverses--> EngineeringFrame` navigation is not ownership) and blocks in any blocking mode regardless of changed-file scope. The single gate Rule 147 invokes `gate/lib/check_feature_readiness.py` (E197), which invents no id and no relationship and never outranks a generated fact — it reads the policy file as the schema, the DSL elements + edges as the identity authority, the generated facts as the factual authority, and the normalized-ADR views as the decision authority, and reports which obligations a FunctionPoint has NOT discharged for its declared state. `architecture/features/function-points.dsl` is greenfield-vacuous when it declares no FunctionPoint; the instant one exists, the policy file + DSL surfaces + generated facts MUST be readable or the check fails closed (exit 2) in every mode — a missing authority is never an advisory condition. Runs ADVISORY at this landing rung per the ADR-0159 §13.3 ratchet (advisory → changed-files-blocking → full-blocking, the terminal rung once the corpus reaches the acceptance bar): the helper evaluates every FunctionPoint, reports findings to the gate log, and always exits 0. A missing helper fails closed; a missing python interpreter is a vacuous pass (Rule G-7 lists WSL as the canonical env).
+  A FunctionPoint is the behavioral JOIN POINT of the progressive learning curve — the single object a requirement demands, anchored by exactly one EngineeringFrame, described by a contract, evidenced by generated facts, verified by tests, enforced by gates. Rule G-30 evaluates every `SAA FunctionPoint` element in `architecture/features/function-points.dsl` against the readiness bar its `saa.status` resolves to under the policy `docs/governance/feature-readiness-policy.yaml` (`status_vocabulary`: `design_only` → `proposed` requires nothing; `mock_functional` → `active` requires an EngineeringFrame `anchors` edge + an L2 detailed-design landing; `shipped` → the full per-axis acceptance bar). The acceptance bar is stated per axis: STRUCTURE — anchored by exactly one EngineeringFrame + an owning-module `implements` edge; VALUE — at least one Feature `requires` it; EVIDENCE — a contract ref or an explicit no-contract rationale, a generated-fact reference that resolves in `architecture/facts/generated/*.json`, a test ref or an approved exception, and a gate reference; DECISION — `saa.sourceAdr` resolves to a normalized ADR view (`docs/adr/normalized/ADR-NNNN.yaml`) in `active_guidance` or `partial_guidance` (the two citeable states). It also enforces the OWNERSHIP INVARIANT: only an EngineeringFrame may `anchors` a FunctionPoint — a `ProductClaim`, `Requirement`, or `Feature` source on an `anchors` edge is a structural lie (the derived `Feature --traverses--> EngineeringFrame` navigation is not ownership) and blocks in any blocking mode regardless of changed-file scope. The single gate Rule 147 invokes `gate/lib/check_feature_readiness.py` (E197), which invents no id and no relationship and never outranks a generated fact — it reads the policy file as the schema, the DSL elements + edges as the identity authority, the generated facts as the factual authority, and the normalized-ADR views as the decision authority, and reports which obligations a FunctionPoint has NOT discharged for its declared state. `architecture/features/function-points.dsl` is greenfield-vacuous when it declares no FunctionPoint; the instant one exists, the policy file + DSL surfaces + generated facts MUST be readable or the check fails closed (exit 2) in every mode — a missing authority is never an advisory condition. Runs CHANGED-FILES-BLOCKING at this rung per the ADR-0159 §13.3 ratchet (advisory → changed-files-blocking → full-blocking, the terminal rung once the corpus reaches the acceptance bar): a PR may not ADD or WORSEN a finding on a FunctionPoint whose authoring surfaces it touches; pre-existing findings on untouched FunctionPoints stay advisory, and a known historical finding frozen in the dated baseline allow-list `docs/governance/feature-readiness-baseline.yaml` (each row keys a `(fp_id, axis, code)` finding + a `sunset_date`) is TOLERATED even when its FunctionPoint is in scope. The OWNERSHIP invariant blocks regardless of scope AND of the baseline. The helper self-derives the changed set from git against `--base` (default `origin/main`, else `HEAD`); a change to any shared authoring surface (the policy file / `function-points.dsl` / `engineering-frames.dsl` / `features.dsl`) re-scopes EVERY FunctionPoint. `full-blocking` IGNORES the baseline (the terminal posture demands a fully clean corpus). The baseline file is OPTIONAL but, when present, MUST parse — a malformed allow-list fails closed; it never silently suppresses. A missing helper fails closed; a missing python interpreter is a vacuous pass (Rule G-7 lists WSL as the canonical env).
 ---
 
 # Rule G-30 — FunctionPoint Readiness
@@ -110,26 +111,53 @@ MUST be readable, or the check fails closed (exit 2) in EVERY mode including
 advisory — a FunctionPoint cannot be judged against authorities that vanished, so
 a missing authority is never an advisory condition.
 
+Dated baseline allow-list. `docs/governance/feature-readiness-baseline.yaml` (the
+sibling of `layer-purity-temporary-violations.yaml`) freezes the known,
+not-yet-discharged readiness findings that already exist on shipped FunctionPoints
+at the moment this gate promoted to changed-files-blocking — each FunctionPoint
+seeded with structural + decision identity but never wired with its evidence-axis
+refs, or citing an ADR with no current normalized view. Each row keys a
+`(fp_id, axis, code)` finding and declares a per-row `sunset_date`. The helper
+honours the list ONLY in changed-files-blocking mode (a still-open row reports
+`BASELINED`, never blocks); `full-blocking` ignores it. The file is OPTIONAL
+(absent → tolerate nothing); when present it MUST parse, or the gate fails closed.
+The list never asserts a fact — it records which obligations are not yet
+discharged and by when they must be — and is closed: a NEW shipped FunctionPoint
+must satisfy every axis at authoring time, never be added here.
+
 ## Ratchet
 
-advisory (this landing rung: evaluate every FunctionPoint, report findings to the
-gate log, always exit 0 — the ADR-0159 §13.3 first-cleanup-wave posture) →
-changed-files-blocking (a PR may not ADD or WORSEN a finding on a FunctionPoint
-whose authoring surfaces it touches; pre-existing findings on untouched
-FunctionPoints stay advisory) → full-blocking (the terminal posture once the
-corpus reaches the acceptance bar). The helper `--mode` flags (`advisory` /
-`changed-files-blocking` / `full-blocking`) implement the rungs; the changed-files
-rung derives its scope from `--base` (default `origin/main`, else `HEAD`) — the
-same git-deriving pattern as Rule 145 / E194 `check_layer_purity.py` and Rule 146
-/ E196 `check_frame_card_consistency.py` — and falls back to full-corpus
-evaluation when git cannot resolve the base. A change to any shared authoring
-surface (the policy file / `function-points.dsl` / `engineering-frames.dsl` /
-`features.dsl`) re-scopes EVERY FunctionPoint (shared dependency graph); a change
-to an L2 design dir scopes the FunctionPoint it describes. Ownership findings
-block at every blocking rung regardless of scope. Promotion past advisory is
-gated on a clean-corpus soak per ADR-0159 §13.3, mirroring the ADR-0161 (Rule
-G-29) and ADR-0159 (Rule G-27) ratchets. A missing helper fails closed; a missing
-python interpreter is a vacuous pass (Rule G-7 lists WSL as the canonical env).
+advisory → changed-files-blocking (THIS rung: a PR may not ADD or WORSEN a finding
+on a FunctionPoint whose authoring surfaces it touches; pre-existing findings on
+untouched FunctionPoints stay advisory, and a known historical finding frozen in
+the dated baseline allow-list `docs/governance/feature-readiness-baseline.yaml` is
+tolerated even when its FunctionPoint is in scope) → full-blocking (the terminal
+posture once the corpus reaches the acceptance bar and the baseline allow-list is
+fully retired). The helper `--mode` flags (`advisory` / `changed-files-blocking` /
+`full-blocking`) implement the rungs; the changed-files rung derives its scope from
+`--base` (default `origin/main`, else `HEAD`) — the same git-deriving pattern as
+Rule 145 / E194 `check_layer_purity.py` and Rule 146 / E196
+`check_frame_card_consistency.py` — and falls back to full-corpus evaluation when
+git cannot resolve the base. A change to any shared authoring surface (the policy
+file / `function-points.dsl` / `engineering-frames.dsl` / `features.dsl`) re-scopes
+EVERY FunctionPoint (shared dependency graph); a change to an L2 design dir scopes
+the FunctionPoint it describes.
+
+The dated baseline allow-list is the sibling of `layer-purity-temporary-violations.yaml`:
+each row keys one `(fp_id, axis, code)` finding AND declares a per-row
+`sunset_date` by which the evidence MUST be wired (or the FunctionPoint demoted).
+Under changed-files-blocking a finding matching a STILL-OPEN row is reported
+`BASELINED` and never blocks; a finding matching no row, or only an EXPIRED row,
+blocks if its FunctionPoint is in scope (an expired-but-unmatched row is flagged
+for removal as a `NOTE`, keeping the list honest). `full-blocking` ignores the
+baseline. The list is OPTIONAL (absent → tolerate nothing) but, when present, MUST
+parse — a malformed allow-list fails closed (exit 2), never silently suppressing.
+Ownership findings (`OWNERSHIP-NONFRAME-ANCHOR`) block at every blocking rung
+regardless of scope AND of the baseline — a row may never freeze an ownership lie.
+Promotion to full-blocking is gated on a clean-corpus soak per ADR-0159 §13.3 (the
+baseline allow-list driven to empty), mirroring the ADR-0161 (Rule G-29) and
+ADR-0159 (Rule G-27) ratchets. A missing helper fails closed; a missing python
+interpreter is a vacuous pass (Rule G-7 lists WSL as the canonical env).
 
 ## Test fixtures
 
@@ -148,11 +176,20 @@ python interpreter is a vacuous pass (Rule G-7 lists WSL as the canonical env).
   - INVALID: a `mock_functional` FunctionPoint missing its frame anchor + L2
              design landing yields `STRUCTURE-NO-ANCHOR` + `STRUCTURE-NO-L2-DESIGN`.
   - INVALID: a value-axis node (`Feature`) `anchors`-owning a FunctionPoint yields
-             `OWNERSHIP-NONFRAME-ANCHOR` and blocks even in changed-files mode.
+             `OWNERSHIP-NONFRAME-ANCHOR` and blocks even in changed-files mode,
+             and is NEVER suppressible by a baseline row.
   - VALID  : advisory mode reports findings but never blocks (exit 0) — the
-             ratchet landing posture.
+             first-cleanup-wave posture.
   - INVALID: a vanished policy file / fact file fails closed (exit 2) even in
              advisory mode — a missing authority is never an advisory condition.
+  - VALID  : under changed-files-blocking a finding frozen in a STILL-OPEN baseline
+             row is tolerated (`BASELINED`, exit 0); the SAME finding with no row,
+             or an EXPIRED row, blocks (exit 1) and an expired-but-unmatched row is
+             flagged for removal (`NOTE`).
+  - VALID  : `full-blocking` ignores the baseline allow-list (a still-open row does
+             not save a finding from the terminal posture).
+  - INVALID: a present-but-malformed baseline file (a row missing id/fp_id/axis/
+             code) fails closed (exit 2) in every mode — never a silent suppression.
 
 ## Cross-references
 

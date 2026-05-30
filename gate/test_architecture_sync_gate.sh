@@ -9549,6 +9549,124 @@ test_rule_147_feature_readiness_missing_policy_fail_closed_neg() {
   fi
 }
 
+test_rule_147_feature_readiness_baseline_scope_neg() {
+  # NEGATIVE (changed-files-blocking ratchet rung — the W22 promotion posture):
+  # the dated baseline allow-list (docs/governance/feature-readiness-baseline.yaml)
+  # tolerates a STILL-OPEN historical finding but never a NEW or EXPIRED one. Three
+  # probes on one git scratch lock the baseline behaviour: (1) a shipped FP missing
+  # one obligation BLOCKS when no baseline tolerates it (rc 1); (2) the SAME finding
+  # frozen in a still-open baseline row is TOLERATED (rc 0, BASELINED line); (3) the
+  # same row with a PAST sunset blocks again (rc 1). Requires a real git repo (the
+  # changed-files scope mechanism) so the scratch is git-init'd.
+  local helper="$PWD/gate/lib/check_feature_readiness.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_147_feature_readiness_baseline_scope_neg" "Rule G-30 / Rule 147: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_147_feature_readiness_baseline_scope_neg" "Rule G-30 / Rule 147: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  if ! command -v git >/dev/null 2>&1; then
+    ok "rule_147_feature_readiness_baseline_scope_neg" "Rule G-30 / Rule 147: git unavailable — baseline scope test skipped"
+    return
+  fi
+  local sroot="$scratch/r147_baseline_scope"
+  _g30_readiness_scratch "$sroot"
+  # Mutate the clean shipped FP to DROP its test ref -> one EVIDENCE-NO-TEST finding.
+  # (Re-write function-points.dsl without the saa.test_refs line.)
+  cat > "$sroot/architecture/features/function-points.dsl" <<'EOF'
+fpCreateRun = element "Create Run" "FunctionPoint" "POST /v1/runs" "SAA FunctionPoint" {
+    properties {
+        "saa.id" "FP-CREATE-RUN"
+        "saa.status" "shipped"
+        "saa.owner" "agent-service"
+        "saa.sourceAdr" "ADR-0020"
+        "saa.contract_op_refs" "contract-op/createrun"
+        "saa.code_entrypoint_refs" "agent-service/src/main/java/RunController.java#create"
+    }
+}
+modAgentService = element "agent-service" "Module" "domain module" "SAA Module" {
+    properties { "saa.id" "agent-service" }
+}
+modAgentService -> fpCreateRun "module implements function point" "SAA Relationship" {
+    properties { "saa.rel" "implements" }
+}
+EOF
+  # A config error (PyYAML absent) short-circuits BEFORE scope evaluation — skip.
+  local probe rc_probe
+  probe=$("$py" "$sroot/gate/lib/check_feature_readiness.py" --repo "$sroot" --mode changed-files-blocking --base HEAD 2>&1); rc_probe=$?
+  if [[ $rc_probe -eq 2 ]]; then
+    ok "rule_147_feature_readiness_baseline_scope_neg" "Rule G-30 / Rule 147: helper config error (likely PyYAML absent) — skipped: $(echo "$probe" | head -1)"
+    return
+  fi
+  # Git-init so changed-files scope resolves; the dropped-test FP is untracked ->
+  # in scope on every probe vs HEAD.
+  ( cd "$sroot" \
+    && git init -q \
+    && git config user.email gate@test.local \
+    && git config user.name gate-self-test \
+    && git add -A \
+    && git commit -qm baseline ) >/dev/null 2>&1
+  # Touch the FP DSL again so it is in the changed set vs HEAD (the shared-surface
+  # rescope), guaranteeing the FP is evaluated for blocking.
+  printf '\n// scope-touch\n' >> "$sroot/architecture/features/function-points.dsl"
+
+  # Probe 1: NO baseline file -> the EVIDENCE-NO-TEST finding BLOCKS (rc 1).
+  local out1 rc1
+  out1=$("$py" "$sroot/gate/lib/check_feature_readiness.py" --repo "$sroot" --mode changed-files-blocking --base HEAD 2>&1); rc1=$?
+
+  # Probe 2: a still-open baseline row tolerating exactly that finding -> rc 0.
+  local future; future=$(python3 - <<'PYEOF' 2>/dev/null || date -u -d "+90 days" +%Y-%m-%d
+import datetime
+print((datetime.date.today() + datetime.timedelta(days=90)).isoformat())
+PYEOF
+)
+  cat > "$sroot/docs/governance/feature-readiness-baseline.yaml" <<EOF
+schema_version: 1
+authority: ADR-0159
+last_updated: 2026-05-30
+status: blocking
+list_closed: true
+findings:
+  - id: FRB-self-test-create-run-no-test
+    fp_id: FP-CREATE-RUN
+    axis: evidence
+    code: EVIDENCE-NO-TEST
+    note: self-test row
+    sunset_date: ${future}
+EOF
+  local out2 rc2
+  out2=$("$py" "$sroot/gate/lib/check_feature_readiness.py" --repo "$sroot" --mode changed-files-blocking --base HEAD 2>&1); rc2=$?
+
+  # Probe 3: the SAME row with a PAST sunset -> expired -> blocks again (rc 1).
+  cat > "$sroot/docs/governance/feature-readiness-baseline.yaml" <<'EOF'
+schema_version: 1
+authority: ADR-0159
+last_updated: 2026-05-30
+status: blocking
+list_closed: true
+findings:
+  - id: FRB-self-test-create-run-no-test
+    fp_id: FP-CREATE-RUN
+    axis: evidence
+    code: EVIDENCE-NO-TEST
+    note: self-test row (expired)
+    sunset_date: 2000-01-01
+EOF
+  local out3 rc3
+  out3=$("$py" "$sroot/gate/lib/check_feature_readiness.py" --repo "$sroot" --mode changed-files-blocking --base HEAD 2>&1); rc3=$?
+
+  if [[ $rc1 -eq 1 ]] && echo "$out1" | grep -q "EVIDENCE-NO-TEST" \
+     && [[ $rc2 -eq 0 ]] && echo "$out2" | grep -q "BASELINED" \
+     && [[ $rc3 -eq 1 ]]; then
+    ok "rule_147_feature_readiness_baseline_scope_neg" "Rule G-30 / Rule 147: changed-files-blocking blocks an unbaselined finding (rc 1), tolerates a still-open baseline row (rc 0, BASELINED), blocks again on an expired row (rc 1)"
+  else
+    fail "rule_147_feature_readiness_baseline_scope_neg" "Rule G-30 / Rule 147 baseline scope wrong: rc1=$rc1 (want 1) rc2=$rc2 (want 0) rc3=$rc3 (want 1); out2_baselined=$(echo "$out2" | grep -c BASELINED)"
+  fi
+}
+
 # ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #

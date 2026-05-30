@@ -66,17 +66,37 @@ Modes (``--mode``):
                            features.dsl / the policy file scopes EVERY FunctionPoint
                            (the dependency graph is shared); a change to an L2
                            design dir scopes the FunctionPoint it describes. Exit 1
-                           if any IN-SCOPE FunctionPoint has a finding; pre-existing
-                           findings on untouched FunctionPoints do not block. The
-                           ratchet posture: a PR may not ADD or WORSEN a finding.
-  full-blocking            Evaluate every FunctionPoint; exit 1 on any finding. The
-                           terminal posture once the corpus reaches the acceptance
-                           bar (remediation review section 13.3).
+                           if any IN-SCOPE FunctionPoint has a NON-BASELINED finding;
+                           pre-existing findings on untouched FunctionPoints do not
+                           block, and a known historical finding frozen in the dated
+                           baseline allow-list (below) is TOLERATED even when its
+                           FunctionPoint is in scope. The ratchet posture: a PR may
+                           not ADD or WORSEN a finding beyond the frozen baseline.
+  full-blocking            Evaluate every FunctionPoint; exit 1 on any finding —
+                           the baseline allow-list does NOT apply (the terminal
+                           posture demands a fully clean corpus, remediation review
+                           section 13.3).
+
+Dated baseline allow-list. ``docs/governance/feature-readiness-baseline.yaml``
+(the sibling of ``layer-purity-temporary-violations.yaml``) freezes the known,
+not-yet-discharged readiness findings that already exist on shipped FunctionPoints
+at the moment this gate promoted to changed-files-blocking. Each row keys a
+``(fp_id, axis, code)`` finding AND declares a per-row ``sunset_date`` by which the
+evidence MUST be wired (or the FunctionPoint demoted). Under changed-files-blocking
+a finding whose ``(fp_id, axis, code)`` matches a STILL-OPEN row is reported
+BASELINED and never blocks; a finding matching no row, or matching only an EXPIRED
+row, blocks if its FunctionPoint is in scope. The list is the sanctioned tolerance
+for historical debt under the review section 13.3 ratchet ("changed-files-blocking:
+block NEW violations in changed files"); it is honoured ONLY in changed-files mode,
+never in full-blocking. The file is OPTIONAL: when it is absent the gate tolerates
+nothing (every in-scope finding blocks); when it is present it MUST parse, or the
+gate fails closed (a malformed allow-list never silently suppresses a finding).
 
 Ownership-invariant findings (a non-frame ``anchors`` source) are STRUCTURAL and
-block in both blocking modes irrespective of changed-file scope: the dual-track
-model is invalid the instant a value-axis node owns a frame, so the violation is
-never merely advisory once a blocking mode is active.
+block in both blocking modes irrespective of changed-file scope AND irrespective of
+the baseline allow-list: the dual-track model is invalid the instant a value-axis
+node owns a frame, so the violation is never tolerated once a blocking mode is
+active (a baseline row may not freeze an ownership lie).
 
 Greenfield / vacuity posture. When ``function-points.dsl`` declares no
 FunctionPoint element the check is vacuously clean in every mode (there is
@@ -101,6 +121,7 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 import re
 import subprocess
@@ -112,6 +133,7 @@ from pathlib import Path
 # Canonical surface locations (repo-relative, forward slash).
 # ---------------------------------------------------------------------------
 POLICY_REL = "docs/governance/feature-readiness-policy.yaml"
+BASELINE_REL = "docs/governance/feature-readiness-baseline.yaml"
 FUNCTION_POINTS_DSL_REL = "architecture/features/function-points.dsl"
 FRAMES_DSL_REL = "architecture/features/engineering-frames.dsl"
 FEATURES_DSL_REL = "architecture/features/features.dsl"
@@ -174,6 +196,18 @@ def _slug(fp_id: str) -> str:
     """
     body = fp_id[3:] if fp_id.upper().startswith("FP-") else fp_id
     return body.strip("-").lower()
+
+
+def _utc_today() -> datetime.date:
+    """Today's date in UTC.
+
+    The freshness/sunset convention in this repo is UTC: a local +08 date can be
+    one day ahead of the CI clock (which runs in UTC), so a sunset compared
+    against ``date.today()`` could expire a baseline row a day early on a local
+    run and pass on CI. Anchoring on UTC keeps local and CI verdicts identical
+    (mirrors gate/lib/check_layer_purity.py._utc_today).
+    """
+    return datetime.datetime.now(datetime.timezone.utc).date()
 
 
 # ===========================================================================
@@ -275,6 +309,131 @@ def build_policy(doc: object) -> tuple[ReadinessPolicy | None, str]:
     if not bar_rules:
         return None, "policy declares no status_rules bars"
     return ReadinessPolicy(status_to_bar=status_to_bar, bar_rules=bar_rules), ""
+
+
+# ===========================================================================
+# Dated baseline allow-list — the frozen historical-debt tolerance for the
+# changed-files-blocking rung. The sibling of layer-purity-temporary-
+# violations.yaml: each row freezes one known (fp_id, axis, code) finding AND
+# declares a per-row sunset_date by which the evidence MUST be wired. The file
+# is OPTIONAL (absent => tolerate nothing); when present it MUST parse.
+# ===========================================================================
+@dataclass
+class BaselineRow:
+    """One row from feature-readiness-baseline.yaml (a dated tolerance)."""
+
+    id: str
+    fp_id: str
+    axis: str
+    code: str
+    sunset_date: datetime.date | None
+    raw_sunset: str
+
+    def is_open(self, today: datetime.date) -> bool:
+        """A row tolerates a finding only while its sunset is in the future (inclusive).
+
+        A missing/unparseable sunset is treated as ALREADY-EXPIRED (it cannot
+        prove it is still open), so a malformed allow-list row never silently
+        suppresses a finding (mirrors check_layer_purity.Violation.is_open).
+        """
+        return self.sunset_date is not None and self.sunset_date >= today
+
+
+@dataclass
+class Baseline:
+    """The parsed baseline allow-list (possibly empty)."""
+
+    rows: list[BaselineRow] = field(default_factory=list)
+    # True only when the file existed and parsed (distinguishes "no file" from
+    # "empty file"); used to surface an expired-but-unmatched row note honestly.
+    present: bool = False
+
+
+def _parse_sunset(value: object) -> tuple[datetime.date | None, str]:
+    """Parse a sunset_date cell. Returns ``(date_or_None, raw_string)``."""
+    raw = "" if value is None else str(value)
+    if not raw.strip():
+        return None, raw
+    try:
+        return datetime.date.fromisoformat(raw.strip()), raw
+    except ValueError:
+        return None, raw
+
+
+def load_baseline(root: Path) -> tuple[Baseline | None, str]:
+    """Load the dated baseline allow-list. Returns ``(baseline, error)``.
+
+    The file is OPTIONAL: an absent file yields an empty, not-present Baseline
+    (the gate tolerates nothing). A present-but-malformed file is a config error
+    (exit 2) — a malformed allow-list must never silently suppress a finding.
+    Each well-formed ``findings[]`` row requires ``id``, ``fp_id``, ``axis``,
+    ``code``, and ``sunset_date``; an unparseable sunset is retained (the row
+    will simply never be open) so the expired-row note can still cite it.
+    """
+    path = root / BASELINE_REL
+    if not path.is_file():
+        return Baseline(rows=[], present=False), ""
+    doc, err = _load_yaml(path)
+    if err:
+        return None, err
+    if not isinstance(doc, dict):
+        return None, f"{BASELINE_REL} root is not a mapping"
+    raw_rows = doc.get("findings")
+    if raw_rows is None:
+        # A present file that declares no findings list is a valid empty baseline
+        # (it may carry only the schema header) — tolerate nothing, but mark it
+        # present so an author who emptied it does not see a "no file" message.
+        return Baseline(rows=[], present=True), ""
+    if not isinstance(raw_rows, list):
+        return None, f"{BASELINE_REL} 'findings' is not a list"
+    rows: list[BaselineRow] = []
+    for i, raw in enumerate(raw_rows):
+        if not isinstance(raw, dict):
+            return None, f"{BASELINE_REL} findings[{i}] is not a mapping"
+        rid = str(raw.get("id", "")).strip()
+        fp_id = str(raw.get("fp_id", "")).strip()
+        axis = str(raw.get("axis", "")).strip()
+        code = str(raw.get("code", "")).strip()
+        if not (rid and fp_id and axis and code):
+            return None, (
+                f"{BASELINE_REL} findings[{i}] missing one of id/fp_id/axis/code "
+                f"(got id={rid!r} fp_id={fp_id!r} axis={axis!r} code={code!r})"
+            )
+        sunset, raw_sunset = _parse_sunset(raw.get("sunset_date"))
+        rows.append(
+            BaselineRow(
+                id=rid,
+                fp_id=fp_id,
+                axis=axis,
+                code=code,
+                sunset_date=sunset,
+                raw_sunset=raw_sunset,
+            )
+        )
+    return Baseline(rows=rows, present=True), ""
+
+
+def suppressing_baseline_row(
+    finding: "Finding", baseline: Baseline, today: datetime.date
+) -> BaselineRow | None:
+    """Return the open baseline row that tolerates ``finding``, or None.
+
+    A row suppresses a finding when ALL hold: the row's ``fp_id`` equals the
+    finding's ``fp_id``, the row's ``axis`` equals the finding's axis, the row's
+    ``code`` equals the finding's code, and the row is still open (sunset is today
+    or later, UTC). Ownership findings are NEVER suppressible (handled by the
+    caller, which never offers them here). Expired rows do not suppress.
+    """
+    for row in baseline.rows:
+        if row.fp_id != finding.fp_id:
+            continue
+        if row.axis != finding.axis:
+            continue
+        if row.code != finding.code:
+            continue
+        if row.is_open(today):
+            return row
+    return None
 
 
 # ===========================================================================
@@ -977,6 +1136,17 @@ def main(argv: list[str]) -> int:
             print(f"feature-readiness config error (facts): {err}", file=sys.stderr)
         return 2
 
+    # The dated baseline allow-list is OPTIONAL (absent => tolerate nothing); when
+    # present it MUST parse, or the gate fails closed in every mode — a malformed
+    # allow-list must never silently suppress a finding.
+    baseline, baseline_err = load_baseline(root)
+    if baseline is None:
+        print(
+            f"feature-readiness config error (baseline): {baseline_err}",
+            file=sys.stderr,
+        )
+        return 2
+
     # Ownership-invariant findings are computed over the WHOLE model (they are not
     # per-FunctionPoint-state): a non-frame anchors source is always a structural
     # lie. They block in any blocking mode regardless of changed-file scope.
@@ -1051,10 +1221,61 @@ def main(argv: list[str]) -> int:
     if args.mode == "advisory":
         return 0
 
-    # Blocking modes: ownership findings ALWAYS block; per-FP findings block when
-    # their FunctionPoint is in scope (full-blocking scopes the whole corpus).
+    # Blocking modes: ownership findings ALWAYS block (never baselined). Per-FP
+    # findings block when their FunctionPoint is in scope. Under changed-files-
+    # blocking ONLY, a per-FP finding frozen in a STILL-OPEN baseline row is
+    # tolerated (reported BASELINED, never blocks) — the section 13.3 ratchet
+    # tolerance for historical debt; full-blocking ignores the baseline (the
+    # terminal posture demands a fully clean corpus).
+    today = _utc_today()
+    baseline_applies = args.mode == "changed-files-blocking"
+
     blocking = list(ownership_findings)
-    blocking += [f for f in per_fp_findings if f.fp_var in scope_vars]
+    baselined: list[tuple[Finding, BaselineRow]] = []
+    for f in per_fp_findings:
+        if f.fp_var not in scope_vars:
+            continue
+        row = (
+            suppressing_baseline_row(f, baseline, today) if baseline_applies else None
+        )
+        if row is not None:
+            baselined.append((f, row))
+        else:
+            blocking.append(f)
+
+    # Report each tolerated finding (deterministic, grep-friendly).
+    for f, row in baselined:
+        print(
+            f"feature-readiness BASELINED {f.fp_id} [{f.axis}/{f.code}]: tolerated "
+            f"by {row.id} (sunset {row.raw_sunset})",
+            file=sys.stderr,
+        )
+
+    # Keep the allow-list honest: a row whose sunset has passed AND that matched no
+    # live in-scope finding is dead weight — flag it for removal (a NOTE, not a
+    # block), mirroring check_layer_purity's expired-row note. Only meaningful when
+    # the baseline could apply (changed-files mode) and was present.
+    if baseline_applies and baseline.present:
+        matched_ids = {row.id for _, row in baselined}
+        for row in baseline.rows:
+            if row.id in matched_ids:
+                continue
+            if row.sunset_date is not None and row.sunset_date >= today:
+                continue  # still-open, simply matched nothing in this scope
+            print(
+                f"feature-readiness NOTE: baseline row {row.id} expired "
+                f"({row.raw_sunset or 'no sunset'}) and matched no live in-scope "
+                f"finding; remove it from {BASELINE_REL}",
+                file=sys.stderr,
+            )
+
+    if baselined:
+        print(
+            f"feature-readiness [{args.mode}]: {len(baselined)} finding(s) tolerated "
+            f"by the dated baseline {BASELINE_REL}",
+            file=sys.stderr,
+        )
+
     if blocking:
         print(
             f"BLOCKING: {len(blocking)} in-scope feature-readiness finding(s) under "

@@ -1,0 +1,443 @@
+# Feature-Readiness Baseline — the known, not-yet-discharged readiness findings.
+#
+# Authority: ADR-0159 (Progressive Learning Curve and Authority Lanes) §13.3 (the
+#   advisory -> changed-files-blocking -> full-blocking ratchet, where the
+#   changed-files rung "blocks NEW violations in changed files" and historical
+#   debt waits for full-blocking). Companion schema: the readiness policy
+#   docs/governance/feature-readiness-policy.yaml (the per-axis acceptance bar
+#   every row here cites a finding against). Sibling pattern:
+#   docs/governance/layer-purity-temporary-violations.yaml (the same dated
+#   grandfather discipline for L0/L1 layer-purity leaks).
+# Baseline-truth input: the gate/lib/check_feature_readiness.py --mode advisory
+#   report against the live corpus at promotion time (the FunctionPoint /
+#   axis / code triple of every finding it reports). Every row below is copied
+#   from one such finding; this file invents no FunctionPoint, no axis, and no
+#   code.
+#
+# What this file IS. The dated allow-list of readiness findings that already sit
+#   on a SHIPPED FunctionPoint at the moment the readiness gate (gate Rule 147,
+#   kernel Rule G-30, enforcer E197) promoted from advisory to changed-files-
+#   blocking. Each FunctionPoint here was seeded (W2) with structural + decision
+#   identity but never wired with its evidence-axis refs (saa.contract_op_refs /
+#   saa.code_entrypoint_refs|saa.fact_refs / saa.test_refs) or cites an ADR with
+#   no current normalized view; the backing production code exists but the
+#   FunctionPoint element has not yet discharged the obligation. Each entry
+#   freezes one known (fp_id, axis, code) finding AND declares a per-entry
+#   sunset_date by which the evidence MUST be wired (or the FunctionPoint
+#   demoted out of `shipped`). A closed-but-dateless allow-list is an anti-
+#   pattern (every entry MUST carry a sunset_date).
+#
+# What this file is NOT. A remediation plan, a rule card, or an enforcer row. The
+#   readiness gate consumes this list as its changed-files-mode allow-list ONLY:
+#   a finding whose (fp_id, axis, code) matches a still-open row here is
+#   tolerated (reported BASELINED, never blocks); any finding NOT listed here, or
+#   any row whose sunset_date has passed, blocks if its FunctionPoint is in scope.
+#   full-blocking mode IGNORES this list entirely (the terminal posture demands a
+#   fully clean corpus). The OWNERSHIP invariant (a value-axis node anchoring a
+#   FunctionPoint) is NEVER baselinable — a row may not freeze an ownership lie.
+#   The authority cascade (generated facts > DSL > Card/prose) is untouched: this
+#   list never asserts a fact, it records which obligations are not yet
+#   discharged.
+#
+# Schema:
+#   schema_version  - integer, bumped when fields are added.
+#   authority       - the ratifying ADR id.
+#   last_updated    - ISO yyyy-mm-dd (UTC). UTC convention (a local +08 date can
+#                     be UTC-future and trip a freshness gate).
+#   status          - advisory | blocking. The LIST's posture, not a contract-
+#                     status enum (Rule 62 does not apply — this is not a
+#                     docs/contracts/*.v1.yaml). `blocking` once the readiness
+#                     gate runs changed-files-blocking and consumes this list.
+#   list_closed     - true. No new finding may be grandfathered once the gate is
+#                     blocking — a NEW shipped FunctionPoint must satisfy every
+#                     axis at authoring time, never be added here.
+#   findings[]      - one row per known finding. Each row:
+#       id          - stable kebab id, prefix FRB- (Feature-Readiness Baseline).
+#       fp_id       - the FunctionPoint id (matches saa.id in
+#                     architecture/features/function-points.dsl).
+#       axis        - the readiness axis (value | structure | evidence | decision).
+#       code        - the machine finding code the helper emits (e.g.
+#                     EVIDENCE-NO-CONTRACT, DECISION-NO-NORMALIZED-VIEW).
+#       note        - WHY the obligation is not yet discharged (the designed
+#                     intent + what must land to close it). Prose, never a live
+#                     claim of evidence that does not exist.
+#       sunset_date - REQUIRED ISO yyyy-mm-dd by which the obligation MUST be
+#                     discharged and this row MUST be removed. Tiered: decision-
+#                     axis rows (author a normalized ADR view — cheap) 2026-07-31
+#                     (the L1-corpus tier, aligned with the layer-purity
+#                     agent-service grandfather sunset already in flight);
+#                     evidence-axis rows (extract code/test/contract facts — needs
+#                     the fact-extractor over the real handlers) 2026-08-31.
+#
+# Change log (this file is an exempt surface for wave/log metadata):
+#   2026-05-30 — progressive-learning-curve-remediation W22. Authored at the
+#     promotion of gate Rule 147 / G-30 / E197 (feature_readiness) from advisory
+#     to changed-files-blocking. The 39 rows below are the complete advisory
+#     report against the live corpus at promotion time (18 FunctionPoints; 33
+#     evidence-axis + 6 decision-axis findings on the 11 internal-channel +
+#     2 ADR-citing shipped FunctionPoints whose elements were seeded without
+#     evidence refs / cite an ADR with no current normalized view). The three
+#     fully-wired HTTP FunctionPoints (FP-CREATE-RUN evidence, FP-CANCEL-RUN,
+#     FP-GET-RUN-STATUS evidence) and every design_only FunctionPoint carry no
+#     row (they discharge their bar / sit at the `proposed` bar). No ownership
+#     finding exists in the corpus, and none may ever be added here.
+
+schema_version: 1
+authority: ADR-0159
+last_updated: 2026-05-30
+status: blocking
+list_closed: true
+
+findings:
+  # -------------------------------------------------------------------------
+  # Evidence-axis debt: an internal-channel shipped FunctionPoint whose DSL
+  # element declares no saa.contract_op_refs / saa.code_entrypoint_refs /
+  # saa.test_refs. The production code exists (the implements edge resolves);
+  # the FunctionPoint element has not yet been wired with its evidence refs.
+  # Closes when the fact-extractor lands the entrypoint + test + (if any)
+  # contract-op facts and the refs are added to the element. Sunset 2026-08-31.
+  # -------------------------------------------------------------------------
+  - id: FRB-child-run-spawn-no-contract
+    fp_id: FP-CHILD-RUN-SPAWN
+    axis: evidence
+    code: EVIDENCE-NO-CONTRACT
+    note: |
+      Internal SuspendSignal child-Run variant; no external wire contract.
+      Discharge by either citing the engine-envelope/suspend contract surface
+      or recording an explicit saa.no_contract_rationale on the element.
+    sunset_date: 2026-08-31
+  - id: FRB-child-run-spawn-no-fact
+    fp_id: FP-CHILD-RUN-SPAWN
+    axis: evidence
+    code: EVIDENCE-NO-FACT
+    note: |
+      Element declares no saa.code_entrypoint_refs / saa.fact_refs. The
+      child-Run spawn path ships in agent-service; wire the entry symbol once
+      it is extracted into architecture/facts/generated/code-symbols.json.
+    sunset_date: 2026-08-31
+  - id: FRB-child-run-spawn-no-test
+    fp_id: FP-CHILD-RUN-SPAWN
+    axis: evidence
+    code: EVIDENCE-NO-TEST
+    note: |
+      Element declares no saa.test_refs. The dual-mode nesting test
+      (NestedDualModeIT) covers the path; cite it once verification.dsl /
+      tests.json resolves the test fact for this FunctionPoint.
+    sunset_date: 2026-08-31
+
+  - id: FRB-engine-dispatch-no-contract
+    fp_id: FP-ENGINE-DISPATCH
+    axis: evidence
+    code: EVIDENCE-NO-CONTRACT
+    note: |
+      EngineRegistry.resolve dispatch over engine-envelope.v1.yaml. Discharge
+      by citing the engine-envelope contract surface (or its contract-op) on the
+      element, or recording an explicit no-contract rationale.
+    sunset_date: 2026-08-31
+  - id: FRB-engine-dispatch-no-fact
+    fp_id: FP-ENGINE-DISPATCH
+    axis: evidence
+    code: EVIDENCE-NO-FACT
+    note: |
+      Element declares no saa.code_entrypoint_refs / saa.fact_refs. Wire the
+      EngineRegistry.resolve entry symbol once extracted into code-symbols.json.
+    sunset_date: 2026-08-31
+  - id: FRB-engine-dispatch-no-test
+    fp_id: FP-ENGINE-DISPATCH
+    axis: evidence
+    code: EVIDENCE-NO-TEST
+    note: |
+      Element declares no saa.test_refs. Cite the engine-dispatch test once the
+      verifies edge / test fact resolves.
+    sunset_date: 2026-08-31
+
+  - id: FRB-graph-memory-store-no-contract
+    fp_id: FP-GRAPH-MEMORY-STORE
+    axis: evidence
+    code: EVIDENCE-NO-CONTRACT
+    note: |
+      GraphMemoryRepository tenant-scoped CRUD auto-wired by the starter; the
+      SPI surface is internal. Discharge by citing the graph-memory contract or
+      recording an explicit no-contract rationale.
+    sunset_date: 2026-08-31
+  - id: FRB-graph-memory-store-no-fact
+    fp_id: FP-GRAPH-MEMORY-STORE
+    axis: evidence
+    code: EVIDENCE-NO-FACT
+    note: |
+      Element declares no saa.code_entrypoint_refs / saa.fact_refs. Wire the
+      repository entry symbol once extracted into code-symbols.json.
+    sunset_date: 2026-08-31
+  - id: FRB-graph-memory-store-no-test
+    fp_id: FP-GRAPH-MEMORY-STORE
+    axis: evidence
+    code: EVIDENCE-NO-TEST
+    note: |
+      Element declares no saa.test_refs. Cite the graph-memory store test once
+      its test fact resolves.
+    sunset_date: 2026-08-31
+
+  - id: FRB-hook-dispatch-no-contract
+    fp_id: FP-HOOK-DISPATCH
+    axis: evidence
+    code: EVIDENCE-NO-CONTRACT
+    note: |
+      RuntimeMiddleware hook dispatch over engine-hooks.v1.yaml. Discharge by
+      citing the engine-hooks contract surface (or its contract-op) on the
+      element, or recording an explicit no-contract rationale.
+    sunset_date: 2026-08-31
+  - id: FRB-hook-dispatch-no-fact
+    fp_id: FP-HOOK-DISPATCH
+    axis: evidence
+    code: EVIDENCE-NO-FACT
+    note: |
+      Element declares no saa.code_entrypoint_refs / saa.fact_refs. Wire the
+      RuntimeMiddleware hook-dispatch entry symbol once extracted.
+    sunset_date: 2026-08-31
+  - id: FRB-hook-dispatch-no-test
+    fp_id: FP-HOOK-DISPATCH
+    axis: evidence
+    code: EVIDENCE-NO-TEST
+    note: |
+      Element declares no saa.test_refs. Cite the HookChainConformanceTest once
+      its test fact resolves for this FunctionPoint.
+    sunset_date: 2026-08-31
+
+  - id: FRB-idempotency-claim-no-contract
+    fp_id: FP-IDEMPOTENCY-CLAIM
+    axis: evidence
+    code: EVIDENCE-NO-CONTRACT
+    note: |
+      IdempotencyHeaderFilter -> IdempotencyStore claim+replay; internal filter,
+      no external wire contract. Discharge by citing the idempotency contract or
+      recording an explicit no-contract rationale.
+    sunset_date: 2026-08-31
+  - id: FRB-idempotency-claim-no-fact
+    fp_id: FP-IDEMPOTENCY-CLAIM
+    axis: evidence
+    code: EVIDENCE-NO-FACT
+    note: |
+      Element declares no saa.code_entrypoint_refs / saa.fact_refs. Wire the
+      IdempotencyHeaderFilter entry symbol once extracted.
+    sunset_date: 2026-08-31
+  - id: FRB-idempotency-claim-no-test
+    fp_id: FP-IDEMPOTENCY-CLAIM
+    axis: evidence
+    code: EVIDENCE-NO-TEST
+    note: |
+      Element declares no saa.test_refs. Cite the idempotency claim/replay test
+      once its test fact resolves.
+    sunset_date: 2026-08-31
+  - id: FRB-idempotency-claim-no-normalized-view
+    fp_id: FP-IDEMPOTENCY-CLAIM
+    axis: decision
+    code: DECISION-NO-NORMALIZED-VIEW
+    note: |
+      saa.sourceAdr ADR-0027 has no normalized view at
+      docs/adr/normalized/ADR-0027.yaml. Discharge by authoring the normalized
+      view in a citeable state (active_guidance / partial_guidance).
+    sunset_date: 2026-07-31
+
+  - id: FRB-ingress-envelope-no-contract
+    fp_id: FP-INGRESS-ENVELOPE
+    axis: evidence
+    code: EVIDENCE-NO-CONTRACT
+    note: |
+      IngressGateway routing of IngressEnvelope; internal orchestration. Discharge
+      by citing the ingress-envelope contract or recording an explicit no-contract
+      rationale.
+    sunset_date: 2026-08-31
+  - id: FRB-ingress-envelope-no-fact
+    fp_id: FP-INGRESS-ENVELOPE
+    axis: evidence
+    code: EVIDENCE-NO-FACT
+    note: |
+      Element declares no saa.code_entrypoint_refs / saa.fact_refs. Wire the
+      IngressGateway routing entry symbol once extracted.
+    sunset_date: 2026-08-31
+  - id: FRB-ingress-envelope-no-test
+    fp_id: FP-INGRESS-ENVELOPE
+    axis: evidence
+    code: EVIDENCE-NO-TEST
+    note: |
+      Element declares no saa.test_refs. Cite the ingress-routing test once its
+      test fact resolves.
+    sunset_date: 2026-08-31
+
+  - id: FRB-posture-boot-guard-no-contract
+    fp_id: FP-POSTURE-BOOT-GUARD
+    axis: evidence
+    code: EVIDENCE-NO-CONTRACT
+    note: |
+      PostureBootGuard validates @RequiredConfig at startup; no external wire
+      contract. Discharge by recording an explicit no-contract rationale (this is
+      a boot-time guard, not a request surface).
+    sunset_date: 2026-08-31
+  - id: FRB-posture-boot-guard-no-fact
+    fp_id: FP-POSTURE-BOOT-GUARD
+    axis: evidence
+    code: EVIDENCE-NO-FACT
+    note: |
+      Element declares no saa.code_entrypoint_refs / saa.fact_refs. Wire the
+      PostureBootGuard entry symbol once extracted.
+    sunset_date: 2026-08-31
+  - id: FRB-posture-boot-guard-no-test
+    fp_id: FP-POSTURE-BOOT-GUARD
+    axis: evidence
+    code: EVIDENCE-NO-TEST
+    note: |
+      Element declares no saa.test_refs. Cite the AppPostureGate / boot-guard
+      test once its test fact resolves.
+    sunset_date: 2026-08-31
+  - id: FRB-posture-boot-guard-no-normalized-view
+    fp_id: FP-POSTURE-BOOT-GUARD
+    axis: decision
+    code: DECISION-NO-NORMALIZED-VIEW
+    note: |
+      saa.sourceAdr ADR-0058 has no normalized view at
+      docs/adr/normalized/ADR-0058.yaml. Discharge by authoring the normalized
+      view in a citeable state.
+    sunset_date: 2026-07-31
+
+  - id: FRB-run-state-transition-no-contract
+    fp_id: FP-RUN-STATE-TRANSITION
+    axis: evidence
+    code: EVIDENCE-NO-CONTRACT
+    note: |
+      RunRepository.updateIfNotTerminal CAS transition; internal persistence.
+      Discharge by recording an explicit no-contract rationale (no external wire
+      surface).
+    sunset_date: 2026-08-31
+  - id: FRB-run-state-transition-no-fact
+    fp_id: FP-RUN-STATE-TRANSITION
+    axis: evidence
+    code: EVIDENCE-NO-FACT
+    note: |
+      Element declares no saa.code_entrypoint_refs / saa.fact_refs. Wire the
+      RunRepository.updateIfNotTerminal symbol once extracted.
+    sunset_date: 2026-08-31
+  - id: FRB-run-state-transition-no-test
+    fp_id: FP-RUN-STATE-TRANSITION
+    axis: evidence
+    code: EVIDENCE-NO-TEST
+    note: |
+      Element declares no saa.test_refs. Cite the RunStateMachineTest /
+      RunStatusTransitionIT once its test fact resolves for this FunctionPoint.
+    sunset_date: 2026-08-31
+  - id: FRB-run-state-transition-adr-not-citeable
+    fp_id: FP-RUN-STATE-TRANSITION
+    axis: decision
+    code: DECISION-ADR-NOT-CITEABLE
+    note: |
+      saa.sourceAdr ADR-0118 normalizes to current_state remediation_record,
+      not a citeable state. Discharge by re-pointing saa.sourceAdr to the active
+      ADR that currently governs the CAS transition invariant (the remediation
+      record is evidence, not current authority).
+    sunset_date: 2026-07-31
+
+  - id: FRB-s2c-callback-no-contract
+    fp_id: FP-S2C-CALLBACK
+    axis: evidence
+    code: EVIDENCE-NO-CONTRACT
+    note: |
+      S2cCallbackTransport server-to-client callback; the SPI surface is
+      internal. Discharge by citing the s2c-callback contract or recording an
+      explicit no-contract rationale.
+    sunset_date: 2026-08-31
+  - id: FRB-s2c-callback-no-fact
+    fp_id: FP-S2C-CALLBACK
+    axis: evidence
+    code: EVIDENCE-NO-FACT
+    note: |
+      Element declares no saa.code_entrypoint_refs / saa.fact_refs. Wire the
+      S2cCallbackTransport entry symbol once extracted.
+    sunset_date: 2026-08-31
+  - id: FRB-s2c-callback-no-test
+    fp_id: FP-S2C-CALLBACK
+    axis: evidence
+    code: EVIDENCE-NO-TEST
+    note: |
+      Element declares no saa.test_refs. Cite the s2c-callback test once its
+      test fact resolves.
+    sunset_date: 2026-08-31
+
+  - id: FRB-suspend-resume-no-contract
+    fp_id: FP-SUSPEND-RESUME
+    axis: evidence
+    code: EVIDENCE-NO-CONTRACT
+    note: |
+      SuspendSignal throw -> SUSPENDED -> RUNNING transition; internal. Discharge
+      by recording an explicit no-contract rationale (no external wire surface).
+    sunset_date: 2026-08-31
+  - id: FRB-suspend-resume-no-fact
+    fp_id: FP-SUSPEND-RESUME
+    axis: evidence
+    code: EVIDENCE-NO-FACT
+    note: |
+      Element declares no saa.code_entrypoint_refs / saa.fact_refs. Wire the
+      ResumeDispatcher / SuspendSignal entry symbol once extracted.
+    sunset_date: 2026-08-31
+  - id: FRB-suspend-resume-no-test
+    fp_id: FP-SUSPEND-RESUME
+    axis: evidence
+    code: EVIDENCE-NO-TEST
+    note: |
+      Element declares no saa.test_refs. Cite the suspend/resume test once its
+      test fact resolves.
+    sunset_date: 2026-08-31
+
+  - id: FRB-tenant-cross-check-no-contract
+    fp_id: FP-TENANT-CROSS-CHECK
+    axis: evidence
+    code: EVIDENCE-NO-CONTRACT
+    note: |
+      JWT.tenant cross-check filter; internal admission guard, no external wire
+      contract. Discharge by recording an explicit no-contract rationale.
+    sunset_date: 2026-08-31
+  - id: FRB-tenant-cross-check-no-fact
+    fp_id: FP-TENANT-CROSS-CHECK
+    axis: evidence
+    code: EVIDENCE-NO-FACT
+    note: |
+      Element declares no saa.code_entrypoint_refs / saa.fact_refs. Wire the
+      tenant cross-check filter entry symbol once extracted.
+    sunset_date: 2026-08-31
+  - id: FRB-tenant-cross-check-no-test
+    fp_id: FP-TENANT-CROSS-CHECK
+    axis: evidence
+    code: EVIDENCE-NO-TEST
+    note: |
+      Element declares no saa.test_refs. Cite the tenant cross-check test once
+      its test fact resolves.
+    sunset_date: 2026-08-31
+  - id: FRB-tenant-cross-check-no-normalized-view
+    fp_id: FP-TENANT-CROSS-CHECK
+    axis: decision
+    code: DECISION-NO-NORMALIZED-VIEW
+    note: |
+      saa.sourceAdr ADR-0056 has no normalized view at
+      docs/adr/normalized/ADR-0056.yaml. Discharge by authoring the normalized
+      view in a citeable state.
+    sunset_date: 2026-07-31
+
+  - id: FRB-create-run-no-normalized-view
+    fp_id: FP-CREATE-RUN
+    axis: decision
+    code: DECISION-NO-NORMALIZED-VIEW
+    note: |
+      saa.sourceAdr ADR-0020 has no normalized view at
+      docs/adr/normalized/ADR-0020.yaml. The FunctionPoint discharges its full
+      evidence axis (contract+fact+test refs all wired); only the decision-axis
+      normalized view is missing. Discharge by authoring the ADR-0020 normalized
+      view in a citeable state.
+    sunset_date: 2026-07-31
+  - id: FRB-get-run-status-no-normalized-view
+    fp_id: FP-GET-RUN-STATUS
+    axis: decision
+    code: DECISION-NO-NORMALIZED-VIEW
+    note: |
+      saa.sourceAdr ADR-0020 has no normalized view at
+      docs/adr/normalized/ADR-0020.yaml (shared with FP-CREATE-RUN). The
+      FunctionPoint discharges its full evidence axis; only the normalized view
+      is missing. Discharge by authoring the ADR-0020 normalized view.
+    sunset_date: 2026-07-31

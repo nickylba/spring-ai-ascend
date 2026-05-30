@@ -468,6 +468,164 @@ class ReadinessOwnershipInvariantTests(unittest.TestCase):
             self.assertIn("OWNERSHIP-NONFRAME-ANCHOR", result.stderr)
 
 
+class ReadinessBaselineTests(unittest.TestCase):
+    """The dated baseline allow-list: changed-files-mode toleration + expiry.
+
+    These tests run the helper with --mode full-blocking when they need a finding
+    to surface deterministically (full-blocking scopes the whole corpus without
+    needing a git repo) — but full-blocking IGNORES the baseline by design, so the
+    toleration tests use a not-a-git-repo changed-files-blocking run (which falls
+    back to full-corpus scope, exercising the baseline application path).
+    """
+
+    def _bare_shipped_repo(self, root: Path) -> None:
+        """A shipped FP missing every evidence + decision obligation (many findings)."""
+        b = _RepoBuilder(root)
+        b.fp_dsl = _fp_element("fpBare", "FP-BARE", "shipped", source_adr="ADR-0001")
+        b.materialize()
+
+    def _write_baseline(self, root: Path, text: str) -> None:
+        write(root / "docs/governance/feature-readiness-baseline.yaml", text)
+
+    def test_absent_baseline_tolerates_nothing(self) -> None:
+        # No baseline file -> changed-files-blocking (full-corpus fallback) blocks.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._bare_shipped_repo(root)
+            result = _run(root, "--mode", "changed-files-blocking")
+            self.assertEqual(result.returncode, 1, result.stderr)
+            self.assertIn("BLOCKING", result.stderr)
+            self.assertNotIn("BASELINED", result.stderr)
+
+    def test_open_baseline_row_tolerates_matching_finding(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            # A clean shipped FP with ONLY its test ref dropped -> exactly one
+            # finding (EVIDENCE-NO-TEST). Freeze precisely that row.
+            b = _RepoBuilder(root)
+            props = _SHIPPED_EVIDENCE_PROPS.replace(
+                '        "saa.test_refs" "com.example.FooIT"\n', ""
+            )
+            b.fp_dsl = (
+                _fp_element("fpFoo", "FP-FOO", "shipped", source_adr="ADR-0001", extra_props=props)
+                + _module_element("modSvc", "agent-service")
+                + _edge("modSvc", "fpFoo", "implements")
+            )
+            b.frames_dsl = _frame_element("efFoo", "EF-FOO") + _edge("efFoo", "fpFoo", "anchors")
+            b.features_dsl = _feature_element("featFoo", "FEAT-FOO") + _edge("featFoo", "fpFoo", "requires")
+            b.materialize()
+            write(root / "docs/adr/normalized/ADR-0001.yaml", _normalized_adr("ADR-0001", "active_guidance"))
+            self._write_baseline(
+                root,
+                textwrap.dedent(
+                    """
+                    schema_version: 1
+                    authority: ADR-0159
+                    status: blocking
+                    list_closed: true
+                    findings:
+                      - {id: FRB-1, fp_id: FP-FOO, axis: evidence, code: EVIDENCE-NO-TEST, sunset_date: 2999-01-01}
+                    """
+                ),
+            )
+            result = _run(root, "--mode", "changed-files-blocking")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("BASELINED", result.stderr)
+            self.assertNotIn("BLOCKING", result.stderr)
+
+    def test_expired_baseline_row_does_not_tolerate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._bare_shipped_repo(root)
+            self._write_baseline(
+                root,
+                textwrap.dedent(
+                    """
+                    schema_version: 1
+                    authority: ADR-0159
+                    status: blocking
+                    list_closed: true
+                    findings:
+                      - {id: FRB-1, fp_id: FP-BARE, axis: evidence, code: EVIDENCE-NO-CONTRACT, sunset_date: 2000-01-01}
+                    """
+                ),
+            )
+            result = _run(root, "--mode", "changed-files-blocking")
+            # The expired row tolerates nothing; the finding blocks, and the expired
+            # row is flagged for removal as a NOTE.
+            self.assertEqual(result.returncode, 1, result.stderr)
+            self.assertIn("BLOCKING", result.stderr)
+            self.assertIn("expired", result.stderr)
+
+    def test_full_blocking_ignores_baseline(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._bare_shipped_repo(root)
+            # Even a still-open row does not save full-blocking (terminal posture).
+            self._write_baseline(
+                root,
+                textwrap.dedent(
+                    """
+                    schema_version: 1
+                    authority: ADR-0159
+                    status: blocking
+                    list_closed: true
+                    findings:
+                      - {id: FRB-1, fp_id: FP-BARE, axis: evidence, code: EVIDENCE-NO-CONTRACT, sunset_date: 2999-01-01}
+                    """
+                ),
+            )
+            result = _run(root, "--mode", "full-blocking")
+            self.assertEqual(result.returncode, 1, result.stderr)
+            self.assertNotIn("BASELINED", result.stderr)
+
+    def test_malformed_baseline_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._bare_shipped_repo(root)
+            # A findings row missing 'code' is a config error (exit 2) in every mode.
+            self._write_baseline(
+                root,
+                textwrap.dedent(
+                    """
+                    schema_version: 1
+                    authority: ADR-0159
+                    findings:
+                      - {id: FRB-1, fp_id: FP-BARE, axis: evidence, sunset_date: 2999-01-01}
+                    """
+                ),
+            )
+            result = _run(root, "--mode", "advisory")
+            self.assertEqual(result.returncode, 2, result.stderr)
+            self.assertIn("config error (baseline)", result.stderr)
+
+    def test_ownership_finding_never_baselined(self) -> None:
+        # An ownership lie blocks even when a baseline row "covers" it.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            b = _RepoBuilder(root)
+            b.fp_dsl = _fp_element("fpFoo", "FP-FOO", "design_only")
+            b.frames_dsl = _feature_element("featBad", "FEAT-BAD") + _edge("featBad", "fpFoo", "anchors")
+            b.materialize()
+            self._write_baseline(
+                root,
+                textwrap.dedent(
+                    """
+                    schema_version: 1
+                    authority: ADR-0159
+                    status: blocking
+                    list_closed: true
+                    findings:
+                      - {id: FRB-own, fp_id: FP-FOO, axis: ownership, code: OWNERSHIP-NONFRAME-ANCHOR, sunset_date: 2999-01-01}
+                    """
+                ),
+            )
+            result = _run(root, "--mode", "changed-files-blocking")
+            self.assertEqual(result.returncode, 1, result.stderr)
+            self.assertIn("OWNERSHIP-NONFRAME-ANCHOR", result.stderr)
+            self.assertNotIn("BASELINED", result.stderr)
+
+
 class ReadinessModeTests(unittest.TestCase):
     def test_advisory_always_exits_zero_despite_findings(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
