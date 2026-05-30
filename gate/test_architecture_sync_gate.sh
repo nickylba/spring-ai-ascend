@@ -8871,6 +8871,324 @@ EOF
 }
 
 # ---------------------------------------------------------------------------
+# Rule 146 — frame_card_consistency (Rule G-29 / E196)
+# 2026-05-30 progressive-learning-curve-remediation W16. ADR-0161 Frame-Card /
+# DSL parity + fact-citation integrity. Each fixture builds an isolated scratch
+# repo (never the working tree) with a minimal DSL + generated facts + card(s),
+# then asserts the helper's verdict. Fail-closed discipline (non-vacuity guard
+# for an auto-discovering rule): every failure mode ships a negative AND a
+# positive fixture.
+# ---------------------------------------------------------------------------
+# Lay down a minimal valid scratch corpus: one shipped frame anchoring one FP,
+# the FP element, and code/test/contract facts that the pilot card cites. The
+# card itself is written by each test (so it can mutate identity / refs / anchors).
+_g29_frame_card_scratch() {
+  local sroot="$1"
+  rm -rf "$sroot"
+  mkdir -p "$sroot/gate/lib" \
+           "$sroot/architecture/features" \
+           "$sroot/architecture/facts/generated" \
+           "$sroot/architecture/docs/L1/frames"
+  cp "$PWD/gate/lib/check_frame_card_consistency.py" "$sroot/gate/lib/check_frame_card_consistency.py"
+  cat > "$sroot/architecture/features/engineering-frames.dsl" <<'EOF'
+efAccessAdmission = element "Access Admission Frame" "EngineeringFrame" "admission" "SAA EngineeringFrame" {
+    properties {
+        "saa.id" "EF-ACCESS-ADMISSION"
+        "saa.status" "shipped"
+        "saa.owner" "agent-service"
+        "saa.primaryPackage" "com.huawei.ascend.service.platform.web.runs"
+        "saa.cardPath" "architecture/docs/L1/frames/EF-ACCESS-ADMISSION.md"
+    }
+}
+genModule_agent_service -> efAccessAdmission "module contains engineering frame" "SAA Relationship" {
+    properties { "saa.rel" "contains" }
+}
+efAccessAdmission -> fpCreateRun "frame anchors function point" "SAA Relationship" {
+    properties { "saa.rel" "anchors" }
+}
+EOF
+  cat > "$sroot/architecture/features/function-points.dsl" <<'EOF'
+fpCreateRun = element "Create Run" "FunctionPoint" "POST /v1/runs" "SAA FunctionPoint" {
+    properties {
+        "saa.id" "FP-CREATE-RUN"
+        "saa.status" "shipped"
+        "saa.owner" "agent-service"
+    }
+}
+EOF
+  : > "$sroot/architecture/features/features.dsl"
+  cat > "$sroot/architecture/facts/generated/code-symbols.json" <<'EOF'
+{ "facts": [ { "fact_id": "code-symbol/com-huawei-ascend-service-platform-web-runs-runcontroller",
+  "observed_value": { "public_methods": [ "create(Lcom/huawei/ascend/CreateRunRequest;)Lorg/springframework/http/ResponseEntity;" ] } } ] }
+EOF
+  cat > "$sroot/architecture/facts/generated/tests.json" <<'EOF'
+{ "facts": [ { "fact_id": "test/com-huawei-ascend-service-platform-web-runs-runhttpcontractit", "observed_value": {} } ] }
+EOF
+  cat > "$sroot/architecture/facts/generated/contract-surfaces.json" <<'EOF'
+{ "facts": [ { "fact_id": "contract-op/createrun", "observed_value": {} } ] }
+EOF
+}
+
+# Write the canonical VALID pilot card into a prepared scratch corpus.
+_g29_write_valid_card() {
+  local sroot="$1"
+  cat > "$sroot/architecture/docs/L1/frames/EF-ACCESS-ADMISSION.md" <<'EOF'
+---
+frame_id: EF-ACCESS-ADMISSION
+dsl_element: efAccessAdmission
+owner_module: agent-service
+status: shipped
+primary_package: com.huawei.ascend.service.platform.web.runs
+function_points:
+  - FP-CREATE-RUN
+fact_refs:
+  - code-symbol/com-huawei-ascend-service-platform-web-runs-runcontroller
+  - test/com-huawei-ascend-service-platform-web-runs-runhttpcontractit
+  - contract-op/createrun
+---
+
+# EF-ACCESS-ADMISSION
+
+## FunctionPoint Mapping
+FP-CREATE-RUN entry: `code-symbol/com-huawei-ascend-service-platform-web-runs-runcontroller#create(Lcom/huawei/ascend/CreateRunRequest;)Lorg/springframework/http/ResponseEntity;`
+verified by `test/com-huawei-ascend-service-platform-web-runs-runhttpcontractit`; contract `contract-op/createrun`.
+EOF
+}
+
+test_rule_146_frame_card_greenfield_pos() {
+  # POSITIVE: greenfield — the frames/ directory carries no authored card yet
+  # (only the DSL+facts exist). The helper is vacuously clean in every mode.
+  local helper="$PWD/gate/lib/check_frame_card_consistency.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_146_frame_card_greenfield_pos" "Rule G-29 / Rule 146: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_146_frame_card_greenfield_pos" "Rule G-29 / Rule 146: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r146_greenfield"
+  _g29_frame_card_scratch "$sroot"
+  # Remove every authored card; leave only scaffolding (README + template).
+  rm -f "$sroot/architecture/docs/L1/frames/"*.md
+  : > "$sroot/architecture/docs/L1/frames/README.md"
+  : > "$sroot/architecture/docs/L1/frames/_template.md"
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_frame_card_consistency.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 0 ]] && echo "$out" | grep -q "greenfield"; then
+    ok "rule_146_frame_card_greenfield_pos" "Rule G-29 / Rule 146: no authored Frame Card yet is vacuously clean (greenfield, ADR-0161 §4)"
+  else
+    fail "rule_146_frame_card_greenfield_pos" "Rule G-29 / Rule 146 greenfield case unexpected: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+test_rule_146_frame_card_valid_pos() {
+  # POSITIVE: a synthetic VALID pilot card — identity copies the DSL, every
+  # cited fact resolves, only the anchored FP is named — passes full-blocking.
+  local helper="$PWD/gate/lib/check_frame_card_consistency.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_146_frame_card_valid_pos" "Rule G-29 / Rule 146: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_146_frame_card_valid_pos" "Rule G-29 / Rule 146: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r146_valid"
+  _g29_frame_card_scratch "$sroot"
+  _g29_write_valid_card "$sroot"
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_frame_card_consistency.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 2 ]]; then
+    ok "rule_146_frame_card_valid_pos" "Rule G-29 / Rule 146: helper config error (likely PyYAML absent) — skipped: $(echo "$out" | head -1)"
+    return
+  fi
+  if [[ $rc -eq 0 ]] && echo "$out" | grep -q "0 finding(s)"; then
+    ok "rule_146_frame_card_valid_pos" "Rule G-29 / Rule 146: a DSL-faithful, fact-cited Frame Card passes full-blocking"
+  else
+    fail "rule_146_frame_card_valid_pos" "Rule G-29 / Rule 146 valid case unexpected: rc=$rc out=$(echo "$out" | head -2)"
+  fi
+}
+
+test_rule_146_frame_card_invented_id_neg() {
+  # NEGATIVE: a card whose frontmatter frame_id resolves to no DSL frame is an
+  # invented identity and MUST fail full-blocking.
+  local helper="$PWD/gate/lib/check_frame_card_consistency.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_146_frame_card_invented_id_neg" "Rule G-29 / Rule 146: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_146_frame_card_invented_id_neg" "Rule G-29 / Rule 146: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r146_invented_id"
+  _g29_frame_card_scratch "$sroot"
+  cat > "$sroot/architecture/docs/L1/frames/EF-GHOST.md" <<'EOF'
+---
+frame_id: EF-GHOST-NOT-IN-DSL
+owner_module: agent-service
+status: shipped
+---
+# ghost
+EOF
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_frame_card_consistency.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 2 ]]; then
+    ok "rule_146_frame_card_invented_id_neg" "Rule G-29 / Rule 146: helper config error (likely PyYAML absent) — skipped: $(echo "$out" | head -1)"
+    return
+  fi
+  if [[ $rc -ne 0 ]] && echo "$out" | grep -q "IDENTITY-FRAME-ID"; then
+    ok "rule_146_frame_card_invented_id_neg" "Rule G-29 / Rule 146: a card inventing a frame_id absent from the DSL fails closed"
+  else
+    fail "rule_146_frame_card_invented_id_neg" "Rule G-29 / Rule 146 invented-id case did not fail: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+test_rule_146_frame_card_unresolved_fact_neg() {
+  # NEGATIVE: a card citing a code-symbol/test/contract-op fact ID that does not
+  # resolve in the generated facts MUST fail full-blocking (the anti-rot core).
+  local helper="$PWD/gate/lib/check_frame_card_consistency.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_146_frame_card_unresolved_fact_neg" "Rule G-29 / Rule 146: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_146_frame_card_unresolved_fact_neg" "Rule G-29 / Rule 146: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r146_unresolved_fact"
+  _g29_frame_card_scratch "$sroot"
+  cat > "$sroot/architecture/docs/L1/frames/EF-ACCESS-ADMISSION.md" <<'EOF'
+---
+frame_id: EF-ACCESS-ADMISSION
+owner_module: agent-service
+status: shipped
+primary_package: com.huawei.ascend.service.platform.web.runs
+---
+# c
+The boundary is `code-symbol/com-huawei-ascend-service-ghost-doesnotexist`.
+EOF
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_frame_card_consistency.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 2 ]]; then
+    ok "rule_146_frame_card_unresolved_fact_neg" "Rule G-29 / Rule 146: helper config error (likely PyYAML absent) — skipped: $(echo "$out" | head -1)"
+    return
+  fi
+  if [[ $rc -ne 0 ]] && echo "$out" | grep -q "FACT-UNRESOLVED"; then
+    ok "rule_146_frame_card_unresolved_fact_neg" "Rule G-29 / Rule 146: a card citing a non-existent fact ID fails closed"
+  else
+    fail "rule_146_frame_card_unresolved_fact_neg" "Rule G-29 / Rule 146 unresolved-fact case did not fail: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+test_rule_146_frame_card_invented_anchor_neg() {
+  # NEGATIVE: a card naming a FunctionPoint its frame does not 'anchors' in the
+  # DSL (and not declared participating) is an invented anchor and MUST fail.
+  local helper="$PWD/gate/lib/check_frame_card_consistency.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_146_frame_card_invented_anchor_neg" "Rule G-29 / Rule 146: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_146_frame_card_invented_anchor_neg" "Rule G-29 / Rule 146: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r146_invented_anchor"
+  _g29_frame_card_scratch "$sroot"
+  cat > "$sroot/architecture/docs/L1/frames/EF-ACCESS-ADMISSION.md" <<'EOF'
+---
+frame_id: EF-ACCESS-ADMISSION
+owner_module: agent-service
+status: shipped
+primary_package: com.huawei.ascend.service.platform.web.runs
+function_points: [FP-CREATE-RUN, FP-NOT-ANCHORED-HERE]
+---
+# c
+EOF
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_frame_card_consistency.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 2 ]]; then
+    ok "rule_146_frame_card_invented_anchor_neg" "Rule G-29 / Rule 146: helper config error (likely PyYAML absent) — skipped: $(echo "$out" | head -1)"
+    return
+  fi
+  if [[ $rc -ne 0 ]] && echo "$out" | grep -q "ANCHOR-INVENTED"; then
+    ok "rule_146_frame_card_invented_anchor_neg" "Rule G-29 / Rule 146: a card naming an FP the frame does not anchor fails closed"
+  else
+    fail "rule_146_frame_card_invented_anchor_neg" "Rule G-29 / Rule 146 invented-anchor case did not fail: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+test_rule_146_frame_card_advisory_never_blocks_pos() {
+  # POSITIVE (ratchet posture): the SAME broken card (invented frame_id) MUST
+  # NOT block in advisory mode (always exit 0). Locks the advisory->blocking
+  # ratchet ADR-0161 §6 ships first.
+  local helper="$PWD/gate/lib/check_frame_card_consistency.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_146_frame_card_advisory_never_blocks_pos" "Rule G-29 / Rule 146: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_146_frame_card_advisory_never_blocks_pos" "Rule G-29 / Rule 146: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r146_advisory"
+  _g29_frame_card_scratch "$sroot"
+  cat > "$sroot/architecture/docs/L1/frames/EF-GHOST.md" <<'EOF'
+---
+frame_id: EF-GHOST-NOT-IN-DSL
+owner_module: agent-service
+status: shipped
+---
+# ghost
+EOF
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_frame_card_consistency.py" --repo "$sroot" --mode advisory 2>&1); rc=$?
+  if [[ $rc -eq 2 ]]; then
+    ok "rule_146_frame_card_advisory_never_blocks_pos" "Rule G-29 / Rule 146: helper config error (likely PyYAML absent) — skipped: $(echo "$out" | head -1)"
+    return
+  fi
+  if [[ $rc -eq 0 ]] && echo "$out" | grep -q "IDENTITY-FRAME-ID"; then
+    ok "rule_146_frame_card_advisory_never_blocks_pos" "Rule G-29 / Rule 146: advisory mode reports the finding but never blocks (exit 0) — ratchet soak posture"
+  else
+    fail "rule_146_frame_card_advisory_never_blocks_pos" "Rule G-29 / Rule 146 advisory case unexpected: rc=$rc (want 0) out=$(echo "$out" | head -1)"
+  fi
+}
+
+test_rule_146_frame_card_missing_facts_fail_closed_neg() {
+  # NEGATIVE: once a card EXISTS, a vanished generated-fact file is NEVER an
+  # advisory condition — the helper fails closed (exit 2) in EVERY mode, so a
+  # card cannot be judged against authorities that disappeared.
+  local helper="$PWD/gate/lib/check_frame_card_consistency.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_146_frame_card_missing_facts_fail_closed_neg" "Rule G-29 / Rule 146: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_146_frame_card_missing_facts_fail_closed_neg" "Rule G-29 / Rule 146: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r146_missing_facts"
+  _g29_frame_card_scratch "$sroot"
+  _g29_write_valid_card "$sroot"
+  rm -f "$sroot/architecture/facts/generated/code-symbols.json"
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_frame_card_consistency.py" --repo "$sroot" --mode advisory 2>&1); rc=$?
+  if [[ $rc -eq 2 ]] && echo "$out" | grep -q "config error"; then
+    ok "rule_146_frame_card_missing_facts_fail_closed_neg" "Rule G-29 / Rule 146: a vanished fact file fails closed (exit 2) even in advisory mode"
+  else
+    fail "rule_146_frame_card_missing_facts_fail_closed_neg" "Rule G-29 / Rule 146 missing-facts case did not fail closed: rc=$rc (want 2) out=$(echo "$out" | head -1)"
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #
 # Each test_rule*() function is independent (uses its own $scratch/r<N>_*

@@ -51,6 +51,7 @@ declares allocation.
 | G-26 | Local Plan-Path Ban | **P** | [`rule-G-26.md`](../rules/rule-G-26.md) |
 | G-27 | Layer Purity | **P** | [`rule-G-27.md`](../rules/rule-G-27.md) |
 | G-28 | ADR Normalization | **P** | [`rule-G-28.md`](../rules/rule-G-28.md) |
+| G-29 | Frame-Card / DSL Parity | **P** | [`rule-G-29.md`](../rules/rule-G-29.md) |
 | M-1 | Skeleton Module Has No Production Java | **P** | [`rule-M-1.md`](../rules/rule-M-1.md) |
 | M-2 | Domain Contract Discipline (schema-first + design-only registration + DFX-stem truth) | **P** | [`rule-M-2.md`](../rules/rule-M-2.md) |
 | R-A | Business/Platform Decoupling Enforcement | **P** | [`rule-R-A.md`](../rules/rule-R-A.md) |
