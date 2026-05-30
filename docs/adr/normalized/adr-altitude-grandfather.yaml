@@ -39,18 +39,44 @@
 #        the Markdown/locked ADRs are absent from that YAML-only fact layer -- so
 #        no view is even demanded for them. The leak therefore persists at its
 #        normative source while CI stays green.
-#   This file closes that by-authority-surface gap the same way the status-ledger
-#   grandfather closed it for the allowed_claim narrative: a per-surface, dated,
-#   closed grandfather list that FREEZES each known leak, demotes it to
-#   non-authoritative (quoted as evidence, never as a live claim), and pins a
-#   sunset_date by which the demotion MUST be completed (by authoring the ADR's
-#   normalized view, whose non_authoritative_legacy_content / l2_refs quarantine
-#   the detail, OR by widening AdrFactExtractor to the Markdown/locked sources so
-#   Rule G-28 view coverage becomes demandable -- whichever the W6 normalization
-#   wave chooses). It is NOT an ADR-NNNN.yaml view, so the Rule G-28 view
-#   validator (which globs ADR-*.yaml and filters ^ADR-\d{4}\.yaml$) does not read
-#   it; it lives beside the views because it is the by-adr demotion layer that
-#   peer to those views.
+#   This file FREEZES each KNOWN leak the same way the status-ledger grandfather
+#   freezes a known allowed_claim leak: a per-surface, dated, closed grandfather
+#   list that demotes the leak to non-authoritative (quoted as evidence, never as
+#   a live claim) and pins a sunset_date by which the demotion MUST complete (by
+#   authoring the ADR's normalized view, whose non_authoritative_legacy_content /
+#   l2_refs quarantine the detail, OR by widening AdrFactExtractor to the
+#   Markdown/locked sources so Rule G-28 view coverage becomes demandable --
+#   whichever the W6 normalization wave chooses). It is NOT an ADR-NNNN.yaml view,
+#   so the Rule G-28 view validator (which globs ADR-*.yaml and filters
+#   ^ADR-\d{4}\.yaml$) does not read it; it lives beside the views because it is
+#   the by-adr demotion layer peer to those views.
+#
+#   But -- and this is the load-bearing correction -- freezing the known leaks is
+#   NOT the same as CLOSING the by-authority-surface gap, and this list does not
+#   close it. The status-ledger grandfather has an EXECUTABLE BACKSTOP that this
+#   file does NOT: Rule G-34 / enforcer E201 (gate/lib/check_status_claim_altitude.py)
+#   mechanically scans EVERY allowed_claim value on its surface, so an allowed_claim
+#   leak that is neither demoted nor grandfathered FAILS the gate as a
+#   non-grandfathered finding -- the list cannot silently under-claim because the
+#   gate, not the list, enumerates the surface. The by-adr surface has no such
+#   gate (it is registered nowhere in layer-purity-policy.yaml#governed_surfaces;
+#   its executable enforcer is the W6 follow-up, not yet authored), so NOTHING
+#   fails when an accepted Markdown/locked ADR that authors a leaked L0 section-4
+#   constraint is given neither a normalized view nor a row here. The
+#   completeness of the freeze therefore depends entirely on reviewer
+#   enumeration, and the list is NON-EXHAUSTIVE by construction (see the
+#   `completeness` block below for the population denominator and the unlisted
+#   remainder). A closed + advisory + non-exhaustive list over an UN-GATED
+#   authority surface cannot detect its own omissions -- which is the
+#   non-vacuity weakness "a drift-detector that detects nothing must fail loudly"
+#   (the rc36 auto-discovering-gate lesson) applied to a HAND-curated list
+#   instead of a discovered one. The genuine close is the deferred
+#   AdrFactExtractor widening (the ledger's own required_follow_up / due_wave W6):
+#   once the Markdown/locked sources enter the adrs.json fact layer, Rule G-28
+#   check_historical_adr_governance.py DEMANDS a normalized view for each, and the
+#   missing-view condition becomes a hard finding -- the executable backstop this
+#   list lacks today. Until then this file is the BEST-EFFORT freeze of the
+#   enumerated-so-far leaks, NOT a complete demotion of the surface.
 #
 # Reading discipline (binding, ADR-0160 + ADR-0154 cascade). This file is a
 #   READABLE INTERPRETATION layer over the raw Markdown/locked ADR sources and
@@ -97,6 +123,52 @@
 #                     (the remediation ledger entries for the named ADRs). Recorded
 #                     once here so a row is unambiguously not an L0/L1 prose row
 #                     and not a status-ledger allowed_claim row.
+#   completeness    - REQUIRED. The honest record that this list is NON-EXHAUSTIVE
+#                     over an UN-GATED surface, the population denominator it is a
+#                     subset of, the unbacked-closure risk that follows, and the
+#                     mechanical successor that closes it. This field exists
+#                     because a closed grandfather list with no executable backstop
+#                     CANNOT detect its own omissions (the non-vacuity weakness);
+#                     it is the machine-readable form of the "load-bearing
+#                     correction" paragraph in the header above. Sub-fields:
+#       exhaustive            - false. The list freezes the reviewer-enumerated
+#                               leaks, not the full by-adr leak set.
+#       backstop              - none-yet | gated. `none-yet` until the by-adr
+#                               altitude enforcer is authored (the W6 follow-up);
+#                               flip to `gated` only when an executable gate
+#                               enumerates the surface (then this whole list's
+#                               completeness no longer depends on enumeration).
+#       population            - the denominator the frozen rows are a subset of:
+#                               the accepted Markdown/locked ADRs read as current
+#                               authority on the by-adr surface, with the precise
+#                               counts re-stated from the ledger (a readability
+#                               aid; the ledger is the source of truth, this file
+#                               mints no count it cannot derive from the ledger).
+#       frozen_rows           - how many rows this list currently carries.
+#       unlisted_estimate     - the population minus the frozen rows: the
+#                               accepted-Markdown/locked ADRs at active_guidance
+#                               with no view AND no row here, every one of which is
+#                               read as current authority and is structurally
+#                               invisible to Rule G-28 today.
+#       unbacked_closure_risk - the named failure mode: nothing fails when an
+#                               unlisted leaking ADR is given neither a view nor a
+#                               row, so the freeze silently under-claims.
+#       non_vacuity_guard     - the demand on the mechanical successor: when the
+#                               by-adr enforcer / the widened AdrFactExtractor
+#                               lands, it MUST be a COVERAGE gate that FAILS on any
+#                               accepted Markdown/locked ADR lacking BOTH a
+#                               normalized view AND (transitionally) a grandfather
+#                               row -- it must not iterate only the rows present
+#                               here (that would re-create the vacuity). Mirrors
+#                               the rc36 rule "an auto-discovering gate must fail
+#                               on zero / under-match".
+#       permanent_close       - the single durable fix (re-stated from the ledger
+#                               pointer): widen AdrFactExtractor to the
+#                               Markdown/locked sources so Rule G-28 view coverage
+#                               becomes demandable, at which point backstop flips
+#                               to `gated` and this list is retired as views land.
+#       family                - the recurring-defect family this completeness gap
+#                               belongs to.
 #   violations[]    - one row per leaked-altitude ADR assertion. Each row:
 #       id          - stable kebab id, prefix LPV-ADR- (Layer-Purity Violation,
 #                     By-ADR).
@@ -148,24 +220,102 @@
 #                     boundary identity, a D2 package decomposition, or a D3
 #                     enforcer/gate citation, per the verdict rubric.
 
-schema_version: 1
+schema_version: 2
 authority:
   - ADR-0159
   - ADR-0160
-last_updated: 2026-05-30
+last_updated: 2026-05-30  # UTC date; a local +08 date is UTC-future and would fail Rule G-9.a freshness.
 status: advisory
 list_closed: true
 surface: docs/governance/adr-remediation-ledger.yaml#entries  # the by-adr surface
 
+# Completeness / non-vacuity record. This list is NON-EXHAUSTIVE over an UN-GATED
+# surface, so -- unlike the E201-gated status-ledger grandfather -- it cannot
+# detect its own omissions; this block states that honestly, with the denominator
+# it is a subset of and the mechanical successor that closes the gap. See the
+# "load-bearing correction" paragraph in the header. The counts are re-stated from
+# docs/governance/adr-remediation-ledger.yaml#entries (the source of truth); this
+# file mints no count it cannot derive from the ledger.
+completeness:
+  exhaustive: false
+  backstop: none-yet   # flips to `gated` only when the by-adr altitude enforcer (W6 follow-up) enumerates the surface
+  population:
+    description: >
+      The accepted Markdown/locked ADRs that are read as current authority on the
+      by-adr surface -- the entries whose raw_path is docs/adr/*.md or
+      docs/adr/locked/*.md (absent from the architecture/facts/generated/adrs.json
+      YAML-only fact layer that AdrFactExtractor parses) AND whose current_state is
+      active_guidance with normalized_path "". Every one of these is structurally
+      invisible to Rule G-28 today (no normalized view is demanded because the raw
+      ADR is absent from adrs.json), so its leaked L0 section-4 detail is read with
+      no demotion. This is the denominator the frozen rows are a subset of.
+    markdown_locked_total: 66          # 55 non-locked docs/adr/*.md + 11 docs/adr/locked/*.md
+    markdown_locked_active_guidance: 65 # 54 non-locked .md + 11 locked .md at active_guidance (the in-scope set); the 1 remainder (ADR-0055) is superseded
+  frozen_rows: 21        # this file's violations[] count (verdict tier + sibling tier)
+  unlisted_estimate: 44  # markdown_locked_active_guidance (65) - frozen_rows (21): accepted Markdown/locked ADRs at active_guidance with NEITHER a normalized view NOR a row here; not all author a leak, but none is mechanically screened, so the leaking subset among them is undetected
+  unbacked_closure_risk: >
+    list_closed is true and status is advisory, but no executable gate scans the
+    by-adr surface, so nothing fails when an accepted Markdown/locked ADR that
+    authors a leaked L0 section-4 constraint (SQL/RLS/GUC, HTTP status/route-verb,
+    OTLP/HTTP wire + gen_ai.*/langfuse.* namespaces + sampling %, sealed-interface
+    + method/field signatures, named *IT inventories) is given neither a normalized
+    view nor a grandfather row. The freeze then SILENTLY UNDER-CLAIMS: review reads
+    the unlisted ADR's leaked detail as current authority and CI stays green. This
+    is the same vacuity the rc36 audit found in three auto-discovering gate rules
+    (they iterated empty/under-matched input sets and always passed) -- here applied
+    to a HAND-curated list whose completeness depends on reviewer enumeration rather
+    than a mechanical sweep over the ledger's accepted-Markdown/locked-ADR set.
+  non_vacuity_guard: >
+    BINDING on the mechanical successor. When the by-adr altitude enforcer (a free
+    G-band rule + E-band enforcer per ADR-0159 section 9, owned by the
+    reconcile/governance wave) is authored, it MUST be a COVERAGE gate over the
+    surface: it FAILS when any accepted Markdown/locked ADR at active_guidance lacks
+    BOTH a normalized view AND (transitionally, until its view lands) a still-open
+    grandfather row -- i.e. it enumerates the LEDGER's accepted-Markdown/locked set
+    and demands demotion for each, never iterating only the rows present in this
+    file (iterating only present rows would re-create the vacuity this block
+    records). It MUST also fail loudly on a zero/under-match of its discovery
+    anchor, so a future ledger-format drift cannot silently empty its input set
+    (the rc36 "a drift-detector that detects nothing must fail loudly" guard). The
+    grandfather list is authored now so that gate, on landing, starts
+    changed-files-blocking against this dated baseline rather than hard-blocking the
+    corpus.
+  permanent_close: >
+    Widen AdrFactExtractor to the Markdown/locked sources (the ledger's own
+    required_follow_up / due_wave W6) so the Markdown/locked ADRs enter the
+    adrs.json fact layer; Rule G-28 check_historical_adr_governance.py then DEMANDS
+    a normalized view for each accepted ADR, the missing-view condition becomes a
+    hard finding, and `backstop` flips to `gated`. As each ADR's normalized view is
+    authored (quarantining the detail in non_authoritative_legacy_content / l2_refs),
+    its matching grandfather row is removed; the list retires when the last row is
+    demoted.
+  family: F-architecture-authority-fragmentation  # ALTITUDE-fragmentation variant (the by-adr leaked-altitude detail frozen via a hand-curated closed list, not a mechanical sweep)
+
 violations:
 
   # ======================================================================
-  # Verdict-named / round-3-residual leaks. Highest priority; sunset
+  # Verdict-named / round-residual leaks. Highest priority; sunset
   # 2026-06-30 (v1.0 boundary) -- the by-adr surface is read by architecture
   # review as current authority, so its named leaks share the L0
-  # highest-priority sunset. These are the ten ADRs the residual enumerated as
-  # authoring a leaked L0 section-4 constraint asserted at full altitude with
-  # no normalized view.
+  # highest-priority sunset. These are the ADRs the convergence-scan
+  # residual rounds enumerated as authoring a leaked L0 section-4 constraint
+  # asserted at full altitude with no normalized view (ten from round-3, plus
+  # the round-4 residual additions: the ADR-0057 W1-idempotency authoring
+  # source -- whose SAME leaked L3-SQL + L7-signature tokens the remediation
+  # had already frozen on the L0/L1 prose surface and the status-ledger
+  # allowed_claim surface but, until that entry, not on its own by-adr surface
+  # --; the ADR-0046 release-note-shipped-surface-truth source, which the
+  # verdict cites via L0 section-4 #44 and whose RunContext method-list / source
+  # line-range / named-test inventory remained a LIVE L7 leak on the by-adr
+  # surface (layer-purity-scan.md section 1.2 #44) with no row until this entry;
+  # and the ADR-0060 Phase-L-reviewer-remediation source, which RESTATES the
+  # same POST/GET/cancel /v1/runs route x verb roster as the required OpenAPI
+  # surface (the SAME L4 inventory the listed LPV-ADR-0040 W1-HTTP-routes/status
+  # sibling froze) AND names a contract IT with its asserted runtime behaviour
+  # (OpenApiContractIT.noUndocumentedV1OperationsExposedByLive "exercises the
+  # new comparator" -- the SAME L8 named-*IT-with-behaviour shape the listed
+  # LPV-ADR-0063 client-SDK sibling froze), yet had no by-adr row until this
+  # entry; the enforcer E36 citation it carries is D3-defensible and stays).
   # ======================================================================
 
   - id: LPV-ADR-0005-set-local-rls-trigger
@@ -280,6 +430,48 @@ violations:
     verdict_named: true
     defensible_part: "That the SPI-precision reconciliation happened and the Gate Rule 17 extension (a D3 enforcer citation) stay; the interface-vs-record type-kind classification, the per-SPI argument-shape table, and the canonical field name are code-symbol / contract material the future view should point at, not restate (no-loss-audit.md treats the RunContext type-kind/field as FACT-OWNED). The ADR-0070/0081 ResilienceContract realignment is already recorded as a ledger supersession_note."
 
+  - id: LPV-ADR-0046-runcontext-method-list-test-inventory
+    layer: BY-ADR
+    adr: ADR-0046
+    raw_path: docs/adr/0046-release-note-shipped-surface-truth.md
+    ledger_locus: "entries[].adr ADR-0046 (normalized_path '', current_state active_guidance; remediation_action 'ledger-only' -- the raw ADR is absent from the YAML-only fact layer that AdrFactExtractor parses, so no normalized view is demanded and the leaked detail is read from the raw decision as current authority)"
+    l0_constraint: "L0 section-4 #44 -- release-note shipped-surface truth (still present at L0 per layer-purity-scan.md section 1.2 #44, where the verdict cites #44 explicitly and the RunContext method set is FACT-OWNED via the RunContext fact public_methods; this ADR's section-4 block is its authoring source)"
+    category: L1-method-call-chain
+    categories: [L1-method-call-chain, L7-method-signature, L8-test-class-inventory]
+    trigger: "RunContext is runId/tenantId/checkpointer/suspendForChild -- posture() is forbidden ... Method lists on shipped SPIs must be a subset of the canonical interface ... agent-service/.../orchestration/spi/RunContext.java:16-37 (the canonical interface) ... ApiCompatibilityTest is ArchUnit-only; the actual OpenAPI snapshot diff is OpenApiContractIT calling OpenApiSnapshotComparator"
+    migrate_to: "docs/contracts/*.v1.yaml (RunContext SPI method surface + OpenAPI snapshot-attribution) + architecture/facts/generated/code-symbols.json (RunContext public_methods via code-symbol/com-huawei-ascend-bus-spi-engine-runcontext) + architecture/facts/generated/tests.json (test/<kebab-fqn> for OpenApiContractIT / OpenApiSnapshotComparator / ApiCompatibilityTest) + architecture/docs/L2/run-http-contract/"
+    sunset_date: 2026-06-30
+    verdict_named: true
+    defensible_part: "The release-note shipped-surface-truth INVARIANT (every shipped SPI row must name real Java symbols, method lists must be a subset of the canonical interface, test attributions must name the test that performs the asserted check) and the Gate Rule 26 citation (a D3 enforcer citation) stay at L0/L1; the enumerated RunContext method set with the forbidden posture() token, the RunContext.java:16-37 source line-range pointer, and the named OpenApiContractIT / OpenApiSnapshotComparator / ApiCompatibilityTest behaviour inventory are code-symbol / test-fact / contract material the future view should point at, not restate (no-loss-audit.md treats the RunContext method set as FACT-OWNED via the RunContext fact public_methods)."
+
+  - id: LPV-ADR-0057-idempotency-sql-spi
+    layer: BY-ADR
+    adr: ADR-0057
+    raw_path: docs/adr/0057-durable-idempotency-claim-replay.md
+    ledger_locus: "entries[].adr ADR-0057 (normalized_path '', current_state active_guidance; the W1-idempotency authoring source -- ADR-0027's ledger entry carries a supersession_note ceding its W1 deferral note to this ADR, so the leaked persistence/SPI detail here is read as current authority)"
+    l0_constraint: "L0 section-4 #4 -- idempotency (L0 #4 cites 'ADR-0027 + ADR-0057'; this ADR authors the W1 half. The SAME leaked tokens are already frozen on the L0/L1 prose surface as LPV-l1-as-idempotency-sql and on the status-ledger allowed_claim surface as LPV-SL-idempotency-store-sql-hash-status; this row closes the matching by-adr gap at the authoring source)"
+    category: L3-sql-rls-persistence
+    categories: [L3-sql-rls-persistence, L7-method-signature, L4-http-status-route-verb, L1-method-call-chain]
+    trigger: "Flyway V2__idempotency_dedup.sql -- CREATE TABLE idempotency_dedup(...) with PRIMARY KEY (tenant_id, idempotency_key) + CHECK (status IN ('CLAIMED','COMPLETED','FAILED')) ... JdbcIdempotencyStore: INSERT ... ON CONFLICT (tenant_id, idempotency_key) DO NOTHING; SELECT on collision ... public interface IdempotencyStore { Optional<IdempotencyRecord> claimOrFind(UUID tenantId, UUID key, String requestHash); } ... IdempotencyHeaderFilter computes base64Url(SHA-256(method|path|body)) then claimOrFind; collision returns 409 idempotency_conflict (same hash) or 409 idempotency_body_drift (different hash)"
+    migrate_to: "docs/contracts/*.v1.yaml (OpenAPI 409 body + IdempotencyStore SPI shape) + architecture/docs/L2/fp-idempotency-claim/ (idempotency_dedup table + claimOrFind upsert sequence) + architecture/facts/generated/code-symbols.json"
+    sunset_date: 2026-06-30
+    verdict_named: true
+    defensible_part: "The capability identity (IdempotencyStore SPI with a Postgres-backed JdbcIdempotencyStore and an in-memory InMemoryIdempotencyStore, both posture-gated; the (tenant_id, idempotency_key) key-scope decision; the ADR-0027 supersession-in-part; enforcer rows E12-E14/E22 as D3 citations) stays at L0/L1; the V2__idempotency_dedup.sql DDL, the INSERT ... ON CONFLICT upsert/PK shape, the claimOrFind method signature, the SHA-256 request-hash call chain, and the 409 idempotency_conflict / idempotency_body_drift wire tokens migrate. Mirrors the status-ledger LPV-SL-idempotency-store-sql-hash-status defensible_part."
+
+  - id: LPV-ADR-0060-v1-route-roster-named-it
+    layer: BY-ADR
+    adr: ADR-0060
+    raw_path: docs/adr/0060-phase-l-reviewer-remediation.md
+    ledger_locus: "entries[].adr ADR-0060 (normalized_path '', current_state active_guidance; the supersession_note records only an L1-release-note section, not an ADR-to-ADR edge -- so the leaked route roster / named-IT detail in the body is read as current authority)"
+    l0_constraint: "L0 section-4 #37 -- W1 HTTP contract reconciliation (this ADR is the Phase-L remediation that re-pins the same W1 /v1/runs OpenAPI surface ADR-0040 authored; it is a sibling restatement of the LPV-ADR-0040 wire constraint, not a new L0 number)"
+    category: L4-http-status-route-verb
+    categories: [L4-http-status-route-verb, L8-test-class-inventory]
+    trigger: "full paths for POST /v1/runs, GET /v1/runs/{runId}, POST /v1/runs/{runId}/cancel ... POST /v1/runs, GET /v1/runs/{runId}, POST /v1/runs/{runId}/cancel MUST appear in openapi-v1.yaml ... OpenApiContractIT.noUndocumentedV1OperationsExposedByLive exercises the new comparator (enforcer E36)"
+    migrate_to: "docs/contracts/*.v1.yaml (OpenAPI route x verb roster: createrun / getrun / cancelrun) + architecture/docs/L2/run-http-contract/ + architecture/facts/generated/tests.json (test/...-open-api-contract-it the no-undocumented-v1 assertion)"
+    sunset_date: 2026-06-30
+    verdict_named: true
+    defensible_part: "That the Phase-L reverse-direction snapshot reconciliation happened, the no-undocumented-additive-/v1/**-endpoint invariant, and the OpenApiSnapshotComparator / OpenApiContractIT enforcer citation (a D3 mechanism reference -- enforcer E36) stay at L0/L1; the concrete POST/GET/cancel /v1/runs route x verb roster (the SAME L4 inventory LPV-ADR-0040 froze) is OpenAPI material the future view should point at, not restate, and the named OpenApiContractIT.noUndocumentedV1OperationsExposedByLive method with its asserted 'exercises the new comparator' runtime behaviour (the SAME L8 named-*IT-with-behaviour shape LPV-ADR-0063 froze) migrates to the generated tests fact + FunctionPoint test_refs. The RunHttpContractIT 201/403/409 method roster the same ADR enumerates is the matching wire/test detail already frozen as the LPV-ADR-0040 status codes plus this row's L8 scope."
+
   - id: LPV-ADR-0061-telemetry-otlp-wire-sampling
     layer: BY-ADR
     adr: ADR-0061
@@ -386,6 +578,34 @@ violations:
     sunset_date: 2026-08-31
     verdict_named: false
     defensible_part: "The physical three-track-isolation invariant (control / data / rhythm tracks separated; terminal events never dropped as a property) is L0-durable; the RunDispatcher / CapabilityRegistry interface signatures, the buffer depth, the overflow strategy, and the cadence bound migrate."
+
+  - id: LPV-ADR-0032-planner-contract-record-signatures
+    layer: BY-ADR
+    adr: ADR-0032
+    raw_path: docs/adr/0032-scope-based-run-hierarchy-and-planner-contract-minimal.md
+    ledger_locus: "entries[].adr ADR-0032 (normalized_path '', current_state active_guidance)"
+    l0_constraint: "L0 section-4 #29 -- scope-based run hierarchy (RunScope taxonomy) + minimal planner contract (the PlanState / RunPlanRef design contracts this ADR names for the planner subsystem)"
+    category: L7-method-signature
+    categories: [L7-method-signature]
+    trigger: "public record PlanState(UUID planId, String goal, List<PlanStep> steps, PlanStatus status) {} ... public record RunPlanRef(UUID parentRunId, UUID plannedRunId, String stepKey, RunScope scope) {} ... List<Run> findRootRuns(String tenantId)"
+    migrate_to: "docs/contracts/*.v1.yaml (PlanState / RunPlanRef planner-contract shapes + RunRepository.findRootRuns) + architecture/docs/L2/fp-run-state-transition/ + architecture/facts/generated/code-symbols.json"
+    sunset_date: 2026-08-31
+    verdict_named: false
+    defensible_part: "Naming the scope axis (RunScope: STEP_LOCAL vs SWARM) as the run-hierarchy discriminator and naming PlanState / RunPlanRef as the minimal planner-contract boundary identities are D1-defensible; the per-record constructor parameter lists with JVM types, the PlanStatus enum value set, and the findRootRuns method signature are the L7 record/method-signature inventory that migrates. The PlanProjection vs full-planner staging split (W2 scheduler-admission contract vs W4 dynamic planner) is a wave-sequencing note, not a leaked category."
+
+  - id: LPV-ADR-0034-memory-metadata-record-signature
+    layer: BY-ADR
+    adr: ADR-0034
+    raw_path: docs/adr/0034-memory-and-knowledge-taxonomy-at-l0.md
+    ledger_locus: "entries[].adr ADR-0034 (normalized_path '', current_state active_guidance)"
+    l0_constraint: "L0 section-4 #31 -- Memory and Knowledge Taxonomy (the M1-M6 taxonomy + common MemoryMetadata schema). The canonical embeddingModelVersion FIELD NAME reconciliation is separately frozen under LPV-ADR-0044 (and is FACT-OWNED + MIGRATED per no-loss-audit.md); this row freezes the distinct MemoryMetadata RECORD SIGNATURE that ADR-0034 authors in its own body, which has no by-adr demotion"
+    category: L7-method-signature
+    categories: [L7-method-signature]
+    trigger: "public record MemoryMetadata(String tenantId, UUID runId, String sessionId, String source, String ontologyTag, double confidence, Instant expiresAt, String embeddingModelVersion, RedactionState redaction, VisibilityScope visibility) {} ... GraphMemoryRepository three-method surface: addFact(tenantId, subject, relation, object, metadata), query(tenantId, subject, maxDepth), search(tenantId, queryText, topK)"
+    migrate_to: "docs/contracts/*.v1.yaml (MemoryMetadata envelope + GraphMemoryRepository SPI shape) + architecture/facts/generated/code-symbols.json (code-symbol/...-memory-spi-memorymetadata field inventory + GraphMemoryRepository method surface)"
+    sunset_date: 2026-08-31
+    verdict_named: false
+    defensible_part: "Naming the M1-M6 memory taxonomy as a top-level architectural concept and naming MemoryMetadata + GraphMemoryRepository as the memory-subsystem boundary identities are D1-defensible at L0/L1; the full ten-field MemoryMetadata record-field inventory (parameter list with JVM types, the RedactionState / VisibilityScope enum value sets) and the enumerated three-method GraphMemoryRepository surface are the L7 record/method-signature inventory that migrates. Same L7 record-signature category as the listed siblings LPV-ADR-0028 (CausalPayloadEnvelope) / LPV-ADR-0030 (Skill SPI records). The canonical embeddingModelVersion field name is FACT-OWNED + MIGRATED (no-loss-audit.md) and its contract-catalog reconciliation rides LPV-ADR-0044; only the record-signature catalogue authored here is the by-adr leak this row demotes. The ADR-0051 ownership forward note (platform-vs-business memory split) is a structural decision, not a leaked category."
 
   - id: LPV-ADR-0063-client-sdk-traceparent-otlp-tests
     layer: BY-ADR

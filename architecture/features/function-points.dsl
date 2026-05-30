@@ -30,7 +30,7 @@ fpCreateRun = element "Create Run" "FunctionPoint" "POST /v1/runs — admit a ne
         "saa.requirement" "REQ-001"
         "saa.channel" "http"
         "saa.actor" "tenant-developer"
-        "saa.trigger" "HTTP POST /v1/runs"
+        "saa.trigger" "tenant-developer run-admission request at the run ingress"
         "saa.code_entrypoint_refs" "agent-service/src/main/java/com/huawei/ascend/service/platform/web/runs/RunController.java#create"
         "saa.test_refs" "com.huawei.ascend.service.platform.web.runs.RunHttpContractIT|com.huawei.ascend.service.runtime.runs.RunStateMachineTest"
         "saa.contract_op_refs" "contract-op/createrun"
@@ -49,7 +49,7 @@ fpCancelRun = element "Cancel Run" "FunctionPoint" "POST /v1/runs/(runId)/cancel
         "saa.requirement" "REQ-001"
         "saa.channel" "http"
         "saa.actor" "tenant-developer"
-        "saa.trigger" "HTTP POST /v1/runs/(runId)/cancel"
+        "saa.trigger" "tenant-developer run-cancellation request at the run-control ingress"
         "saa.code_entrypoint_refs" "agent-service/src/main/java/com/huawei/ascend/service/platform/web/runs/RunController.java#cancel"
         "saa.test_refs" "com.huawei.ascend.service.platform.web.runs.RunHttpContractIT|com.huawei.ascend.service.runtime.runs.RunStateMachineTest"
         "saa.contract_op_refs" "contract-op/cancelrun"
@@ -68,7 +68,7 @@ fpGetRunStatus = element "Get Run Status" "FunctionPoint" "GET /v1/runs/(runId) 
         "saa.requirement" "REQ-001"
         "saa.channel" "http"
         "saa.actor" "tenant-developer"
-        "saa.trigger" "HTTP GET /v1/runs/(runId)"
+        "saa.trigger" "tenant-developer run-status query at the run-query ingress"
         "saa.code_entrypoint_refs" "agent-service/src/main/java/com/huawei/ascend/service/platform/web/runs/RunController.java#get"
         "saa.test_refs" "com.huawei.ascend.service.platform.web.runs.RunHttpContractIT"
         "saa.contract_op_refs" "contract-op/getrun"
@@ -113,7 +113,7 @@ fpS2cCallback = element "S2C Callback" "FunctionPoint" "Server-to-client callbac
     }
 }
 
-fpRunStateTransition = element "Run State Transition" "FunctionPoint" "RunRepository.updateIfNotTerminal — the single sanctioned Run status-transition entry point (Rule R-C.2.b)" "SAA FunctionPoint" {
+fpRunStateTransition = element "Run State Transition" "FunctionPoint" "Atomic DFA-validated Run status transition at the RunRepository single-owner boundary — the sole sanctioned state-advance path (Rule R-C.2.b)" "SAA FunctionPoint" {
     properties {
         "saa.id" "FP-RUN-STATE-TRANSITION"
         "saa.kind" "function_point"
@@ -129,7 +129,7 @@ fpRunStateTransition = element "Run State Transition" "FunctionPoint" "RunReposi
     }
 }
 
-fpSuspendResume = element "Suspend Resume" "FunctionPoint" "SuspendSignal throw, Run -> SUSPENDED, ResumeDispatcher -> RUNNING transition (sealed SuspendReason variants)" "SAA FunctionPoint" {
+fpSuspendResume = element "Suspend Resume" "FunctionPoint" "Guarded Run suspend/resume control at the SuspendSignal + SuspendReason boundary (ADR-0137 + REQ-004)" "SAA FunctionPoint" {
     properties {
         "saa.id" "FP-SUSPEND-RESUME"
         "saa.kind" "function_point"
@@ -377,7 +377,7 @@ fpA2aMessageSend = element "A2A message/send" "FunctionPoint" "A2A JSON-RPC mess
         "saa.sourceAdr" "ADR-0155"
         "saa.channel" "http"
         "saa.actor" "tenant-developer-or-peer-agent"
-        "saa.trigger" "A2A JSON-RPC POST message/send"
+        "saa.trigger" "tenant-developer or peer-agent message submission at the A2A ingress"
         "saa.code_entrypoint_refs" "agent-service/src/main/java/com/huawei/ascend/service/platform/web/a2a/A2aMessageController.java#send"
         "saa.contract_op_refs" "access-intent.v1.yaml#operation=SUBMIT"
     }
@@ -394,7 +394,7 @@ fpA2aTasksCancel = element "A2A tasks/cancel" "FunctionPoint" "A2A tasks/cancel 
         "saa.sourceAdr" "ADR-0155"
         "saa.channel" "http"
         "saa.actor" "tenant-developer-or-peer-agent"
-        "saa.trigger" "A2A JSON-RPC POST tasks/cancel"
+        "saa.trigger" "tenant-developer or peer-agent task-cancellation request at the A2A ingress"
         "saa.code_entrypoint_refs" "agent-service/src/main/java/com/huawei/ascend/service/platform/web/a2a/A2aTasksController.java#cancel"
         "saa.contract_op_refs" "access-intent.v1.yaml#operation=CANCEL"
     }
@@ -411,7 +411,7 @@ fpA2aTasksResubscribe = element "A2A tasks/resubscribe" "FunctionPoint" "A2A tas
         "saa.sourceAdr" "ADR-0155"
         "saa.channel" "http"
         "saa.actor" "tenant-developer-or-peer-agent"
-        "saa.trigger" "A2A JSON-RPC POST tasks/resubscribe"
+        "saa.trigger" "tenant-developer or peer-agent task-resubscription stream request at the A2A ingress"
         "saa.code_entrypoint_refs" "agent-service/src/main/java/com/huawei/ascend/service/platform/web/a2a/A2aStreamController.java#resubscribe"
         "saa.contract_op_refs" "access-intent.v1.yaml#operation=SUBSCRIBE"
     }

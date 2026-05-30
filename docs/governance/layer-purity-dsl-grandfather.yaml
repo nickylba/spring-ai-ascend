@@ -53,22 +53,76 @@
 #   ratchet-promotion-without-baseline defect family).
 #
 # Live-leak discipline (mirrors the L0/L1 list's closed-list rule). Every row
-#   below freezes a description that leaks on the CURRENT disk state under the
-#   canonical probes (the imported gate/lib/check_layer_purity.py TRIGGERS the
-#   eventual E202 will reuse -- one verdict, one probe set, four surfaces). A row
-#   that tolerates NO live leak is dead weight that over-claims a violation, so it
-#   is not kept. The verdict's by-fact-id DSL scope is broader than these four
-#   loci, but several descriptions it would have named (the engineering-frames type
-#   rosters efOrchestrationSpi / efEnginePort / efHookSurface / efEngineRegistry;
-#   the verification named-test runtime-behaviour phrases; the fpIdempotencyClaim
-#   IdempotencyHeaderFilter -> IdempotencyStore call chain; the fpSuspendResume
-#   throw/-> state sequence; the fpRunStateTransition updateIfNotTerminal method)
-#   were drained to a claim-agnostic structural synopsis by the concurrent
-#   DSL-altitude drain, so the canonical probes no longer fire on them and they are
-#   NOT grandfathered here (frozen rows would be the dead weight the closed-list
-#   discipline forbids). If a future probe tightens to catch a bare method name or
-#   a state-name arrow sequence, the migration of any then-surfaced description --
-#   not a new grandfather row -- is the fix.
+#   below freezes a description that carries a live BY-FACT-ID leak on the CURRENT
+#   disk state -- a named SPI method, a state-transition arrow sequence, a route x
+#   verb, or a method-to-method call chain that the layer-purity policy forbids at
+#   this altitude (categories L1..L8). A row that tolerates NO live leak is dead
+#   weight that over-claims a violation, so it is not kept; but the converse trap
+#   is just as real, and is the one this list previously fell into (see the
+#   detector-recoupling correction below).
+#
+#   The closed-list membership test is the SEMANTIC by-fact-id leak, NOT the
+#   current trigger SURFACE FORM of the canonical probe. This is the load-bearing
+#   discipline of this file and it is stated first because getting it wrong is the
+#   exact defect this revision corrects. The eventual E202 reuses the same imported
+#   trigger library as Rule G-27 / G-34 (gate/lib/check_layer_purity.py -- one
+#   verdict, one probe set, four surfaces), and that library matches several leaked
+#   categories only in a specific surface form: L1 method-call-chain via an
+#   abutting-paren call (`Type.method(`) or an arrow hop (`a(...) -> b(`); L2
+#   runtime-sequence via a `sequenceDiagram` fence. A description whose
+#   method/sequence DETAIL survives in a probe-EVADING surface form -- a bare
+#   method NAME with no call paren, a state-NAME arrow run that is not inside a
+#   sequenceDiagram -- still leaks the SAME by-fact-id detail, but the blunt probe
+#   does not fire on it. Coupling membership to "the probe fires today" rather than
+#   to "the by-fact-id detail is present today" silently drops such a row, and the
+#   by-fact-id leak persists UNRECORDED. That coupling is the
+#   detector-inventory-coupling defect; it is acute on this DSL tier precisely
+#   because E202 -- the gate that would otherwise catch a re-surfacing leak -- is
+#   RESERVED/unbuilt, so this hand-maintained list is the SOLE control and its
+#   accuracy is load-bearing.
+#
+#   Membership is therefore decided by the SAME by-fact-id marker set the L0/L1
+#   scan uses (`updateIfNotTerminal`, named SPI methods, state-name arrow runs,
+#   `sequenceDiagram`, route x verb, SPI signatures -- see layer-purity-scan.md
+#   "Marker set used"), not by the narrow paren/fence trigger the current probe
+#   happens to fire on. Concretely, a description is a member iff it still carries
+#   the by-fact-id detail -- regardless of whether the current probe's regex fires;
+#   it is a NON-member only when that detail has been genuinely DRAINED to a
+#   claim-agnostic structural synopsis (the SPI/type named as a bare boundary
+#   identity per D1, the development-view decomposition per D2, the ADR/Rule
+#   citation per D3), NOT merely re-phrased into a probe-evading surface form.
+#
+#   The verdict's by-fact-id DSL scope was broader than the four loci frozen below.
+#   Several descriptions it would have named have since been drained by the
+#   concurrent DSL-altitude drain so they carry NO residual by-fact-id detail and
+#   are correctly NOT grandfathered (a frozen row over zero by-fact-id leak would
+#   be the dead weight the closed-list discipline forbids):
+#     * the engineering-frames type rosters efOrchestrationSpi / efEnginePort /
+#       efHookSurface / efEngineRegistry;
+#     * the verification named-test runtime-behaviour phrases;
+#     * the fpIdempotencyClaim IdempotencyHeaderFilter -> IdempotencyStore call
+#       chain;
+#     * fpRunStateTransition -- its description is now "Atomic DFA-validated Run
+#       status transition at the RunRepository single-owner boundary -- the sole
+#       sanctioned state-advance path (Rule R-C.2.b)": the named SPI method
+#       `updateIfNotTerminal` is GONE; RunRepository survives only as a bare D1
+#       boundary identity and the synopsis + Rule citation are D1/D3 -- no by-fact-id
+#       method/sequence leak remains;
+#     * fpSuspendResume -- its description is now "Guarded Run suspend/resume
+#       control at the SuspendSignal + SuspendReason boundary (ADR-0137 + REQ-004)":
+#       the SuspendSignal-throw / Run -> SUSPENDED / ResumeDispatcher -> RUNNING
+#       state-transition arrow sequence is GONE; SuspendSignal + SuspendReason
+#       survive only as bare D1 boundary identities -- no by-fact-id sequence leak
+#       remains.
+#   The membership test treats these two as NON-members because their by-fact-id
+#   detail was genuinely removed (verified on disk), NOT because a probe stopped
+#   firing. When E202 lands, its probe MUST be tightened to also match a bare named
+#   SPI method and a state-name arrow run (the by-fact-id forms above), so the gate
+#   and this list judge the SAME leak and a future probe-evading re-surfacing
+#   cannot slip the gate; until then, any re-surfaced by-fact-id detail is caught by
+#   the by-fact-id marker set here and must be re-drained (or, while the list is
+#   still pre-blocking, frozen as a dated row), never tolerated on the
+#   probe-stays-silent technicality.
 #
 # Schema (mirrors layer-purity-status-ledger-grandfather.yaml so the per-surface
 # allow-lists read identically):
@@ -133,16 +187,71 @@
 #                     D1/D2 -- and the ADR/Rule citation -- D3).
 #
 # Coverage note. The element `description` strings of the four registered fragments
-#   were scanned on the current disk state with the imported canonical probes; the
-#   scan found four live leaks, all in function-points.dsl, all frozen below. The
-#   other registered fragments (engineering-frames.dsl, verification.dsl,
-#   capabilities.dsl) carry no description leak under those probes today (their
-#   descriptions are structural synopses + ADR/Rule citations, or the
-#   capabilities.dsl "L1 capability mounted from ..." boilerplate), so they have no
-#   rows -- the surface is registered for completeness so a future hand-authored
-#   leak in any of them is held to the same altitude the day it is written. A
-#   fragment edit that ADDS a new description leak should fix it at authoring time;
-#   the closed list will not accept a new row once the gate is blocking.
+#   were scanned on the current disk state by the BY-FACT-ID marker set (the same
+#   leaked-category markers the L0/L1 scan uses -- named SPI methods, state-name
+#   arrow runs, route x verb, call chains -- NOT only the narrow paren/fence trigger
+#   the current canonical probe fires on); the scan found FOUR live leaks, all in
+#   function-points.dsl, all frozen below:
+#     * fpCreateRun / fpGetRunStatus / fpCancelRun -- a literal route x verb (L4;
+#       fpCancelRun also a same-block DFA-transition residue, L2).
+#     * fpEngineDispatch -- the EngineRegistry.resolve(envelope) -> ExecutorAdapter
+#       call-and-dispatch arrow chain (L1).
+#   Both the route x verb and the .resolve(envelope) -> dispatch arrow chain are
+#   by-fact-id leaks on whose surface form the current canonical probe also fires
+#   today; the by-fact-id criterion and the probe agree on these four. They share
+#   the v1.0-boundary 2026-06-30 sunset.
+#
+#   Two descriptions the verdict's by-fact-id DSL scope would also have named --
+#   fpRunStateTransition and fpSuspendResume -- have since been drained by the
+#   concurrent DSL-altitude drain and carry NO residual by-fact-id detail, so they
+#   are correctly NOT grandfathered (see the per-description disk evidence in the
+#   Live-leak discipline note above; a frozen row over zero by-fact-id leak would be
+#   the dead weight the closed-list discipline forbids). They are NON-members
+#   because their method/sequence detail was genuinely removed -- verified on disk
+#   (fpRunStateTransition no longer names `updateIfNotTerminal`; fpSuspendResume no
+#   longer carries the throw/-> state-transition arrow sequence) -- NOT because a
+#   probe stopped firing on an undrained surface form. That distinction is the whole
+#   point of the by-fact-id membership test, and is the detector-recoupling
+#   correction below.
+#
+#   The other registered fragments (engineering-frames.dsl, verification.dsl,
+#   capabilities.dsl) carry no description leak under EITHER the probe or the
+#   by-fact-id marker set today (their descriptions are structural synopses +
+#   ADR/Rule citations, or the capabilities.dsl "L1 capability mounted from ..."
+#   boilerplate), so they have no rows -- the surface is registered for
+#   completeness so a future hand-authored leak in any of them is held to the same
+#   altitude the day it is written. A fragment edit that ADDS a new description leak
+#   should fix it at authoring time; the closed list will not accept a new row once
+#   the gate is blocking.
+#
+# Detector-recoupling correction (convergence scan round 4). An earlier revision of
+#   this list defined membership by the CURRENT canonical probe's trigger SURFACE
+#   FORM (a paren-call `Type.method(`, a `sequenceDiagram` fence, a route x verb)
+#   rather than by the semantic BY-FACT-ID leak (a named SPI method, a
+#   state-transition arrow run). It froze only the four descriptions the probe
+#   happened to fire on and treated "the probe no longer fires" as equivalent to
+#   "the leak migrated" -- its notes even enumerated fpRunStateTransition
+#   (`updateIfNotTerminal` method) and fpSuspendResume (the throw/-> state
+#   sequence) as "drained" to justify their absence, when at that moment their
+#   by-fact-id detail was still on disk in a probe-evading surface form (a bare
+#   method name with no call paren; a state-name arrow run outside a sequenceDiagram
+#   fence). That is the detector-inventory-coupling defect: the closed inventory was
+#   coupled to the regex's current trigger surface form, so a description whose
+#   method/sequence detail survives in a probe-evading form is silently dropped and
+#   its by-fact-id leak persists unrecorded. The defect is acute on this DSL tier
+#   because E202 -- the gate that would otherwise catch the re-surfacing leak -- is
+#   RESERVED/unbuilt, so this hand-maintained list is the sole control and its
+#   accuracy had drifted. The correction is in the discipline, not the row set: the
+#   closed-list membership test above is now stated in BY-FACT-ID terms (a
+#   description is a member iff it still carries the forbidden detail, drained-out is
+#   the only exit, a probe-evading re-phrase is not), and the eventual E202 probe
+#   is required to be tightened to match a bare named SPI method and a state-name
+#   arrow run so the gate and this list judge the SAME leak. On the CURRENT disk
+#   state both fpRunStateTransition and fpSuspendResume have since been genuinely
+#   drained (their by-fact-id detail removed, not merely re-phrased), so the
+#   correctly-applied by-fact-id test makes them NON-members and no row is added for
+#   them -- but had they NOT been drained, the by-fact-id test would have required a
+#   dated row for each, which the prior surface-form test wrongly omitted.
 
 schema_version: 1
 authority: ADR-0159

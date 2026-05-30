@@ -32,8 +32,25 @@ VERDICT split (the keep-list is NOT reported — only the leak-list is):
     * filter / interceptor ordering;
     * concrete test-class inventories used as evidence in L0/L1 prose.
 
-Scope: architecture/docs/L0/*.md and architecture/docs/L1/**/*.md, EXCLUDING the
-`_template/` scaffolds (placeholder docs, not authority). Fenced code blocks are
+Scope: the L0/L1 authority corpus in BOTH of its renderings —
+  * the Markdown rendering: architecture/docs/L0/*.md and
+    architecture/docs/L1/**/*.md, EXCLUDING the `_template/` scaffolds
+    (placeholder docs, not authority); and
+  * the Structurizr authority-view rendering: architecture/views/*.dsl (the
+    L0/L1 4+1 views — L0-system-context, L1-development/process/physical/
+    scenarios — whose free-text `description` strings became the PRIMARY
+    authority for the L0/L1 corpus per ADR-0147..0151).
+The VERDICT's leak categories are rendering-agnostic: a status code, a route x
+verb, a filter-chain order, or a Run→state transition is leaked L2 detail whether
+it sits in `process.md` prose or in the `L1-Process` view `description`. Keying
+this helper on the `.md` extension alone left the `.dsl` rendering — the analog
+the verdict relies on E195 to cover for SQL/HTTP/wire/method/filter/test-inventory
+leaks — structurally unscanned, so both renderings are scanned here. (The
+architecture/features/*.dsl FEATURE-registry fragments are a DISTINCT governed
+surface registered under `dsl-element-description` / enforcer E202 in
+layer-purity-policy.yaml; this helper does NOT scan them — only the L0/L1
+authority VIEW DSLs under architecture/views/, which are the `.dsl` twins of the
+L0/L1 documents the markdown half already scans.) Fenced code blocks are
 scanned too — a `SET LOCAL app.tenant_id` inside a fenced "L2 Boundary Contract"
 zone is still leaked L2 detail per the VERDICT (a sanctioned *forward-declaration
 heading* does not launder the detail it contains). A single finding can be
@@ -77,6 +94,18 @@ VALID_MODES = ("advisory", "changed-files-blocking", "blocking")
 # In-line suppression token. A finding on a line is dropped when this token
 # appears on that line or on the line immediately above it.
 ALLOW_TOKEN = "l2-detail-sink-allow:"
+
+# The L0/L1 authority corpus is scanned in BOTH of its renderings. The Markdown
+# rendering is the architecture/docs/{L0,L1} tree; the Structurizr authority-view
+# rendering is the architecture/views/*.dsl set (the L0/L1 4+1 views whose
+# free-text `description` strings became the PRIMARY authority per ADR-0147..0151).
+# A leaked category (a status code, a route x verb, a filter-chain order, a
+# Run→state transition) is rendering-agnostic, so both renderings are in scope.
+# architecture/features/*.dsl (the FEATURE-registry fragments) are a DISTINCT
+# governed surface gated by enforcer E202 (`dsl-element-description` in
+# layer-purity-policy.yaml) and are deliberately NOT scanned here.
+DOCS_REL = "architecture/docs"
+AUTHORITY_VIEW_DSL_REL = "architecture/views"
 
 
 def repo_root() -> Path:
@@ -263,6 +292,41 @@ HOME_REF_RE = re.compile(
 # inlined format.
 WIRE_POINTER_RE = re.compile(
     r"(?:docs/contracts/|architecture/docs/L2/|architecture/facts/generated/|\.v1\.yaml|\bADR-\d{4}\b|enforcer[s]?\s+E\d+)"
+)
+
+# A second, same-line wire_format-only guard for the BARE-NOUN delegation/negation
+# form. The noun-prone `wire (format|shape|envelope)` pattern also fires on a
+# pointer that hands the wire shape off WITHOUT co-citing a contract/ADR path on
+# the line — the form a multi-line authority-view `//` comment header uses, where
+# the home ref sits several comment lines above the bare noun (out of the ±2
+# DELEGATION_WINDOW reach), e.g. the `L1-Scenarios` header's closing line "names
+# only the scenario identity, never its wire shape." A negation / "names only …"
+# clause on the SAME physical line as the bare wire noun marks the match as a
+# delegation pointer, not an inlined format. Scoped SAME-LINE (like WIRE_POINTER_RE)
+# so it never reaches across lines into a genuine residual leak the dated
+# grandfather list tracks (e.g. the §4 #22 `traceparent`-deferral line, which
+# carries no negation clause and stays a finding). A spelled-out format is NOT
+# laundered: a `gen_ai.*` / `00-<trace_id>-…` / `OTLP` line carries the encoding
+# itself and matches the concrete wire patterns, not this bare-noun one.
+WIRE_NOUN_BARE_RE = re.compile(r"\bwire\s+(?:format|shape|envelope)\b", re.IGNORECASE)
+# The CONCRETE wire-mechanism signals of the wire_format family (everything except
+# the bare noun). When one of these is on the line the wire shape is spelled OUT —
+# an inlined format that the bare-noun delegation guard must never launder, even
+# if a "names only …" phrase happens to share the line.
+WIRE_CONCRETE_RE = re.compile(
+    r"(?:\bOTLP/?(?:HTTP|gRPC)?\b|"
+    r"\b(?:gen_ai|langfuse|otel|opentelemetry)\.[A-Za-z_.*]+|"
+    r"\btraceparent\b)",
+    re.IGNORECASE,
+)
+WIRE_NOUN_DELEGATION_RE = re.compile(
+    r"(?:"
+    r"\bnever\s+(?:its|the|carries|carried|restates|restated|states|stated)\b|"
+    r"\bnames?\s+only\b|"
+    r"\bnot\s+(?:its|the|restated|stated|carried)\b|"
+    r"\bno\s+(?:wire|on-?wire)\b"
+    r")",
+    re.IGNORECASE,
 )
 
 # --------------------------------------------------------------------------
@@ -488,8 +552,22 @@ class Finding:
 
 
 def _iter_target_files(root: Path) -> list[Path]:
-    """L0 + L1 markdown authority docs, excluding _template scaffolds."""
-    docs = root / "architecture" / "docs"
+    """The L0/L1 authority corpus in BOTH renderings (markdown + authority-view DSL).
+
+    Two renderings of the same L0/L1 corpus are scanned (the VERDICT's leak
+    categories are rendering-agnostic):
+
+      * the Markdown rendering — architecture/docs/{L0,L1}/**/*.md, excluding the
+        ``_template/`` scaffolds (placeholder docs, not authority); and
+      * the Structurizr authority-view rendering — architecture/views/*.dsl (the
+        L0/L1 4+1 views whose free-text ``description`` strings became the PRIMARY
+        authority for the L0/L1 corpus per ADR-0147..0151).
+
+    architecture/features/*.dsl (the FEATURE-registry fragments) is a DISTINCT
+    governed surface gated separately by enforcer E202 (`dsl-element-description`
+    in layer-purity-policy.yaml); it is NOT scanned here.
+    """
+    docs = root / DOCS_REL
     out: list[Path] = []
     for level in ("L0", "L1"):
         base = docs / level
@@ -500,6 +578,12 @@ def _iter_target_files(root: Path) -> list[Path]:
             if "_template" in md.relative_to(root).parts:
                 continue
             out.append(md)
+    # The L0/L1 authority-view DSL rendering. These sit alongside the .md twins in
+    # the authority cascade (DSL > Card/prose) — a leak in a view `description` is
+    # the same leak as in its markdown twin, so the same probes scan it.
+    views = root / AUTHORITY_VIEW_DSL_REL
+    if views.is_dir():
+        out.extend(sorted(views.glob("*.dsl")))
     return out
 
 
@@ -517,7 +601,14 @@ def _line_is_suppressed(lines: list[str], idx: int) -> bool:
 # the trigger line plus a continuation line or two (e.g. "... wire shape for X
 # (the\n single authority ...; not restated here)."). Two lines on each side
 # covers the observed delegation bullets without reaching across blank-line
-# boundaries into an unrelated block.
+# boundaries into an unrelated block. Kept at 2 deliberately: a markdown
+# paragraph can run long enough that a delegation cue + an ADR ref coexist with a
+# genuine residual leak the dated grandfather list deliberately tracks (e.g. the
+# §4 #22 telemetry accessor paragraph), so widening this window would silently
+# reclassify a grandfathered leak as in-layer. The multi-line `//` authority-view
+# comment-header case (whose cue + home ref sit several lines from a bare wire-
+# noun) is handled instead by the same-line WIRE_NOUN_DELEGATION_RE guard, which
+# is scoped to the wire_format family's noun-prone bare-noun pattern only.
 _DELEGATION_WINDOW = 2
 
 
@@ -686,7 +777,14 @@ def _excerpt(line: str, limit: int = 160) -> str:
 
 
 def scan_file(root: Path, path: Path) -> list[Finding]:
-    """Return all (un-suppressed) leak findings for one markdown file."""
+    """Return all (un-suppressed) leak findings for one authority document.
+
+    Rendering-agnostic: the scan is the same whether ``path`` is a markdown twin
+    (architecture/docs/{L0,L1}/**/*.md) or an authority-view DSL
+    (architecture/views/*.dsl). The in-line allow token (``l2-detail-sink-allow:``)
+    works in either a markdown ``<!-- ... -->`` comment or a DSL ``// ...`` comment,
+    since the suppression check matches the token as a substring on the line.
+    """
     try:
         text = path.read_text(encoding="utf-8")
     except OSError:
@@ -736,6 +834,24 @@ def scan_file(root: Path, path: Path) -> list[Finding]:
             # (inlined wire leaks carry the encoding/grammar, never their own
             # contract pointer — see WIRE_POINTER_RE rationale).
             if family == "wire_format" and WIRE_POINTER_RE.search(line):
+                continue
+            # Wire-noun delegation guard (wire_format ONLY): the bare-noun
+            # `wire (format|shape|envelope)` form also fires on a same-line
+            # negation / "names only …" delegation clause whose home ref sits
+            # several lines away (a multi-line authority-view `//` comment header
+            # — e.g. "names only the scenario identity, never its wire shape."),
+            # out of the ±2 DELEGATION_WINDOW reach. Suppress ONLY when (a) the
+            # bare wire noun is present, (b) a same-line negation/"names only"
+            # delegation clause is present, AND (c) NO concrete wire mechanism is
+            # spelled out on the line — so a line that inlines a real format
+            # (gen_ai.* / OTLP / traceparent grammar) is never laundered even if a
+            # "names only …" phrase shares it.
+            if (
+                family == "wire_format"
+                and WIRE_NOUN_BARE_RE.search(line)
+                and WIRE_NOUN_DELEGATION_RE.search(line)
+                and not WIRE_CONCRETE_RE.search(line)
+            ):
                 continue
             # D3-enforcer-citation guard (test_inventory ONLY): a test-inventory
             # match that is really an ArchUnit / enforcer MECHANISM citation

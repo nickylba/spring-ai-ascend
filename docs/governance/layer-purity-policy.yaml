@@ -71,37 +71,83 @@
 #                       (a) the capability-status ledger `allowed_claim` narrative
 #                           (Card/prose tier, but a higher-authority surface than the
 #                           L0/L1 documents the two existing helpers scan); and
-#                       (b) the STRICTLY-HIGHER DSL tier — the element `description`
-#                           strings of the authored Structurizr fragments
-#                           (architecture/features/{engineering-frames,function-
-#                           points,verification,capabilities}.dsl) plus the
-#                           architecture/profile/*.yaml descriptors — which sit
-#                           directly under the generated facts and above every prose
-#                           surface. The DSL `description` is a free-form narrative
-#                           field with no altitude guard, exactly like an
-#                           `allowed_claim`, and it is PRONE to the same leaked
-#                           categories (it has historically carried method call
-#                           chains and arrow dispatch in function-point
-#                           descriptions, route x verb + DFA in the same, enumerated
-#                           SPI type inventories in frame descriptions, and
-#                           named-test runtime-behaviour phrases in verification
-#                           descriptions). The CURRENT live leak set is enumerated,
-#                           dated, and element-anchored in the per-surface
-#                           grandfather list (a concurrent DSL-altitude drain has
-#                           since reduced most of those to structural synopses; the
-#                           field still has no guard, so the surface stays
-#                           registered). Registering ONLY the ledger (tier a) and
-#                           stopping short of tier (b) under-scopes the
+#                       (b) the STRICTLY-HIGHER DSL/descriptor tier — the free-form
+#                           narrative strings of the authored architecture-authority
+#                           sources that sit directly under the generated facts and
+#                           above every prose surface. Concretely this tier is the
+#                           whole authored span of the workspace cascade, not just the
+#                           four feature fragments the first cut named: the sole
+#                           architecture entry point architecture/workspace.dsl
+#                           (strictly above every `!include`d fragment in the
+#                           cascade); the authored Structurizr fragments
+#                           architecture/features/{function-points,engineering-frames,
+#                           verification,capabilities,features}.dsl (their element /
+#                           relationship `description` strings AND the narrative-bearing
+#                           `saa.synopsis` property — `bucket: intent` per
+#                           saa-property-authority.yaml, a free-form synopsis exactly
+#                           like a `description`); and the architecture/profile/*.yaml
+#                           descriptors (profile/required-properties/relationship-types/
+#                           saa-property-authority and the profile schema), whose
+#                           `description` / `notes` narrative the rationale has always
+#                           claimed for this tier. These narrative fields carry no
+#                           altitude guard, exactly like an `allowed_claim`, and are
+#                           PRONE to the same leaked categories (the DSL descriptions
+#                           have historically carried method call chains and arrow
+#                           dispatch in function-point descriptions, route x verb + DFA
+#                           in the same, enumerated SPI type inventories in frame
+#                           descriptions, and named-test runtime-behaviour phrases in
+#                           verification descriptions; a function-point `saa.trigger`
+#                           by construction names a concrete route x verb). The CURRENT
+#                           live leak set is enumerated, dated, and element-anchored in
+#                           the per-surface grandfather list (a concurrent DSL-altitude
+#                           drain has since reduced most of the description leaks to
+#                           structural synopses, and workspace.dsl / features.dsl /
+#                           profile/*.yaml probe CLEAN today; the fields still have no
+#                           guard, so every surface stays registered so a future
+#                           hand-authored leak there is held to this altitude the day
+#                           it is written). Registering ONLY the ledger (tier a), or
+#                           only the four feature fragments, and stopping short of the
+#                           full DSL/descriptor span under-scopes the
 #                           by-authority-surface principle the ledger entry
-#                           generalized — so the DSL tier is registered here too.
+#                           generalized — so the whole tier is registered here.
 #                     It is a registry, not a second vocabulary: every entry reuses
 #                     categories[] unchanged. Each row:
 #       id                - stable kebab id for the governed surface.
 #       surface           - the file (or file-glob) the leaked-category vocabulary
-#                           applies to.
+#                           applies to. When a surface spans several distinct files
+#                           (entry point + fragments + descriptors) this is a
+#                           human-readable span label and `scanned_fragments` is the
+#                           authoritative file list the gate iterates.
 #       field             - the narrative field within that surface that is scanned
 #                           (the structural keys are NOT scanned — they are the D2
 #                           development-view evidence index, not a behavioural claim).
+#                           When a surface scans more than one narrative field,
+#                           `scanned_properties` enumerates the additional fields and
+#                           `spared_properties` the structural ones explicitly held
+#                           OUT of scope (so no field's treatment is left undefined).
+#       scanned_fragments - OPTIONAL but REQUIRED when `surface` is a multi-file span:
+#                           the explicit, authoritative list of every file the gate
+#                           scans for this surface. It MUST enumerate exactly the span
+#                           the rationale claims — a file named in the rationale but
+#                           absent here would be silently unscanned (the
+#                           scope-completeness / coverage-declaration invariant: the
+#                           machine list and the stated scope MUST agree).
+#       scanned_properties - OPTIONAL list of structured properties (beyond the element
+#                           `description`) whose VALUE is also scanned, because they
+#                           are free-form narrative with no altitude guard (e.g.
+#                           `saa.synopsis`, `bucket: intent` per
+#                           saa-property-authority.yaml). Empty/absent when the
+#                           surface's only narrative carrier is the `description`.
+#       spared_properties  - OPTIONAL list of structured properties explicitly held
+#                           OUT of the scan because they are the D2 development-view
+#                           evidence index / a structural locator, NOT a behavioural
+#                           narrative — the same role for which E201 spares the
+#                           ledger's structural keys. Enumerating them removes the
+#                           ambiguity of an undeclared property and documents WHY a
+#                           narrative-looking value (e.g. a `saa.trigger` route x verb)
+#                           is nonetheless not a scanned leak (it is the structural
+#                           route/channel identity of the FunctionPoint, already
+#                           adjudicated at the `description` altitude).
 #       coverage_status   - REQUIRED enum recording how far this surface's coverage
 #                           has been REALIZED, distinct from the policy-level
 #                           `status` (advisory|blocking) above which is the ledger
@@ -376,16 +422,25 @@ layers:
 # Two tiers outrank the L0/L1 prose and are both registered below:
 #   1. status-ledger-allowed-claim — the capability-ledger `allowed_claim`
 #      narrative (gated TODAY by Rule G-34 / E201).
-#   2. dsl-element-description — the STRICTLY-HIGHER DSL tier: the element
-#      `description` strings of the authored Structurizr fragments under
-#      architecture/features/*.dsl (function-points / engineering-frames /
-#      verification / capabilities). The ledger entry generalized the
-#      by-authority-surface insight but stopped at the Card/prose-tier ledger;
-#      the DSL tier sits ABOVE the prose in the same cascade and demonstrably
-#      carries the same leaks, so coverage that omits it is incomplete. It is
-#      registered declared-gate-pending: in scope of the verdict with its dated
-#      grandfather list authored now, the executable enforcer + gate rule to be
-#      authored by a follow-up wave (ADR-0159 §9) under the RESERVED ids below.
+#   2. dsl-element-description — the STRICTLY-HIGHER DSL/descriptor tier: the
+#      free-form narrative strings of the authored architecture-authority sources
+#      that sit ABOVE the prose in the same cascade and directly under the
+#      generated facts — the sole entry point architecture/workspace.dsl, the
+#      authored fragments architecture/features/{function-points,engineering-
+#      frames,verification,capabilities,features}.dsl (their element/relationship
+#      `description` AND the narrative `saa.synopsis` property), and the
+#      architecture/profile/*.yaml descriptors (`description` / `notes`). The
+#      ledger entry generalized the by-authority-surface insight but stopped at
+#      the Card/prose-tier ledger; this tier demonstrably carries the same leaks
+#      (function-points.dsl descriptions + saa.trigger route x verb today), so
+#      coverage that omits it is incomplete. It is registered declared-gate-
+#      pending: in scope of the verdict with its dated grandfather list authored
+#      now, the executable enforcer + gate rule to be authored by a follow-up
+#      wave (ADR-0159 §9) under the RESERVED ids below. The
+#      `scanned_fragments` list MUST enumerate the full span the rationale claims
+#      (entry point + every authored fragment + the profile descriptors) so the
+#      eventual E202 holds exactly the surfaces this tier names — a fragment named
+#      in prose but absent from `scanned_fragments` would be silently unscanned.
 # --------------------------------------------------------------------------
 governed_surfaces:
 
@@ -422,7 +477,14 @@ governed_surfaces:
       the D2 development-view evidence index, not a behavioural claim).
 
   - id: dsl-element-description
-    surface: architecture/features/*.dsl
+    # Span label — the authoritative file list is `scanned_fragments` below. The
+    # surface is the whole authored span of the workspace cascade that sits ABOVE
+    # the L0/L1 prose and directly under the generated facts: the sole entry point
+    # workspace.dsl, the authored features/*.dsl fragments, and the profile/*.yaml
+    # descriptors. (NOT a single glob: profile/*.yaml is YAML, workspace.dsl is the
+    # entry point above the !included fragments — a one-glob `surface` could not
+    # name all three, so the span is documented here and enumerated below.)
+    surface: architecture/workspace.dsl + architecture/features/*.dsl + architecture/profile/*.yaml
     field: element_description
     coverage_status: declared-gate-pending
     # RESERVED (free, not-yet-allocated) ids. The executable enforcer, gate-rule
@@ -435,11 +497,69 @@ governed_surfaces:
     gate_rule: 152
     helper: gate/lib/check_dsl_description_altitude.py
     grandfather_list: docs/governance/layer-purity-dsl-grandfather.yaml
+    # Authoritative file list — MUST enumerate exactly the span the rationale
+    # claims (scope-completeness invariant). It now covers the WHOLE DSL/descriptor
+    # tier, not only the four feature fragments the first cut listed:
+    #   * architecture/workspace.dsl — the sole architecture entry point, strictly
+    #     ABOVE every !included fragment in the cascade; its softwareSystem /
+    #     container `description` strings are free-form narrative with no guard.
+    #   * the five authored features/*.dsl fragments (function-points,
+    #     engineering-frames, verification, capabilities, AND features.dsl — the
+    #     last omitted by the first cut; it carries the SAA Feature elements whose
+    #     `description` + `saa.synopsis` are free-form narrative).
+    #   * the architecture/profile/*.yaml descriptors — the rationale has always
+    #     claimed this tier; their `description` / `notes` narrative is scanned.
+    # workspace.dsl, features.dsl, and profile/*.yaml probe CLEAN today (so they
+    # earn NO grandfather row — a row over zero live leak is the dead weight the
+    # closed-list discipline forbids); they are listed so the eventual E202 holds
+    # them to this altitude the day a hand-authored leak first appears there.
     scanned_fragments:
+      - architecture/workspace.dsl
       - architecture/features/function-points.dsl
       - architecture/features/engineering-frames.dsl
       - architecture/features/verification.dsl
       - architecture/features/capabilities.dsl
+      - architecture/features/features.dsl
+      - architecture/profile/profile.yaml
+      - architecture/profile/profile.schema.yaml
+      - architecture/profile/required-properties.yaml
+      - architecture/profile/relationship-types.yaml
+      - architecture/profile/saa-property-authority.yaml
+    # Beyond each element's `description`, these free-form narrative PROPERTIES are
+    # also scanned (no altitude guard, same leak surface as a `description`):
+    scanned_properties:
+      - saa.synopsis      # bucket: intent (saa-property-authority.yaml) — free-form
+                          # synopsis on SAA Feature / EngineeringFrame elements.
+      - description       # profile/*.yaml descriptor `description` blocks.
+      - notes             # saa-property-authority.yaml per-property `notes` prose.
+    # These structured properties are explicitly held OUT of scope — they are the
+    # D2 development-view evidence index / a structural locator, NOT a behavioural
+    # narrative (mirrors how E201 spares the ledger's structural keys). Enumerating
+    # them removes the ambiguity the first cut left undefined:
+    spared_properties:
+      - saa.id
+      - saa.kind
+      - saa.level
+      - saa.view
+      - saa.status
+      - saa.owner
+      - saa.sourceAdr
+      - saa.primaryPackage
+      - saa.code_entrypoint_refs
+      - saa.test_refs
+      - saa.contract_op_refs
+      - saa.channel       # FunctionPoint structural channel/actor/route triple.
+      - saa.actor
+      - saa.trigger       # The FP's structural route/channel IDENTITY (e.g.
+                          # "HTTP POST /v1/runs"). It NAMES a route x verb the L4
+                          # probe would fire on, but it is the same route already
+                          # adjudicated at the element-`description` altitude (the
+                          # fpCreateRun / fpCancelRun / fpGetRunStatus grandfather
+                          # rows); scanning saa.trigger too would double-report that
+                          # one route and force a redundant structural-locator
+                          # grandfather row. It is the FP boundary identity (D1/D2),
+                          # not a behavioural claim — so it is SPARED, and its route
+                          # detail's single adjudicated home stays the description.
     forbids_categories:
       - L1-method-call-chain
       - L2-runtime-sequence
@@ -460,10 +580,20 @@ governed_surfaces:
       least as significant as a ledger-claim leak. The ledger entry generalized
       the by-authority-surface insight to the Card/prose-tier ledger but stopped
       short of this strictly-higher tier; this row closes that under-scope. The
-      descriptions demonstrably carry the same leaked categories the verdict named:
-      a scan of the live fragments with the canonical probe library finds four
-      function-point synopses leaking today — a concrete route x verb (fpCreateRun
-      "POST /v1/runs", fpGetRunStatus "GET /v1/runs/(runId)", fpCancelRun
+      scope is the WHOLE authored span of the workspace cascade above the prose,
+      enumerated in `scanned_fragments`: the sole entry point
+      architecture/workspace.dsl (strictly above every !included fragment), the
+      five authored architecture/features/*.dsl fragments, and the
+      architecture/profile/*.yaml descriptors. An earlier cut of this row listed
+      only four of the feature fragments — omitting features.dsl, the workspace
+      entry point, and the profile descriptors that the rationale already claimed
+      for this tier — leaving those surfaces named-but-unscanned; this row
+      reconciles the machine list with the stated scope (the scope-completeness /
+      coverage-declaration invariant). The descriptions demonstrably carry the same
+      leaked categories the verdict named: a scan of the live fragments with the
+      canonical probe library finds four function-point synopses leaking today — a
+      concrete route x verb (fpCreateRun "POST /v1/runs", fpGetRunStatus
+      "GET /v1/runs/(runId)", fpCancelRun
       "POST /v1/runs/(runId)/cancel ... DFA transition": L4, the last also a
       same-block L2 DFA-transition residue) and a method-call-and-dispatch arrow
       chain (fpEngineDispatch "EngineRegistry.resolve(envelope) -> typed
@@ -474,25 +604,42 @@ governed_surfaces:
       DSL-altitude drain reduced those to claim-agnostic structural synopses, so the
       canonical probes no longer fire on them; they are NOT grandfathered (a row
       over zero live leak would be the dead weight the closed-list discipline
-      forbids). The surface stays registered regardless of the current leak count
-      because the `description` field carries no altitude guard, so a future
-      hand-authored description on ANY of the four fragments must be held to this
+      forbids). The newly-added surfaces (workspace.dsl, features.dsl, the
+      profile/*.yaml descriptors) probe CLEAN today, so they likewise earn no
+      grandfather row. Every listed surface stays registered regardless of the
+      current leak count because none of these narrative fields carries an altitude
+      guard, so a future hand-authored leak on ANY of them must be held to this
       altitude the day it is written. The eventual enforcer (E202) reuses the SAME
       closed leaked-category vocabulary and the SAME imported trigger library as
-      Rule G-27 / G-34 (one verdict, one probe set, now four surfaces), scans ONLY
-      the element `description` string of each
-      fragment listed in `scanned_fragments` (the structural `properties { saa.* }`
-      keys — saa.id / saa.primaryPackage / saa.sourceAdr / saa.code_entrypoint_refs
-      / saa.test_refs / saa.contract_op_refs — are the D2 development-view evidence
-      index and a generated-fact pointer surface, NOT a behavioural claim, and are
-      NEVER scanned, mirroring how E201 spares the ledger's structural keys), and
-      reports a leak not redeemed by a still-open, element-precise row in the
-      per-surface grandfather list. It would invent no id and no relationship and
-      never outrank a generated fact — it reads the policy as the vocabulary and
-      the DSL `description` as the data. The DSL fragments themselves are AUTHORED
-      authority surfaces owned by their own waves / the reconcile step; this row
-      does not edit them. capabilities.dsl is in `scanned_fragments` for
-      completeness (its mounted descriptions are currently the generic
+      Rule G-27 / G-34 (one verdict, one probe set, now spanning the whole DSL /
+      descriptor tier). It scans each element `description` string of every file in
+      `scanned_fragments` PLUS the free-form narrative properties named in
+      `scanned_properties` — the SAA Feature / EngineeringFrame `saa.synopsis`
+      (bucket: intent per saa-property-authority.yaml — a free-form synopsis,
+      exactly the `description` leak surface in property form), and the
+      profile descriptors' `description` / `notes` prose. The structural
+      `properties { saa.* }` keys named in `spared_properties` are NEVER scanned —
+      they are the D2 development-view evidence index / generated-fact pointers, not
+      a behavioural claim (mirroring how E201 spares the ledger's structural keys).
+      That spared set explicitly includes saa.trigger: a FunctionPoint's
+      saa.trigger NAMES a concrete route x verb ("HTTP POST /v1/runs") that the L4
+      probe WOULD fire on, but it is the FP's structural route/channel IDENTITY
+      (paired with saa.channel + saa.actor), and that exact route is ALREADY
+      adjudicated at the element-`description` altitude (the fpCreateRun /
+      fpCancelRun / fpGetRunStatus grandfather rows). Scanning saa.trigger too would
+      double-report that one route and force a redundant structural-locator
+      grandfather row; so saa.trigger is spared and the route detail's single
+      adjudicated home stays the `description`. The first cut left saa.trigger and
+      saa.synopsis undefined relative to the description-only scan; enumerating both
+      (synopsis scanned, trigger spared) removes that ambiguity. E202 reports a leak
+      not redeemed by a still-open, element-precise row in the per-surface
+      grandfather list. It would invent no id and no relationship and never outrank
+      a generated fact — it reads the policy as the vocabulary and the DSL /
+      descriptor narrative as the data. The DSL fragments, the workspace entry
+      point, and the profile descriptors are AUTHORED authority surfaces owned by
+      their own waves / the reconcile step; this row does not edit them.
+      capabilities.dsl is in `scanned_fragments` for completeness (its mounted
+      descriptions are currently the generic
       "L1 capability mounted from architecture-status.yaml" boilerplate and carry
       no leak today), so a future hand-authored capability description is held to
       the same altitude the day it is written.

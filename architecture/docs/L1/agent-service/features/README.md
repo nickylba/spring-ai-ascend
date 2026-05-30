@@ -105,7 +105,7 @@ full catalog, see
 
 ### `FEAT-ENGINE-DISPATCH-AND-HOOKS`
 
-Owns the engine boundary: every Run dispatch goes through EngineRegistry.resolve(envelope) against engine-envelope.v1.yaml; pattern-matching on ExecutorDefinition subtypes outside the registry is forbidden (Rule R-M.a). Cross-cutting policies (model gateway, tool authz, memory governance, tenant policy, quota, observability, sandbox routing, checkpoint, failure handling) are expressed as RuntimeMiddleware listening on canonical HookPoint events from engine-hooks.v1.yaml. The hook contract is the extension surface for new policies without modifying executors.
+Owns the engine boundary: EngineRegistry is the single sanctioned dispatch authority for every Run, governed by engine-envelope.v1.yaml, with strict typed matching mandated by Rule R-M.a (the dispatch call chain and the forbidden-subtype-matching shape are the engine-envelope.v1.yaml contract behaviour + the L2 engine-dispatch design, not restated at L1). Cross-cutting policies (model gateway, tool authz, memory governance, tenant policy, quota, observability, sandbox routing, checkpoint, failure handling) are expressed as RuntimeMiddleware on the canonical HookPoint event surface governed by engine-hooks.v1.yaml. The hook contract is the extension surface for new policies without modifying executors.
 
 ### `FEAT-IDEMPOTENCY-AND-REPLAY`
 

@@ -21,7 +21,7 @@
 
 version: 1
 status: active
-last_updated: "2026-05-30"
+last_updated: "2026-05-31"
 
 authority:
   cascade:
@@ -275,10 +275,10 @@ function_points:
   - id: FP-CREATE-RUN
     status: shipped
     owner_module: agent-service
-    title: "POST /v1/runs — admit a new Run with tenant + idempotency + posture guard"
+    title: "Admit a new Run with tenant + idempotency + posture guard at the access-admission boundary"
     value: {required_by_features: [FEAT-RUN-LIFECYCLE-CONTROL], requirement: REQ-001}
     structure: {anchored_by_frames: [EF-ACCESS-ADMISSION], owner_module: agent-service}
-    join: {channel: http, actor: tenant-developer, trigger: "HTTP POST /v1/runs"}
+    join: {channel: http, actor: tenant-developer, trigger: "tenant-developer run-admission request (contract-op/createrun)"}
     evidence:
       contract_op_facts: [contract-op/createrun]
       code_symbol_facts: [code-symbol/com-huawei-ascend-service-platform-web-runs-runcontroller]
@@ -292,10 +292,10 @@ function_points:
   - id: FP-CANCEL-RUN
     status: shipped
     owner_module: agent-service
-    title: "POST /v1/runs/{runId}/cancel — re-validate tenant + DFA transition to CANCEL_REQUESTED"
+    title: "Re-validate tenant and request Run cancellation at the task-control boundary"
     value: {required_by_features: [FEAT-RUN-LIFECYCLE-CONTROL], requirement: REQ-001}
     structure: {anchored_by_frames: [EF-TASK-CONTROL], owner_module: agent-service}
-    join: {channel: http, actor: tenant-developer, trigger: "HTTP POST /v1/runs/{runId}/cancel"}
+    join: {channel: http, actor: tenant-developer, trigger: "tenant-developer cancellation request (contract-op/cancelrun)"}
     evidence:
       contract_op_facts: [contract-op/cancelrun]
       code_symbol_facts: [code-symbol/com-huawei-ascend-service-platform-web-runs-runcontroller]
@@ -309,10 +309,10 @@ function_points:
   - id: FP-GET-RUN-STATUS
     status: shipped
     owner_module: agent-service
-    title: "GET /v1/runs/{runId} — tenant-scoped polling endpoint for Run state + last error"
+    title: "Tenant-scoped polling boundary for Run state + last error"
     value: {required_by_features: [FEAT-RUN-LIFECYCLE-CONTROL], requirement: REQ-001}
     structure: {anchored_by_frames: [EF-ACCESS-ADMISSION], owner_module: agent-service}
-    join: {channel: http, actor: tenant-developer, trigger: "HTTP GET /v1/runs/{runId}"}
+    join: {channel: http, actor: tenant-developer, trigger: "tenant-developer status-poll request (contract-op/getrun)"}
     evidence:
       contract_op_facts: [contract-op/getrun]
       code_symbol_facts: [code-symbol/com-huawei-ascend-service-platform-web-runs-runcontroller]
@@ -432,7 +432,7 @@ function_points:
   - id: FP-ENGINE-DISPATCH
     status: shipped
     owner_module: agent-execution-engine
-    title: "EngineRegistry.resolve(envelope) -> typed ExecutorAdapter dispatch via engine-envelope.v1.yaml"
+    title: "Engine dispatch boundary — resolve an execution envelope to a typed executor adapter (engine-envelope.v1.yaml)"
     value: {required_by_features: [FEAT-ENGINE-DISPATCH-AND-HOOKS], requirement: REQ-009}
     structure: {anchored_by_frames: [EF-ENGINE-REGISTRY], owner_module: agent-execution-engine}
     join: {channel: internal, actor: platform-runtime, trigger: internal-orchestration-event}

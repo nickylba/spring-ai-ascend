@@ -1,8 +1,11 @@
 # ADR-0055 — Permit `agent-platform → agent-runtime`; Forbid the Reverse
 
-- Status: Accepted (supersedes ADR-0026)
+- Status: Superseded by ADR-0078 (this ADR supersedes ADR-0026).
 - Date: 2026-05-14
 - Authority: L1 plan `l1-modular-russell` decision D1, user-approved.
+- Current authority: [ADR-0078](0078-agent-service-consolidation.yaml) (normalized view [`normalized/ADR-0078.yaml`](normalized/ADR-0078.yaml)). ADR-0078 folded `agent-platform` and `agent-runtime` into the single `agent-service` Maven module, so the two-module **Maven dependency direction** this ADR codified no longer exists as a module boundary; the platform→runtime asymmetry survives only as the intra-module sub-package layering invariant (`service.runtime` MUST NOT import `service.platform`). The decision below is history, citeable for context only, not as current authority.
+
+> **Altitude quarantine (layer-purity).** What this ADR DECIDED is a **D2 module-dependency-direction** identity: `agent-platform` MAY depend on `agent-runtime` (Maven + source level) and the reverse is forbidden. That structural direction is the whole decision. The Context paragraph below motivates it with an **illustrative** runtime handoff — a `POST /v1/runs` route token (`L4-http-status-route-verb` altitude) and an `Orchestrator.submit(...)` method-call token (`L1-method-call-chain` altitude) — used only to explain WHY a platform→runtime edge is needed; neither was ever the runtime contract through this ADR. The route's authority is the OpenAPI surface (facts `contract-op/createrun`, sourced from `docs/contracts/openapi-v1.yaml`) with its L2 readable expansion [`architecture/docs/L2/run-http-contract/`](../../architecture/docs/L2/run-http-contract/); the method-call chain's authority is the generated code-symbol facts and the L2 orchestration-submit sink. Read the illustrative route + method below as quarantined narrative justification, reduced to the structural dependency-direction identity — not as live wire/call authority. (Because ADR-0078 supersedes this ADR, the structural direction itself is now intra-module sub-package layering, not a Maven edge.)
 
 ## Context
 
@@ -10,7 +13,7 @@ L0 shipped with **zero** direct imports between `agent-platform` and `agent-runt
 
 At L1 planning the architect guidance (`docs/plans/2026-05-13-l1-architecture-design-guidance.en.md` §7.3, §15.5) ruled the contracts-module extraction out: *"Introduce `agent-platform-contracts` only when a real platform-runtime handoff needs shared DTOs or value types. Do not create it as speculative architecture scaffolding."*
 
-L1 introduces a real handoff: `POST /v1/runs` requires `RunController` (in `agent-platform`) to call `Orchestrator.submit(...)` (in `agent-runtime`). Without either a contracts module or a direct dependency, the handoff cannot be expressed.
+L1 introduces a real handoff: `POST /v1/runs` requires `RunController` (in `agent-platform`) to call `Orchestrator.submit(...)` (in `agent-runtime`). Without either a contracts module or a direct dependency, the handoff cannot be expressed. *(Per the altitude quarantine above, the `POST /v1/runs` route and the `Orchestrator.submit(...)` call are illustrative justification only; the structural identity this establishes is simply that an `agent-platform → agent-runtime` dependency edge exists. The route + method authority lives on the OpenAPI surface and the generated code-symbol facts, not in this ADR.)*
 
 The choice between the two options reduces to:
 

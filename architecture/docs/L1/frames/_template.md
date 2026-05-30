@@ -150,6 +150,13 @@ ArchUnit enforcer; cite it in section 7):
 > give the entry + participating class/method anchors, contract refs, and test refs — every
 > anchor CITED by generated fact ID. The gate fails a card that lists a FunctionPoint with no
 > backing `anchors` edge. A `design_only` frame may anchor zero FunctionPoints — say so.
+>
+> Test-ref discipline: a `Test` anchor is ONE `test/<kebab-fqn>` fact ID scoped to THIS
+> FunctionPoint (a per-anchor citation, parallel to the method-descriptor citation). Do not
+> enumerate a free-standing catalogue of three-plus tests with their asserted behaviour in
+> one line — that is an L8 test-class-inventory leak (the layer-purity gate, Rule G-27,
+> flags it). The exhaustive test list lives in `architecture/facts/generated/tests.json` and
+> each FunctionPoint's `test_refs[]`, not in this card.
 
 ### `FP-<NAME>` — <one-line behaviour>
 
@@ -181,6 +188,12 @@ ArchUnit enforcer; cite it in section 7):
 - Rule `<G-NN>` — `<what the gate rule checks for this frame>`.
 
 **Tests anchoring the behaviour** (fact-cited):
+
+> One `test/<kebab-fqn>` fact ID per bullet, each with a one-line behaviour gloss — the
+> sanctioned per-anchor citation form (parallel to the method-descriptor citation). Keep one
+> test per bullet; a free-standing enumeration of three-plus tests with their asserted
+> behaviour crammed into one line is an L8 test-class-inventory leak (Rule G-27 flags it). The
+> exhaustive list lives in `architecture/facts/generated/tests.json`, not in this card.
 
 - `test/<kebab-fqn>` — `<what it proves>`.
 

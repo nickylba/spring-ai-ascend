@@ -854,7 +854,7 @@ adr_ADR_0141 = element "ADR-0141" "ADR" "Internal Event Queue (ADR-0138 Layer 3)
     }
 }
 
-adr_ADR_0142 = element "ADR-0142" "ADR" "Run aggregate (Run record + RunStatus + RunStateMachine + RunRepository) is OWNED EXCLUSIVELY by Layer 2 Session & Task Manager in the ADR-0138 5-layer L1 model; Layer 4 Task-Centric Control holds ..." "SAA ADR" {
+adr_ADR_0142 = element "ADR-0142" "ADR" "Run aggregate (run record + status enum + state-machine validator + RunRepository SPI) is OWNED EXCLUSIVELY by Layer 2 Session & Task Manager in the ADR-0138 5-layer L1 model; Layer 4 Task-Centric ..." "SAA ADR" {
     properties {
         "saa.id" "ADR-0142"
         "saa.kind" "adr"

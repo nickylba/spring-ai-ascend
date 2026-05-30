@@ -240,6 +240,12 @@ apply to it while it is `design_only`.
 
 **Tests anchoring the behaviour** (fact-cited):
 
+> One `test/<kebab-fqn>` fact ID per bullet, each with a one-line behaviour gloss — the
+> sanctioned per-anchor citation form (parallel to the method-descriptor citation), not an
+> embedded test catalogue. A free-standing enumeration of three-plus tests with their
+> asserted behaviour crammed into one line would be an L8 test-class-inventory leak (Rule
+> G-27 flags it); the exhaustive list lives in `architecture/facts/generated/tests.json`.
+
 - `test/com-huawei-ascend-bus-spi-engine-orchestrationspiarchtest` — `bus.spi.engine` has
   no Spring and no platform dependency (SPI purity of the boundary package).
 - `test/com-huawei-ascend-service-runtime-orchestration-engineportsignaturenoregressiontest`
