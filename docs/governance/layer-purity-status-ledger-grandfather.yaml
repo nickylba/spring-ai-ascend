@@ -1,0 +1,386 @@
+# Layer-Purity Status-Ledger Grandfather list -- known L2/code detail in the
+# capability-status ledger's allowed_claim narrative, not yet migrated.
+#
+# Authority: ADR-0159 (Progressive Learning Curve and Authority Lanes) section 7
+#   + section 9. Companion policy: docs/governance/layer-purity-policy.yaml (the
+#   owns/forbids category vocabulary every row here cites; the SAME vocabulary
+#   the L0/L1 helpers consume). Consumed by Rule G-34 / enforcer E201
+#   (gate/lib/check_status_claim_altitude.py).
+#
+# Why this file exists, and why it is SEPARATE from
+#   docs/governance/layer-purity-temporary-violations.yaml. The two existing
+#   layer-purity helpers scan only the L0/L1 architecture documents:
+#     * gate/lib/check_layer_purity.py   (E194) -> architecture/docs/L0|L1/**.md
+#     * gate/lib/check_l2_detail_sink.py (E195) -> the same two roots
+#   But docs/governance/architecture-status.yaml#allowed_claim is a free-form
+#   narrative field with NO altitude guard, and per the authority cascade
+#   (generated facts > DSL > Card/prose) the capability ledger OUTRANKS the
+#   L0/L1 prose -- yet nothing scanned it, so it organically accreted exactly the
+#   leaked categories the adjudicated verdict named (SQL / ON CONFLICT / PRIMARY
+#   KEY; HTTP status + route-verb + wire error tokens; @Order tie-break +
+#   Class.getName(); DROP_OLDEST buffer + W3C traceparent + OTLP/HTTP; method
+#   signatures + call chains; enumerated *IT test inventories). E201 closes that
+#   by-authority-surface gap on this single ledger surface. Its tolerance rows
+#   live here, in a per-surface allow-list, rather than appended to the L0/L1
+#   list, because the two surfaces have different owners and different gates: a
+#   per-surface file keeps each gate's allow-list cohesive and avoids
+#   write-contention on one shared file. The CATEGORY VOCABULARY stays shared
+#   and single-source (layer-purity-policy.yaml), so both surfaces are judged by
+#   ONE verdict; only the per-surface tolerance rows are split. A row here is
+#   INERT for E194/E195 regardless -- those helpers never read this file.
+#
+# What this file IS. The closed, dated grandfather list of L2/code detail that
+#   currently sits in an allowed_claim value of the capability ledger in
+#   violation of the layer-purity policy, but has not yet been migrated to its
+#   authoritative home (architecture/docs/L2/ + docs/contracts/ + the generated
+#   facts). Each entry freezes one known leak AND declares a per-entry
+#   sunset_date by which the migration MUST complete and the row MUST be removed
+#   (a closed-but-dateless grandfather list is an anti-pattern). This list is
+#   closed: once the E201 ratchet is full-blocking, no new entry may be added --
+#   a new claim-altitude leak must be fixed (or the claim re-altituded) at
+#   authoring time, never grandfathered.
+#
+# What this file is NOT. A migration plan, a rule card, or an enforcer row. The
+#   ledger itself (docs/governance/architecture-status.yaml) is owned by the
+#   status-ledger reconcile step; this file does not edit it -- it records which
+#   of its claim leaks are tolerated, with a deadline. The authority cascade
+#   (generated facts > DSL > Card/prose) is untouched: this file invents no id
+#   and no relationship and never outranks a generated fact.
+#
+# Schema (mirrors layer-purity-temporary-violations.yaml so the two allow-lists
+# read identically):
+#   schema_version  - integer, bumped when fields are added.
+#   authority       - the ratifying ADR id.
+#   last_updated    - ISO yyyy-mm-dd (UTC). The freshness/sunset convention is
+#                     UTC: a local +08 date can be UTC-future and trip a
+#                     freshness gate, and the E201 sunset comparison runs in UTC.
+#   status          - advisory | blocking. The LIST's posture, not a
+#                     contract-status enum (Rule 62 does not apply -- this is not
+#                     a docs/contracts/*.v1.yaml). Advisory until the E201
+#                     ratchet promotes to full-blocking per ADR-0159 section 9.
+#   list_closed     - true.
+#   violations[]    - one row per known ledger leak. Each row:
+#       id          - stable kebab id, prefix LPV-SL- (Layer-Purity Violation,
+#                     Status-Ledger).
+#       layer       - STATUS-LEDGER (the surface label; distinct from L0/L1 so a
+#                     row here is unambiguously not an L0/L1 prose row).
+#       file        - docs/governance/architecture-status.yaml (the offending
+#                     authority surface; E201 matches a row to a finding by this
+#                     path + capability + category).
+#       capability  - REQUIRED. The ledger capability KEY whose allowed_claim
+#                     leaks (the in-file anchor; the human-stable handle the
+#                     reconcile step edits). E201 matches a row to a finding by
+#                     capability so a row freezes EXACTLY ONE claim -- because
+#                     every leak on this surface shares the same file, a row with
+#                     no capability would suppress unrelated same-category claims
+#                     and E201 rejects it (config error).
+#       locus       - capability key + the 1-based allowed_claim source line as
+#                     observed by the E201 advisory scan; for cross-reference,
+#                     NOT a code fact (line numbers drift as the ledger is
+#                     edited; the capability key is the durable anchor).
+#       category    - the leaked-category id from layer-purity-policy.yaml (one
+#                     of L1..L8) the E201 probe library reports for this claim.
+#                     E201 reports the FIRST matching category in policy order;
+#                     a claim may leak more than one, recorded in categories[]
+#                     when the verdict named several so the migration is scoped
+#                     to all of them. The reported first-match category MUST be
+#                     among category/categories or the row will not suppress.
+#       categories  - OPTIONAL list when a single claim leaks more than one
+#                     category (used instead of `category`). The row tolerates a
+#                     finding in ANY listed category, so the migration removes
+#                     every named category before the row is retired.
+#       trigger     - the smallest verbatim phrase from the allowed_claim that
+#                     makes it a leak. Quoted as EVIDENCE, never as a live claim.
+#       migrate_to  - the authoritative home the detail must move to.
+#       sunset_date - REQUIRED ISO yyyy-mm-dd by which migration MUST complete
+#                     and this row MUST be removed. Tiered by priority: the leaks
+#                     the 2026-05-29 convergence-scan verdict NAMED are at the
+#                     v1.0 boundary 2026-06-30 (the ledger outranks the L0/L1
+#                     prose, so its named leaks share the highest-priority L0
+#                     sunset); the SIBLING leaks the per-claim altitude scan
+#                     surfaced but the verdict did not enumerate are at
+#                     2026-08-31 (the same lower-priority tier the L0/L1 list
+#                     uses for other-module / sibling leaks).
+#       verdict_named - true when the 2026-05-29 convergence-scan round-2 verdict
+#                     enumerated this exact locus; false for a sibling leak the
+#                     E201 mechanical scan found in the same families.
+#       defensible_part - OPTIONAL note on the identity / evidence portion of a
+#                     mixed claim that MAY stay after the leaked detail is
+#                     extracted (e.g. the structural capability identity, the
+#                     ADR/enforcer citation, the development-view file index).
+#
+# Coverage note. The E201 advisory scan over the 149 allowed_claim values found
+#   19 leaks; all 19 are frozen below so the changed-files-blocking rung is clean
+#   (a reconcile-step edit to the ledger does not trip the gate on pre-existing
+#   debt). Eight are verdict_named; eleven are siblings in the same families. One
+#   verdict-cited locus -- run_status_transition_validator
+#   ("RunStateMachine.validate(from, to)" + "Run.withStatus/withSuspension call
+#   validate") -- does NOT trip E201: the shared L7 / L1-call-chain probes
+#   require a typed-arg / arrow-syntax shape ("m(args) -> ReturnType",
+#   "a(...) -> b("), which the untyped-arg + prose-verb claim lacks, exactly as
+#   the same probes do not fire on that prose at L0/L1. A grandfather row that
+#   suppresses no live finding is dead weight under the closed-list discipline,
+#   so that locus is intentionally NOT given a row; the reconcile step should
+#   still drain its method-signature / call-chain prose when it cleans the
+#   neighbouring rows, and a future probe widening (if any) would surface it.
+
+schema_version: 1
+authority: ADR-0159
+last_updated: 2026-05-30
+status: advisory
+list_closed: true
+
+violations:
+
+  # ======================================================================
+  # Verdict-named leaks (2026-05-29 convergence scan round 2).
+  # Highest priority; sunset 2026-06-30 (v1.0 boundary) -- the capability
+  # ledger outranks the L0/L1 prose per the authority cascade, so its named
+  # leaks share the L0 highest-priority sunset.
+  # ======================================================================
+
+  - id: LPV-SL-idempotency-store-sql-hash-status
+    layer: STATUS-LEDGER
+    file: docs/governance/architecture-status.yaml
+    capability: idempotency_store
+    locus: "idempotency_store allowed_claim : 388"
+    category: L3-sql-rls-persistence
+    categories: [L3-sql-rls-persistence, L1-method-call-chain, L4-http-status-route-verb]
+    trigger: "INSERT ... ON CONFLICT, PRIMARY KEY (tenant_id, idempotency_key) ... IdempotencyHeaderFilter calls claimOrFind with SHA-256-of-method+path+body request_hash; collisions return 409 idempotency_conflict or 409 idempotency_body_drift"
+    migrate_to: "docs/contracts/*.v1.yaml (OpenAPI 409 body) + architecture/docs/L2/<idempotency-frame>/ (dedup table + claimOrFind sequence) + architecture/facts/generated/code-symbols.json"
+    sunset_date: 2026-06-30
+    verdict_named: true
+    defensible_part: "The capability identity (IdempotencyStore SPI with a Postgres-backed and an in-memory impl, both posture-gated; the ADR-0057 pointer; enforcer rows E12-E14/E22) stays; the SQL upsert/PK shape, the claimOrFind hash call chain, and the 409 wire error tokens migrate."
+
+  - id: LPV-SL-run-lifecycle-spi-cancel-status
+    layer: STATUS-LEDGER
+    file: docs/governance/architecture-status.yaml
+    capability: run_lifecycle_spi
+    locus: "run_lifecycle_spi allowed_claim : 704"
+    category: L4-http-status-route-verb
+    categories: [L4-http-status-route-verb, L1-method-call-chain]
+    trigger: "The HTTP cancel route POST /v1/runs/{runId}/cancel IS shipped in agent-service RunController.java#cancel ... 200 success, 404 not_found ... 409 illegal_state_transition ... HTTP 403 tenant_mismatch"
+    migrate_to: "docs/contracts/*.v1.yaml (OpenAPI cancel route x verb x status) + architecture/docs/L2/<run-lifecycle-frame>/"
+    sunset_date: 2026-06-30
+    verdict_named: true
+    defensible_part: "The design-vs-shipped distinction (the W2 RunLifecycle SPI is a different surface from the shipped W1 HTTP cancel edge) and the Rule R-J.b re-authorization identity stay; the route x verb, the 200/404/409/403 status matrix, and the RunController.java#cancel call-site pointer migrate to the contract + the L2 design."
+
+  - id: LPV-SL-hook-tie-break-order-failsafe
+    layer: STATUS-LEDGER
+    file: docs/governance/architecture-status.yaml
+    capability: hook_tie_break_determinism
+    locus: "hook_tie_break_determinism allowed_claim : 820"
+    category: L5-filter-ordering
+    categories: [L5-filter-ordering, L1-method-call-chain]
+    trigger: "@Order tie-break is Class.getName() lexicographic ascending ... chain-level fail-fast + invocation-level failsafe today (Rule R-M.c.b TARGET wires Fail->Run.FAILED at W2)"
+    migrate_to: "architecture/docs/L2/<hook-dispatch-frame>/ (tie-break algorithm + failsafe sequence) + the hook contract"
+    sunset_date: 2026-06-30
+    verdict_named: true
+    defensible_part: "The capability identity (deterministic hook tie-break exists; ON_ERROR is best-effort; @SafetyCritical is forbidden on ON_ERROR -- a structural constraint, D3-citable to its enforcing test) stays; the Class.getName() tie-break algorithm and the Fail->Run.FAILED dispatch chain migrate."
+
+  - id: LPV-SL-idempotency-409-body-shape
+    layer: STATUS-LEDGER
+    file: docs/governance/architecture-status.yaml
+    capability: idempotency_409_body_shape
+    locus: "idempotency_409_body_shape allowed_claim : 847"
+    category: L4-http-status-route-verb
+    categories: [L4-http-status-route-verb, L6-wire-format]
+    trigger: "409 Idempotency-Key conflict body shape declared in openapi-v1.yaml: {code, message, conflict_kind in {...}, original_request_fingerprint}. Fingerprint is sha256 hex of canonical-serialized original request"
+    migrate_to: "docs/contracts/*.v1.yaml (OpenAPI 409 ErrorEnvelope body) + architecture/docs/L2/<idempotency-frame>/"
+    sunset_date: 2026-06-30
+    verdict_named: true
+    defensible_part: "The capability identity (a 409 conflict body shape is declared in the OpenAPI contract; the delta.6 closure pointer) stays; the concrete 409 status, the conflict_kind enum, and the sha256-hex fingerprint wire shape are contract material that the claim should POINT at, not restate."
+
+  - id: LPV-SL-run-dispatcher-drop-oldest
+    layer: STATUS-LEDGER
+    file: docs/governance/architecture-status.yaml
+    capability: run_dispatcher_spi
+    locus: "run_dispatcher_spi allowed_claim : 1217"
+    category: L6-wire-format
+    trigger: "Terminal events bypass DROP_OLDEST via reserved terminal slot (never dropped). Non-terminal events use DROP_OLDEST with counter metric"
+    migrate_to: "docs/contracts/*.v1.yaml + docs/telemetry/policy.md + architecture/docs/L2/<event-channel-frame>/"
+    sunset_date: 2026-06-30
+    verdict_named: true
+    defensible_part: "The capability identity (RunDispatcher SPI routes a Run to a channel bundle; the ADR-0031 pointer) stays; the DROP_OLDEST overflow strategy + reserved-terminal-slot + counter-metric wire/buffer detail migrates."
+
+  - id: LPV-SL-w1-http-contract-routes-tests
+    layer: STATUS-LEDGER
+    file: docs/governance/architecture-status.yaml
+    capability: w1_http_contract_reconciliation
+    locus: "w1_http_contract_reconciliation allowed_claim : 1240"
+    category: L4-http-status-route-verb
+    categories: [L4-http-status-route-verb, L8-test-class-inventory, L7-method-signature]
+    trigger: "cancel = POST /v1/runs/{runId}/cancel (RunHttpContractIT.cancel_route_is_post_not_delete); ... authenticated matrix asserted by RunHttpContractIT.createReturnsPending / jwtClaimHeaderMismatchReturns403 / cancelCrossTenantRunReturns404 / cancelTerminalReturns409 / duplicateIdempotencyKeyReturns409"
+    migrate_to: "docs/contracts/*.v1.yaml (OpenAPI route x verb x status) + architecture/facts/generated/tests.json (FunctionPoint test_refs[])"
+    sunset_date: 2026-06-30
+    verdict_named: true
+    defensible_part: "The capability identity (W1 HTTP contract reconciliation: X-Tenant-Id required; initial status PENDING; cancel is POST not DELETE; OpenAPI snapshot pinned) and the D3 enforcer citation (Gate Rule 16 + OpenApiContractIT.noUndocumentedV1OperationsExposedByLive) stay; the route x verb, the enumerated RunHttpContractIT.<method> assertion inventory, and the per-test status-code behaviours migrate to the contract + the generated test facts."
+
+  - id: LPV-SL-traceparent-propagation-wire
+    layer: STATUS-LEDGER
+    file: docs/governance/architecture-status.yaml
+    capability: traceparent_propagation
+    locus: "traceparent_propagation allowed_claim : 1599"
+    category: L4-http-status-route-verb
+    categories: [L4-http-status-route-verb, L6-wire-format]
+    trigger: "W3C version-00 traceparent parsing + origination at HTTP edge; traceresponse emitted on every outbound response (200/4xx/5xx) ... Counters: springai_ascend_trace_originated_total{...} and springai_ascend_traceparent_invalid_total{...}"
+    migrate_to: "docs/contracts/*.v1.yaml + docs/telemetry/policy.md + architecture/docs/L2/<observability-frame>/"
+    sunset_date: 2026-06-30
+    verdict_named: true
+    defensible_part: "The capability identity (traceparent/traceresponse propagation ships at L1.x; the ADR-0063 pointer; verified-by TraceExtractFilterIT as a D3 enforcer citation) stays; the W3C version-00 header grammar, the 200/4xx/5xx emit behaviour, and the concrete counter-metric wire names migrate to the telemetry policy + contract."
+
+  - id: LPV-SL-client-sdk-traceparent-otlp
+    layer: STATUS-LEDGER
+    file: docs/governance/architecture-status.yaml
+    capability: client_sdk_observability_contract
+    locus: "client_sdk_observability_contract allowed_claim : 1622"
+    category: L4-http-status-route-verb
+    categories: [L4-http-status-route-verb, L6-wire-format]
+    trigger: "propagates W3C traceparent outbound, reads traceresponse for correlation, batches OTLP/HTTP ... Server-side L1.x prerequisites (traceparent + MDC + traceresponse)"
+    migrate_to: "docs/contracts/*.v1.yaml + docs/telemetry/policy.md + architecture/docs/L2/<observability-frame>/"
+    sunset_date: 2026-06-30
+    verdict_named: true
+    defensible_part: "The capability identity (a platform-owned client SDK lands at W3; vanilla OTel clients integrate today; the ADR-0063 pointer) stays; the W3C traceparent header, the traceresponse read, and the OTLP/HTTP wire encoding migrate to the contract + telemetry policy."
+
+  # ======================================================================
+  # Sibling leaks -- the same leaked-category families the per-claim altitude
+  # scan surfaced but the 2026-05-29 verdict did not enumerate. Lower priority;
+  # sunset 2026-08-31 (the tier the L0/L1 list uses for sibling leaks).
+  # ======================================================================
+
+  - id: LPV-SL-idempotency-header-filter-status
+    layer: STATUS-LEDGER
+    file: docs/governance/architecture-status.yaml
+    capability: idempotency_header_filter
+    locus: "idempotency_header_filter allowed_claim : 232"
+    category: L4-http-status-route-verb
+    categories: [L4-http-status-route-verb, L5-filter-ordering]
+    trigger: "OncePerRequestFilter order 30; dev tolerates missing; research/prod returns 400; counters emitted"
+    migrate_to: "docs/contracts/*.v1.yaml (OpenAPI 400) + architecture/docs/L2/<access-layer-frame>/ (filter-chain order)"
+    sunset_date: 2026-08-31
+    verdict_named: false
+    defensible_part: "The capability identity (an idempotency-header filter exists; posture-tiered) stays; the numeric filter order and the 400 status behaviour migrate."
+
+  - id: LPV-SL-tenant-context-filter-order
+    layer: STATUS-LEDGER
+    file: docs/governance/architecture-status.yaml
+    capability: tenant_context_filter
+    locus: "tenant_context_filter allowed_claim : 244"
+    category: L5-filter-ordering
+    categories: [L5-filter-ordering, L4-http-status-route-verb]
+    trigger: "OncePerRequestFilter order 20; ThreadLocal cleared in finally; dev uses DEV_DEFAULT on missing; research/prod returns 400"
+    migrate_to: "architecture/docs/L2/<access-layer-frame>/ (filter-chain order + ThreadLocal lifecycle) + docs/contracts/*.v1.yaml (400)"
+    sunset_date: 2026-08-31
+    verdict_named: false
+    defensible_part: "The capability identity (a tenant-context filter exists; posture-tiered) stays; the numeric filter order, the ThreadLocal-clear sequence, and the 400 status migrate."
+
+  - id: LPV-SL-openapi-response-schema-200
+    layer: STATUS-LEDGER
+    file: docs/governance/architecture-status.yaml
+    capability: openapi_response_schema_check
+    locus: "openapi_response_schema_check allowed_claim : 265"
+    category: L4-http-status-route-verb
+    trigger: "OpenApiSnapshotComparator.compareResponseSchemas() walks required fields and types in all 200 response schemas in the pinned spec"
+    migrate_to: "docs/contracts/*.v1.yaml + architecture/docs/L2/<contract-check-frame>/"
+    sunset_date: 2026-08-31
+    verdict_named: false
+    defensible_part: "The capability identity (the snapshot comparator checks response schemas against the pinned spec; the Gate Rule that enforces it -- a D3 citation) stays; the concrete 200-response-schema walk behaviour migrates."
+
+  - id: LPV-SL-tenant-reauth-widening-status
+    layer: STATUS-LEDGER
+    file: docs/governance/architecture-status.yaml
+    capability: tenant_reauth_widening
+    locus: "tenant_reauth_widening allowed_claim : 737"
+    category: L4-http-status-route-verb
+    trigger: "cancel re-auth surface widened to GET /v1/runs/{runId} (W1) and POST /v1/runs/{runId}/resume (W2) ... 403 tenant_mismatch instead of 404 (eliminates existence-oracle)"
+    migrate_to: "docs/contracts/*.v1.yaml (OpenAPI route x verb x status) + architecture/docs/L2/<run-lifecycle-frame>/"
+    sunset_date: 2026-08-31
+    verdict_named: false
+    defensible_part: "The capability identity (the Rule R-J.b re-auth surface widens to GET + resume; background consumers audit on mismatch; the existence-oracle closure rationale) stays; the route x verb and the 403-vs-404 status decision migrate to the contract."
+
+  - id: LPV-SL-outbox-replay-erase-route
+    layer: STATUS-LEDGER
+    file: docs/governance/architecture-status.yaml
+    capability: outbox_replay_safety_policy
+    locus: "outbox_replay_safety_policy allowed_claim : 801"
+    category: L4-http-status-route-verb
+    trigger: "GDPR erasure (POST /v1/tenants/{tenantId}/erase, W3+) immediately redacts/suppresses tenant rows regardless of TTL"
+    migrate_to: "docs/contracts/*.v1.yaml (OpenAPI erase route x verb) + architecture/docs/L2/<outbox-frame>/"
+    sunset_date: 2026-08-31
+    verdict_named: false
+    defensible_part: "The capability identity (OutboxPayload carries a replay-safety policy enum; RunEventOutboxPublisher honours it at retry) stays; the concrete erase route x verb migrates to the contract."
+
+  - id: LPV-SL-idempotency-retention-erase-route
+    layer: STATUS-LEDGER
+    file: docs/governance/architecture-status.yaml
+    capability: idempotency_retention_and_erasure
+    locus: "idempotency_retention_and_erasure allowed_claim : 873"
+    category: L4-http-status-route-verb
+    categories: [L4-http-status-route-verb, L3-sql-rls-persistence]
+    trigger: "Postgres idempotency_keys table (W2) ships with TTL-based GC ... GDPR erasure-on-request (POST /v1/tenants/{tenantId}/erase, W3+). Flyway V<N>__idempotency_retention.sql at W2"
+    migrate_to: "docs/contracts/*.v1.yaml (OpenAPI erase route x verb) + architecture/docs/L2/<idempotency-frame>/ + Flyway migrations"
+    sunset_date: 2026-08-31
+    verdict_named: false
+    defensible_part: "The capability identity (idempotency retention has TTL-GC + GDPR erasure; the delta.13 closure pointer) stays; the erase route x verb, the idempotency_keys table, and the Flyway migration-file name migrate to the contract + L2 + migrations."
+
+  - id: LPV-SL-otel-trace-suspend-header
+    layer: STATUS-LEDGER
+    file: docs/governance/architecture-status.yaml
+    capability: otel_trace_propagation_across_suspend
+    locus: "otel_trace_propagation_across_suspend allowed_claim : 1036"
+    category: L4-http-status-route-verb
+    categories: [L4-http-status-route-verb, L6-wire-format]
+    trigger: "OTel traceparent propagated through SuspendSignal and resumed in new thread/transaction boundary"
+    migrate_to: "docs/telemetry/policy.md + architecture/docs/L2/<observability-frame>/ (suspend/resume trace continuity)"
+    sunset_date: 2026-08-31
+    verdict_named: false
+    defensible_part: "The capability identity (trace context survives a suspend/resume boundary; deferred to W2) stays; the concrete traceparent header carrier detail migrates to the telemetry policy + L2."
+
+  - id: LPV-SL-spi-precision-record-classification
+    layer: STATUS-LEDGER
+    file: docs/governance/architecture-status.yaml
+    capability: spi_contract_precision_and_memory_metadata_reconciliation
+    locus: "spi_contract_precision_and_memory_metadata_reconciliation allowed_claim : 1281"
+    category: L7-method-signature
+    trigger: "RunContext classified as interface in contract-catalog.md; per-SPI scope table added; embeddingModelVersion canonical name normalized"
+    migrate_to: "docs/contracts/*.v1.yaml (SPI) + architecture/facts/generated/code-symbols.json"
+    sunset_date: 2026-08-31
+    verdict_named: false
+    defensible_part: "The capability identity (the SPI precision reconciliation happened; the Gate Rule 17 extension -- a D3 citation) stays; the interface-vs-record type-shape classification and the canonical field-name detail are code-symbol / contract material the claim should point at, not restate."
+
+  - id: LPV-SL-system-boundary-prose-selftest
+    layer: STATUS-LEDGER
+    file: docs/governance/architecture-status.yaml
+    capability: system_boundary_prose_convention
+    locus: "system_boundary_prose_convention allowed_claim : 1320"
+    category: L8-test-class-inventory
+    trigger: "Gate self-test (rule27_baseline_pos/neg) indirectly validates the section-1 split by exercising the README baseline cross-check that depends on it"
+    migrate_to: "architecture/facts/generated/tests.json (+ the gate self-test manifest)"
+    sunset_date: 2026-08-31
+    verdict_named: false
+    defensible_part: "The capability identity (the section-1 Target-vs-W0-shipped split convention; the ADR-0047/0078 pointers) stays; the named gate-self-test fixture pairing with its asserted behaviour is test-inventory detail. NOTE: this is a borderline match -- the named token is a gate self-test fixture (arguably a D3-adjacent mechanism citation), not a product *IT; it is grandfathered conservatively so the changed-files-blocking rung is clean, and the reconcile step may instead resolve it by reframing the clause as a pure enforcer citation."
+
+  - id: LPV-SL-mdc-correlation-filter-order
+    layer: STATUS-LEDGER
+    file: docs/governance/architecture-status.yaml
+    capability: mdc_correlation_carriers
+    locus: "mdc_correlation_carriers allowed_claim : 1586"
+    category: L5-filter-ordering
+    categories: [L5-filter-ordering, L8-test-class-inventory]
+    trigger: "TraceExtractFilter at order 10, L1.x ... Verified by TraceExtractFilterIT (filter behaviour) and LogFieldShapeIT (MDC presence during request scope)"
+    migrate_to: "architecture/docs/L2/<observability-frame>/ (filter order + MDC carriers) + architecture/facts/generated/tests.json"
+    sunset_date: 2026-08-31
+    verdict_named: false
+    defensible_part: "The capability identity (Logback MDC carries the correlation fields; shipped at L1.x) stays. The Verified-by clause names two enforcing *IT via a mechanism phrase (a D3-shaped citation, <= 2 tests), so the L8 probe spares it; the L5 numeric filter order ('TraceExtractFilter at order 10') is the live leak that earns the row -- it migrates to the L2 filter-chain design."
+
+  - id: LPV-SL-run-trace-session-arg-shape
+    layer: STATUS-LEDGER
+    file: docs/governance/architecture-status.yaml
+    capability: run_trace_session_columns
+    locus: "run_trace_session_columns allowed_claim : 1612"
+    category: L7-method-signature
+    trigger: "Run record carries traceId (32-char hex; nullable at L1.x, NOT NULL at W2) and sessionId (UUID; ...) alongside the existing 12 fields. Backward-compatible 12-arg constructor preserved"
+    migrate_to: "docs/contracts/*.v1.yaml + architecture/facts/generated/code-symbols.json (Run field/constructor shape)"
+    sunset_date: 2026-08-31
+    verdict_named: false
+    defensible_part: "The capability identity (Run gains traceId + sessionId columns; backward-compatible; verified-by RunTraceSessionConsistencyIT as a D3 citation) stays; the JVM-typed field inventory and the 12-arg-constructor parameter shape are code-symbol material the claim should point at, not restate."

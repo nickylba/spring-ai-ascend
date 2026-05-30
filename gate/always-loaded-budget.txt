@@ -140,7 +140,13 @@ docs/onboarding/compliance-reviewer.md=0
 # This is corrected-altitude content (the cost of doing the L2 migration in-place),
 # not bloat. Ceiling raised 98000 -> 106000 (~1.8K headroom). The standing
 # direction is still to shrink L0 as detail finishes migrating to L2.
-architecture/docs/L0/ARCHITECTURE.md=106000
+# 2026-05-30 progressive-learning-curve-remediation R2: the L0 §0 layer-purity
+# reader's-pointer paragraph + the §4/§5 single-reading reconciliation rewrites
+# (the convergence-scan round-2 L0 drain coupled to the status-ledger claim-altitude
+# gate landing) grew the file to 108688 bytes, over the 106000 ceiling. Ceiling
+# raised 106000 -> 110000 (~1.3K headroom). Same standing direction: shrink L0 as
+# detail finishes migrating to L2.
+architecture/docs/L0/ARCHITECTURE.md=110000
 # Fact-Layer W6 (ADR-0154 / Rule G-15): AGENTS.md grew ~310 bytes with the
 # 6-point AI consumption contract + the fact-layer-first reading-path entry
 # (Step 1) + the LLM-no-author wording. Ceiling raised 8500 -> 9000 with
@@ -232,7 +238,13 @@ docs/governance/SESSION-START-CONTEXT.md=8000
 # --enforced_by--> / --asserts_in--> edges grew the graph to 317661 bytes
 # (matches baseline_metrics architecture_graph_nodes 702 / edges 1365). Ceiling
 # raised 316000 -> 318000 with ~0.3K headroom (same ratchet posture).
-docs/governance/architecture-graph.yaml=318000
+# 2026-05-30 progressive-learning-curve-remediation R2: the Rule-G-34 rule node
+# + E201 enforcer node (status-ledger claim-altitude gate landing) + the new
+# file: node for architecture/docs/L2/capability-spi/chat-advisor-binding.md +
+# their graph edges grew the graph to 321950 bytes (matches baseline_metrics
+# architecture_graph_nodes 705 / edges 1369). Ceiling raised 318000 -> 324000
+# with ~2K headroom (same ratchet posture).
+docs/governance/architecture-graph.yaml=324000
 # Structurizr workspace authority W7 (ADR-0149): +1 ADR node (0149) + 6 edges
 # (extends ADR-0147 + ADR-0148; relates_to ADR-0068 + ADR-0119) grew the graph
 # from 265500 to ~266400 bytes. Ceiling raised 265500 → 267000 with ~600 bytes
@@ -253,4 +265,11 @@ docs/governance/architecture-graph.yaml=318000
 # ratchet comments + the allowed_claim numeric refresh grew the file to
 # 133274 bytes (over the old 133000 ceiling). Ceiling raised 133000 -> 135000
 # with ~1.7K headroom (same ratchet posture).
-docs/governance/architecture-status.yaml=135000
+# 2026-05-30 progressive-learning-curve-remediation R2: the status-ledger
+# claim-altitude gate baseline bumps (active_engineering_rules 62->63,
+# active_gate_checks 164->165, gate_executable_test_cases 340->345, enforcer_rows
+# 199->200, graph 702/1365->705/1369, workspace_elements 639->641) + their
+# per-metric ratchet comments + the allowed_claim numeric refresh grew the file
+# to 135866 bytes (over the old 135000 ceiling). Ceiling raised 135000 -> 138000
+# with ~2.1K headroom (same ratchet posture).
+docs/governance/architecture-status.yaml=138000

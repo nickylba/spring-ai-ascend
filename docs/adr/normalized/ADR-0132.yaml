@@ -17,25 +17,30 @@ adr: ADR-0132
 raw_path: docs/adr/0132-chat-advisor-spi.yaml
 
 current_state: active_guidance
-decision_level: L0
+decision_level: L1
 affected_levels:
   - L0
   - L1
+  - L2
   - contract
 view: development
-decision_type: architecture_principle
+decision_type: public_spi_surface
 
 clean_decision_summary: |
-  Give application developers a platform-owned around-call interceptor seam (a
-  ChatAdvisor) that decorates model invocations, instead of forcing them to
-  either reach for the provider's advisor type directly (which breaks the
-  Spring-AI-is-canonical / platform-decorates boundary) or reach for the
-  gate-private engine hook dispatcher (which must NOT be public). The standing
-  governing principle is the DECORATION BOUNDARY: a tenant-scoped, ordered,
-  platform-owned advisor chain wraps the model gateway; the hook dispatcher stays
-  platform-internal. The concrete advisor interface shape and its value records
-  are the L1/contract realisation (a design-only contract surface), not the L0
-  boundary decision.
+  Lands the chat-advisor as a public SPI boundary identity in the agent-middleware
+  module: a platform-owned around-call advisor seam (the
+  com.huawei.ascend.middleware.advisor.spi package, a sibling capability family of
+  EF-CAPABILITY-SPI) that the application-developer audience composes against to
+  decorate model invocations — instead of reaching for the provider's advisor type
+  directly (which breaks the Spring-AI-is-canonical / platform-decorates boundary)
+  or for the gate-private engine hook dispatcher (which must NOT be public). The
+  standing decision is the advisor boundary identity + its tenant-scoped, ordered,
+  pure-Java contract, governed by the DECORATION BOUNDARY principle (the provider
+  is canonical and the platform decorates; the advisor chain wraps the model
+  gateway; the hook dispatcher stays platform-internal). The concrete advisor
+  interface shape, its value records, and the W2 hook-binding runtime sequence are
+  the contract / L2 realisation (a design-only contract surface plus an L2 sink),
+  not standing L1 authority.
 
 active_guidance:
   - "The platform exposes a platform-owned around-call advisor seam that decorates model invocation for the application-developer audience; developers compose advisors at agent-definition time and never import the gate-private engine hook dispatcher."
@@ -44,9 +49,9 @@ active_guidance:
   - "The engine hook dispatcher remains platform-internal; the BEFORE_LLM / AFTER_LLM hook brackets bound the advisor chain but hooks are not part of the public audience surface (keeping hook-granularity changes from becoming contract-breaking events)."
 
 non_authoritative_legacy_content:
-  - "The concrete advisor INTERFACE SHAPE (advisorName / order / aroundCall(AdvisedRequest, AdvisorChain); the StreamingChatAdvisor.aroundStream sibling; the AdvisorChain.next / StreamingAdvisorChain.proceed signatures) and the package home (com.huawei.ascend.middleware.advisor.spi.*) are L1 public-SPI-surface / contract detail owned at L1 + docs/contracts/chat-advisor.v1.yaml, NOT L0 authority."
-  - "The value-type record inventory (AdvisedRequest / AdvisedResponse / AdvisedModelRequest / AdvisedMessage / AdvisedToolCall / AdvisedUsage / AdvisedFinishReason / AdvisedModelResponse / AdvisedStreamChunk and its sealed variants) is L2 / contract envelope detail owned by the contract surface and the generated facts."
-  - "The W2 hook-binding RUNTIME SEQUENCE (the advisor-model-hook-order/v1 step order: translate ModelInvocation -> AdvisedRequest, fire BEFORE_LLM, run chain, invoke terminal gateway, outbound transforms, translate back, fire AFTER_LLM) is an L2 runtime-sequence owned at L2; the standing L0 decision is the decoration boundary, not the sequence."
+  - "The concrete advisor INTERFACE SHAPE (the advisorName / order / aroundCall method signatures; the streaming-advisor aroundStream sibling; the advisor-chain next / proceed signatures) is contract realisation detail below the L1 boundary identity: it is owned by docs/contracts/chat-advisor.v1.yaml and the generated code-symbol facts for the advisor package, not restated as standing L1 authority. (The package home com.huawei.ascend.middleware.advisor.spi.* is the boundary IDENTITY and remains an L1 anchor — see l1_refs.)"
+  - "The value-type record inventory (AdvisedRequest / AdvisedResponse / AdvisedModelRequest / AdvisedMessage / AdvisedToolCall / AdvisedUsage / AdvisedFinishReason / AdvisedModelResponse / AdvisedStreamChunk and its sealed variants) is contract-envelope detail owned by the contract surface and the generated facts."
+  - "The W2 hook-binding RUNTIME SEQUENCE (the advisor-model-hook-order/v1 step order: translate ModelInvocation -> AdvisedRequest, fire BEFORE_LLM, run the chain, invoke the terminal gateway, outbound transforms, translate back, fire AFTER_LLM) is an L2 runtime-sequence owned by the L2 sink architecture/docs/L2/capability-spi/chat-advisor-binding.md and the contract's binding block; the standing decision is the boundary identity + decoration principle, not the sequence."
   - "design_only / runtime_enforced staging notes, the vacuous-until-examples ArchUnit guard, and the catalog/module-metadata/DFX follow-up are wave/process detail owned by release notes and the gate surfaces."
 
 supersedes: []
@@ -56,33 +61,44 @@ dsl_refs: []
 l0_constraint_refs:
   - "Product Claims PC-001, PC-004 (recorded on the raw ADR)"
 l1_refs:
-  - "ChatAdvisor / StreamingChatAdvisor SPI in the agent-middleware module (the L1 public-SPI realisation of the decoration seam)"
-  - "ModelGateway invocation surface (the model-call boundary the advisor chain wraps)"
+  - "agent-middleware — the module that homes the chat-advisor SPI (the com.huawei.ascend.middleware.advisor.spi package, a sibling capability family of EF-CAPABILITY-SPI, ADR-0157)"
+  - "ADR-0125 — the Spring AI canonical-integration-boundary (Path a) decision this SPI realises (platform decorates, does not re-export the provider advisor type)"
+  - "ADR-0121 — the ModelGateway boundary the advisor chain wraps"
+  - "ADR-0073 — the engine hook-point decision the BEFORE_LLM / AFTER_LLM brackets rest on (the hook dispatcher stays platform-internal)"
 l2_refs:
-  - "The advisor value-type records and the W2 hook-binding runtime sequence (the per-type / per-step detail lives at L2 / generated facts)."
+  - "The advisor value-type records (per-type carrier detail) — owned by the contract surface and the generated code-symbol facts."
+  - "The W2 advisor-model-hook-order/v1 hook-binding runtime sequence — owned by the L2 sink architecture/docs/L2/capability-spi/chat-advisor-binding.md."
 contract_refs:
   - docs/contracts/chat-advisor.v1.yaml
 fact_refs:
   - adr/0132-chat-advisor-spi
+  - contract-yaml/chat-advisor
+  - code-symbol/com-huawei-ascend-middleware-advisor-spi-chatadvisor
+  - code-symbol/com-huawei-ascend-middleware-advisor-spi-advisorchain
 gate_refs:
   - "Rule R-D (SPI purity — the advisor SPI stays pure Java and does not import the model SPI package)"
 
 review_notes: |
-  Lane: L3-L0ARCH (ADR-0159). LAYER-PURITY FLAG for human review: the raw ADR
-  self-labels level: L0 but its decision block is dominated by an L1
-  public-SPI-surface + contract + L2 runtime-sequence payload (interface
-  signatures, a record inventory, a step-ordered hook-binding sequence). This is
-  the "L0 contains L1/L2 detail" leakage adjudicated TRUE in the 2026-05-29
-  remediation review. I have kept decision_level L0 (honouring the raw self-label)
-  and chosen decision_type architecture_principle — the genuinely L0-altitude
-  decision in this ADR is the DECORATION BOUNDARY (platform-owned advisor seam vs
-  reaching for the provider type or the gate-private hook dispatcher). The
-  SPI-shape / contract / sequence detail is recorded as
-  non_authoritative_legacy_content and cross-referenced to
-  docs/contracts/chat-advisor.v1.yaml + L1. A human should decide whether the raw
-  ADR ought to be reclassified to L1 (decision_type public_spi_surface) with the
-  decoration principle hoisted to a sibling L0 note; until then the L0 view is
-  citeable only through the decoration-boundary clauses. current_state
-  active_guidance: the decoration boundary governs today even though the SPI is
-  design_only. superseded_by / supersedes empty (raw declares only relates_to; no
-  supersession edge in the fact layer).
+  Lane: L4-FRAME (ADR-0159). Layer-purity reclassification (the LAYER-PURITY FLAG
+  raised in the 2026-05-29 remediation review is now RESOLVED at source, not
+  deferred): the raw ADR previously self-labelled level: L0 while its decision
+  block decided an L1 public-SPI-surface + contract + L2 runtime-sequence payload
+  (three interface signatures, a value-record inventory, and a step-ordered W2
+  hook-binding sequence) — the "L0 contains L1/L2 detail" leakage adjudicated TRUE.
+  This is the same re-altitude applied to the sibling capability-SPI ADRs (the
+  model-gateway ADR-0121, the memory / planner SPIs): a public-SPI-surface decision
+  is a FORBIDDEN lower-altitude leak at L0 and is DEFENSIBLE at L1 (adr-taxonomy).
+  The raw ADR has been reduced accordingly — level: L1, the leaked method
+  signatures / value records pushed to docs/contracts/chat-advisor.v1.yaml + the
+  generated code-symbol facts, and the W2 runtime sequence pushed to the L2 sink
+  architecture/docs/L2/capability-spi/chat-advisor-binding.md — so the normalized
+  decision_level is L1 (decision_type public_spi_surface), with L0 retained in
+  affected_levels because the SPI realises the L0 decoration-boundary principle
+  (Spring AI canonical / platform decorates, ADR-0125). That principle is NOT
+  hoisted to a separate L0 note: it is the governing RATIONALE of this L1 boundary
+  decision and is owned at L0 by ADR-0125; this view re-states it as active_guidance
+  to keep the boundary citeable. current_state active_guidance: the advisor boundary
+  identity + the decoration boundary govern today even though the SPI is
+  design_only (no production binding; runtime_enforced at W2 per ADR-0061 §7).
+  superseded_by / supersedes empty (raw declares only relates_to; no supersession
+  edge in the fact layer).

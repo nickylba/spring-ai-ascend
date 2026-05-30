@@ -17,10 +17,18 @@ outranks a generated fact):
     authoritative home a leaked category must migrate to. Authority: ADR-0159.
   * ``docs/governance/layer-purity-temporary-violations.yaml`` — the closed,
     dated grandfather list. Each row freezes one known, not-yet-migrated leak in
-    an L0/L1 document AND declares a per-entry ``sunset_date``. A leaked block
-    whose file is covered by a still-open row of the matching category is
-    TOLERATED (reported as a grandfathered advisory, never a finding); a leak in
-    no row — or one whose ``sunset_date`` has passed (UTC) — is a finding.
+    an L0/L1 document AND declares a per-entry ``sunset_date`` plus a per-entry
+    ``locus`` (the smallest in-file anchor — a section label and a line range).
+    A leaked block is TOLERATED (reported as a grandfathered advisory, never a
+    finding) only when a still-open row matches it on ALL of file, category, AND
+    locus — the leak's line number MUST fall inside one of the row's enumerated
+    line ranges. A leak that matches a row's file + category but lands OUTSIDE
+    every range that row enumerates is NOT that row's adjudicated leak and stays
+    a finding. A leak in no row — or one whose ``sunset_date`` has passed (UTC) —
+    is a finding. (A row whose ``locus`` carries no parseable line range — a
+    deliberately whole-file ``row-level pass deferred`` entry — is anchorless and
+    falls back to file + category matching; ``load_policy`` records which rows are
+    anchored so the locus invariant stays auditable.)
 
 What this check is NOT. It is not the migration itself, not a rule card, not an
 enforcer row, and it does not edit any authority surface. It is a READABLE-
@@ -174,6 +182,31 @@ class Violation:
     categories: set[str]
     sunset_date: datetime.date | None
     raw_sunset: str
+    locus_ranges: list[tuple[int, int]] = field(default_factory=list)
+    raw_locus: str = ""
+
+    @property
+    def locus_anchored(self) -> bool:
+        """True when this row enumerates at least one parseable line range.
+
+        An anchored row tolerates a leak only inside its enumerated ranges; an
+        anchorless row (``row-level pass deferred`` whole-file entries whose
+        ``locus`` carries no line number) falls back to file + category matching.
+        """
+        return bool(self.locus_ranges)
+
+    def covers_line(self, line_no: int) -> bool:
+        """Whether ``line_no`` falls inside one of this row's enumerated ranges.
+
+        The locus is the row's adjudicated anchor: a same-file, same-category
+        leak OUTSIDE every range is a different leak the row never enumerated, so
+        it is NOT tolerated. An anchorless row covers every line by construction
+        (it deliberately defers a whole-file pass); ``locus_anchored`` lets the
+        caller decide whether to require a range match.
+        """
+        if not self.locus_ranges:
+            return True
+        return any(start <= line_no <= end for start, end in self.locus_ranges)
 
     def is_open(self, today: datetime.date) -> bool:
         """A row tolerates a leak only while its sunset is in the future (inclusive).
@@ -208,6 +241,75 @@ def _parse_sunset(value: object) -> tuple[datetime.date | None, str]:
         return datetime.date.fromisoformat(raw.strip()), raw
     except ValueError:
         return None, raw
+
+
+# A single comma-segment of a clean line spec: a bare line ("360") or a closed
+# range ("520-535"). The ^...$ anchors are deliberate — a segment is a line spec
+# ONLY when the WHOLE segment is numeric, so a textual fragment such as
+# "3-track" (a stray digit inside prose) is NOT mistaken for a range.
+_LOCUS_RANGE_SEG_RE = re.compile(r"^(\d+)\s*-\s*(\d+)$")
+_LOCUS_SINGLE_SEG_RE = re.compile(r"^(\d+)$")
+# A parenthetical note ("(P6)", "(row-level pass deferred)") is never a line
+# spec; strip it before deciding whether the remainder is a clean spec.
+_LOCUS_NOTE_RE = re.compile(r"\([^)]*\)")
+
+
+def _parse_locus(value: object) -> tuple[list[tuple[int, int]], str]:
+    """Parse a ``locus`` cell into a list of (start, end) line ranges.
+
+    Returns ``(ranges, raw_string)``. ``ranges`` is empty when the locus is NOT a
+    clean line spec — a deliberately whole-file ``row-level pass deferred`` entry
+    (``"matched RLS / 3-track / sandbox (row-level pass deferred)"``) or a
+    malformed cell. Such a row is anchorless and falls back to file + category
+    matching.
+
+    Locus grammar (the only shapes the dated allow-list uses):
+      * an optional ``<section label> :`` prefix, then a comma-separated list of
+        single lines and ``start-end`` ranges, then an optional ``(note)`` tail:
+        ``"§4 #20 : 520-535"`` -> [(520, 535)];
+        ``"31, 39, 67"``        -> [(31, 31), (39, 39), (67, 67)];
+        ``"259-286 (P6)"``      -> [(259, 286)];
+        ``"22, 89, 113 (P1-P6)"``-> [(22, 22), (89, 89), (113, 113)].
+
+    Parsing is STRICT and all-or-nothing per the clean-spec contract:
+      1. drop any ``(...)`` note (it holds human text, never a line number — so
+         the ``6`` in ``(P6)`` and the ``1``/``6`` in ``(P1-P6)`` never leak in);
+      2. take only the segment AFTER the LAST ``:`` when a label separator is
+         present (so the digits in a section label, ``§4 #20`` -> ``4``/``20``,
+         never leak in);
+      3. split the remainder on commas; EVERY segment must be a bare integer or a
+         closed ``int-int`` range. If any segment is non-numeric (a textual
+         deferred locus such as ``matched RLS / 3-track / sandbox``), the locus
+         is NOT a line spec and ``ranges`` is returned empty (anchorless), rather
+         than letting a stray in-prose digit (``3-track``) anchor the row to a
+         wrong line.
+    """
+    raw = "" if value is None else str(value)
+    spec = _LOCUS_NOTE_RE.sub(" ", raw)
+    if ":" in spec:
+        spec = spec.rsplit(":", 1)[1]
+    segments = [s.strip() for s in spec.split(",") if s.strip()]
+    if not segments:
+        return [], raw
+    ranges: list[tuple[int, int]] = []
+    for seg in segments:
+        rng = _LOCUS_RANGE_SEG_RE.match(seg)
+        if rng:
+            start, end = int(rng.group(1)), int(rng.group(2))
+            if start > end:
+                start, end = end, start
+            ranges.append((start, end))
+            continue
+        single = _LOCUS_SINGLE_SEG_RE.match(seg)
+        if single:
+            n = int(single.group(1))
+            ranges.append((n, n))
+            continue
+        # A non-numeric segment -> this locus is not a clean line spec; treat the
+        # whole row as anchorless (whole-file deferred) rather than half-parsing.
+        return [], raw
+    ranges.sort()
+    return ranges, raw
 
 
 def load_policy(root: Path) -> tuple[Policy | None, list[str]]:
@@ -291,6 +393,7 @@ def load_policy(root: Path) -> tuple[Policy | None, list[str]]:
         if single is not None and str(single).strip():
             cats.add(str(single).strip())
         sunset, raw_sunset = _parse_sunset(row.get("sunset_date"))
+        locus_ranges, raw_locus = _parse_locus(row.get("locus"))
         # Cross-check each cited category id against the policy vocabulary so a
         # typo in the allow-list cannot silently over-suppress.
         for c in cats:
@@ -307,6 +410,8 @@ def load_policy(root: Path) -> tuple[Policy | None, list[str]]:
                 categories=cats,
                 sunset_date=sunset,
                 raw_sunset=raw_sunset,
+                locus_ranges=locus_ranges,
+                raw_locus=raw_locus,
             )
         )
 
@@ -709,11 +814,25 @@ def suppressing_row(leak: Leak, policy: Policy, today: datetime.date) -> Violati
       * the row's ``layer`` equals the leak's layer (defence in depth — the file
         match already implies the layer), and
       * the row cites the leak's leaked category, and
+      * the row's ``locus`` COVERS the leak's line number — for an anchored row,
+        the line MUST fall inside one of its enumerated ranges; an anchorless
+        ``row-level pass deferred`` row covers every line by construction, and
       * the row is still open (sunset_date is today or later, UTC).
+
+    The locus condition is what stops a row from tolerating an unrelated
+    same-category leak elsewhere in the same file: ``§4 #20`` (lines 520-535) is
+    the adjudicated DFA-table leak, so it must NOT redeem an L4 status code in a
+    telemetry constraint at line 999. Without it, every same-category leak in a
+    file collapses under whichever row first declares that category for the file.
+
+    Match preference. When several open rows match file + category, an ANCHORED
+    row whose range covers the line is preferred over an anchorless fallback, so
+    the grandfathered report cites the row that genuinely enumerated the leak.
 
     Expired rows do not suppress (the migration deadline has passed); unknown or
     malformed sunsets are treated as expired by ``Violation.is_open``.
     """
+    anchorless_fallback: Violation | None = None
     for row in policy.violations:
         if row.file != leak.rel_path:
             continue
@@ -721,9 +840,19 @@ def suppressing_row(leak: Leak, policy: Policy, today: datetime.date) -> Violati
             continue
         if leak.category_id not in row.categories:
             continue
-        if row.is_open(today):
+        if not row.is_open(today):
+            continue
+        if not row.covers_line(leak.line_no):
+            # Anchored row whose ranges do not reach this line: this is not the
+            # row's adjudicated leak, so it grants no tolerance here.
+            continue
+        if row.locus_anchored:
             return row
-    return None
+        # Remember the first open anchorless row but keep scanning for a more
+        # specific anchored row that actually enumerates this line.
+        if anchorless_fallback is None:
+            anchorless_fallback = row
+    return anchorless_fallback
 
 
 # ===========================================================================
@@ -840,9 +969,10 @@ def main(argv: list[str]) -> int:
         )
 
     for leak, row in grandfathered:
+        anchor = f"locus {row.raw_locus}" if row.locus_anchored else "locus anchorless (whole-file)"
         print(
             f"layer-purity GRANDFATHERED {leak.rel_path}:{leak.line_no} [{leak.layer}] "
-            f"{leak.category_id}: tolerated by {row.id} (sunset {row.raw_sunset})",
+            f"{leak.category_id}: tolerated by {row.id} ({anchor}; sunset {row.raw_sunset})",
             file=sys.stderr,
         )
 

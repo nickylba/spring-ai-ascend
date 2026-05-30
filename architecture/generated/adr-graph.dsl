@@ -734,11 +734,11 @@ adr_ADR_0131 = element "ADR-0131" "ADR" "PromptTemplate SPI: tenant-scoped, seal
     }
 }
 
-adr_ADR_0132 = element "ADR-0132" "ADR" "ChatAdvisor SPI: tenant-scoped, around-call interceptor chain over ModelGateway; HookDispatcher stays platform-internal" "SAA ADR" {
+adr_ADR_0132 = element "ADR-0132" "ADR" "ChatAdvisor SPI: a platform-owned around-call advisor seam that decorates the model gateway for the application-developer audience" "SAA ADR" {
     properties {
         "saa.id" "ADR-0132"
         "saa.kind" "adr"
-        "saa.level" "L0"
+        "saa.level" "L1"
         "saa.view" "development"
         "saa.status" "shipped"
         "saa.adrId" "ADR-0132"

@@ -1,9 +1,9 @@
 id: ADR-0132
-title: "ChatAdvisor SPI: tenant-scoped, around-call interceptor chain over ModelGateway; HookDispatcher stays platform-internal"
+title: "ChatAdvisor SPI: a platform-owned around-call advisor seam that decorates the model gateway for the application-developer audience"
 status: accepted
 product_claim: "PC-001|PC-004"
 date: 2026-05-25
-level: L0
+level: L1
 view: development
 affects_level: L0, L1
 affects_view: development, logical
@@ -42,67 +42,57 @@ context: |
   Spring AI type.
 
 decision: |
-  Land the `ChatAdvisor` SPI in
-  `com.huawei.ascend.middleware.advisor.spi.ChatAdvisor`
-  (agent-middleware module). Status: design_only at the time of
-  landing; runtime_enforced when the W2 LLM gateway implementation
-  ships per ADR-0061 §7 (Telemetry Vertical co-arrives with the
-  Hook SPI activation).
+  Establish the `ChatAdvisor` capability SPI as a platform-owned
+  boundary identity in the agent-middleware module — the
+  `com.huawei.ascend.middleware.advisor.spi` package, a sibling
+  capability family of the `EF-CAPABILITY-SPI` EngineeringFrame
+  (ADR-0157). The boundary, not its method-level shape, is the
+  standing decision of this ADR.
 
-  - **Interface shape**: three methods — `String advisorName()`
-    (stable, non-blank id), `int order()` (smaller runs first
-    on the inbound leg; Spring's `Ordered.LOWEST_PRECEDENCE`
-    convention), and `AdvisedResponse aroundCall(AdvisedRequest,
-    AdvisorChain)`. The SPI remains pure Java per Rule R-D and does
-    not import the model SPI package.
-  - **Streaming sibling**: `StreamingChatAdvisor` mirrors the same
-    identity/order semantics with
-    `Stream<AdvisedStreamChunk> aroundStream(AdvisedRequest,
-    StreamingAdvisorChain)`. It is a same-package SPI, not a model-SPI
-    subtype, so streaming advice composes without cross-SPI imports.
-  - **Tenant scope**: `AdvisedRequest` carries `tenantId`
-    (Rule R-C.c). Both `AdvisedRequest` and `AdvisedResponse`
-    reject null/blank tenantId on construction.
-  - **Chain semantics**: implementations call
-    `AdvisorChain.next(request)` exactly once to continue the
-    chain, unless they short-circuit by returning a synthetic
-    `AdvisedResponse` (PII-rejection, cache hit, policy denial).
-  - **Hook binding (W2)**: the advisor chain runs around
-    `ModelGateway.invoke(...)` / `ModelGateway.stream(...)` according to
-    sequence `advisor-model-hook-order/v1`: translate `ModelInvocation`
-    to `AdvisedRequest`, fire `BEFORE_LLM` with the canonical
-    `ModelInvocation`, run the ordered sync or streaming advisor chain,
-    invoke the terminal model gateway step, run outbound advisor
-    transformations, translate the final `AdvisedResponse` back to
-    `ModelResponse`, then fire `AFTER_LLM` with that final model
-    response.
-    `HookDispatcher` is platform-internal — Audience B composes
-    advisors at `AgentDefinition` time but never imports
-    `HookDispatcher`.
-  - **Value types** ship in the same package:
-    `AdvisedRequest` (record: tenantId, modelRequest, advisorContext)
-    `AdvisedResponse` (record: tenantId, modelResponse, advisorContext)
-    `AdvisedModelRequest` (record: modelId, messages, tools,
-                           parameters, hookContext)
-    `AdvisedMessage` / `AdvisedToolCall` / `AdvisedUsage` /
-    `AdvisedFinishReason`
-    `AdvisedModelResponse` (record: content, toolCalls, finishReason,
-                            usage, metadata)
-    `AdvisedStreamChunk` (sealed: ContentDelta | ToolCallDelta | Complete)
-    `AdvisorChain` (interface: `next(AdvisedRequest)
-                    -> AdvisedResponse`)
-    `StreamingAdvisorChain` (interface: `proceed(AdvisedRequest)
-                              -> Stream<AdvisedStreamChunk>`)
-  - **Agent binding**: `AgentDefinition.advisorBindings` owns per-agent
-    binding by stable advisor name. The binding carrier lives in
-    `service.agent.spi` and does not depend on this package; runtime
-    registration resolves names to concrete `ChatAdvisor` /
-    `StreamingChatAdvisor` beans.
+  - **Boundary identity (the L1 decision)**: the application-developer
+    audience composes around-call advice against a platform SPI in
+    `com.huawei.ascend.middleware.advisor.spi`, not against
+    `org.springframework.ai.chat.client.advisor.*` (a provider type)
+    and not against the gate-private engine hook dispatcher. A
+    streaming advisor sibling lives in the same package so streaming
+    advice composes without crossing the model SPI boundary. The SPI
+    is pure Java per Rule R-D / Rule R-C.c (it imports the JDK only and
+    carries a non-blank tenant identity on its request/response
+    envelope), and it stays framework-free so any plane can realise it.
 
-  Contract schema lives at `docs/contracts/chat-advisor.v1.yaml`
-  (status: design_only, runtime_enforced: false). Catalog row,
-  module-metadata, and DFX updates land in the parity-consolidator
-  wave that follows this one.
+  - **Decoration boundary (the governing principle this SPI realises)**:
+    the provider (Spring AI) is canonical and the platform DECORATES it
+    (the Path-(a) boundary fixed at L0 by ADR-0125); a tenant-scoped,
+    ordered, platform-owned advisor chain wraps the model gateway
+    (ADR-0121), and the engine hook dispatcher stays platform-internal.
+    The application audience attaches advisors at agent-definition time
+    and never imports the hook dispatcher, so a change to hook
+    granularity (ADR-0073) never becomes a contract-breaking event on
+    the public surface. An advisor may short-circuit the chain by
+    returning a synthetic response (policy denial, cache hit,
+    redaction) instead of continuing it.
+
+  Status: design_only at landing; runtime_enforced when the W2 LLM
+  gateway implementation ships per ADR-0061 §7 (the Telemetry Vertical
+  co-arrives with the Hook SPI activation). No production advisor
+  binding exists today.
+
+  The concrete advisor interface shape (the advisor / streaming-advisor
+  / chain method signatures), the advisor value-type record inventory
+  (the advised request / response / model-request / message / tool-call
+  / usage / finish-reason / model-response carriers and the sealed
+  stream-chunk variants), and the per-agent advisor-binding carrier are
+  L1 public-SPI-surface + contract-envelope realisation detail. They
+  are owned by the contract surface `docs/contracts/chat-advisor.v1.yaml`
+  (status: design_only, runtime_enforced: false) and the generated
+  code-symbol facts for the advisor package — this ADR cites them, it
+  does not restate them. The W2 hook-binding RUNTIME SEQUENCE (the
+  `advisor-model-hook-order/v1` step order that places the advisor
+  chain relative to the BEFORE_LLM / AFTER_LLM hook brackets around the
+  model gateway) is L2 runtime detail, owned by the L2 sink
+  `architecture/docs/L2/capability-spi/chat-advisor-binding.md` and the
+  contract's `binding` block. Catalog row, module-metadata, and DFX
+  updates land in the parity-consolidator wave that follows this one.
 
 consequences: |
   Positive:
@@ -115,15 +105,16 @@ consequences: |
     `examples/**`.
   - Tenant-scoped advisor envelopes allow per-tenant policy
     attachment (PII denylists, cost-attribution rules) at the W2
-    wave without changing the SPI signature.
+    wave without changing the boundary contract.
   - Typed same-package advisor request/response carriers preserve strict
     no-cross-SPI dependency purity while giving W2 implementers a stable
-    model-id, message, tool-call, usage, and finish-reason vocabulary.
-  - Around-call ordering via `order()` is explicit and stable;
-    the `AdvisorChain.next(request)` shape supports inbound
-    mutation (e.g. retrieval augmentation rewriting the request
-    payload) and outbound mutation (e.g. citation-injection rewriting
-    the response payload).
+    model-call vocabulary (the carrier shapes are owned by the contract
+    surface, not restated here).
+  - Around-call ordering is explicit and stable, and the chain seam
+    supports both inbound mutation (e.g. retrieval augmentation
+    rewriting the request) and outbound mutation (e.g. citation
+    injection rewriting the response); the ordering and chain method
+    shapes are contract detail (`docs/contracts/chat-advisor.v1.yaml`).
 
   Negative / residual:
   - `ChatAdvisor` is design_only until W2; no runtime binding

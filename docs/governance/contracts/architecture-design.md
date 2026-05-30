@@ -56,6 +56,7 @@ declares allocation.
 | G-31 | AI Reading Path Integrity | **P** | [`rule-G-31.md`](../rules/rule-G-31.md) |
 | G-32 | AI Understanding Map Derivation Integrity | **P** | [`rule-G-32.md`](../rules/rule-G-32.md) |
 | G-33 | ADR ID Uniqueness | **P** | [`rule-G-33.md`](../rules/rule-G-33.md) |
+| G-34 | Status-Ledger Claim Altitude | **P** | [`rule-G-34.md`](../rules/rule-G-34.md) |
 | M-1 | Skeleton Module Has No Production Java | **P** | [`rule-M-1.md`](../rules/rule-M-1.md) |
 | M-2 | Domain Contract Discipline (schema-first + design-only registration + DFX-stem truth) | **P** | [`rule-M-2.md`](../rules/rule-M-2.md) |
 | R-A | Business/Platform Decoupling Enforcement | **P** | [`rule-R-A.md`](../rules/rule-R-A.md) |

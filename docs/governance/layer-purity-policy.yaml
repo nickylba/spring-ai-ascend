@@ -58,10 +58,18 @@
 #                     plus the layer's authoritative producing surface. This is
 #                     a derived convenience view; the categories[] table is the
 #                     normative source where the two disagree.
+#   governed_surfaces[] - surfaces OTHER than the L0/L1 architecture documents on
+#                     which this same leaked-category vocabulary is enforced, with
+#                     the gate / enforcer that does so and the per-surface dated
+#                     grandfather list it consumes. The L0/L1 documents are
+#                     covered by Rule G-27 (E194/E195); this list records the
+#                     EXTENSIONS to higher-authority surfaces (e.g. the capability
+#                     ledger). It is a registry, not a second vocabulary: every
+#                     entry reuses categories[] unchanged.
 
-schema_version: 1
+schema_version: 2
 authority: ADR-0159
-last_updated: 2026-05-29
+last_updated: 2026-05-30
 status: advisory
 
 # --------------------------------------------------------------------------
@@ -273,3 +281,48 @@ layers:
       L2 carries no global policy, product claim, or cross-module principle
       (those are owned upstream at L0/N1/N2); it is the landing zone for the
       detail the upper layers delegate down.
+
+# --------------------------------------------------------------------------
+# Governed surfaces beyond the L0/L1 architecture documents.
+#
+# The L0/L1 markdown documents are covered by Rule G-27 (helpers E194
+# check_layer_purity.py + E195 check_l2_detail_sink.py). Per the authority
+# cascade (generated facts > DSL > Card/prose) some NON-document surfaces
+# OUTRANK the L0/L1 prose yet were unscanned, so they organically accreted the
+# same leaked categories. Each row here registers such a surface, the gate /
+# enforcer that applies THIS vocabulary to it, and the per-surface dated
+# grandfather list that gate consumes. These are EXTENSIONS, not a second
+# vocabulary: every entry reuses categories[] above unchanged.
+# --------------------------------------------------------------------------
+governed_surfaces:
+
+  - id: status-ledger-allowed-claim
+    surface: docs/governance/architecture-status.yaml
+    field: allowed_claim
+    rule: G-34
+    enforcer: E201
+    gate_rule: 151
+    helper: gate/lib/check_status_claim_altitude.py
+    grandfather_list: docs/governance/layer-purity-status-ledger-grandfather.yaml
+    forbids_categories:
+      - L1-method-call-chain
+      - L2-runtime-sequence
+      - L3-sql-rls-persistence
+      - L4-http-status-route-verb
+      - L5-filter-ordering
+      - L6-wire-format
+      - L7-method-signature
+      - L8-test-class-inventory
+    rationale: >
+      The capability-status ledger's `allowed_claim` is a free-form narrative
+      field with no altitude guard, and the ledger OUTRANKS the L0/L1 prose under
+      the authority cascade — so a runtime-detail leak there is at least as
+      significant as an L0/L1 prose leak. E201 scans every `allowed_claim` value
+      with the SAME leaked-category vocabulary (it imports the canonical trigger
+      library from check_layer_purity.py), reports a leak not redeemed by a
+      still-open, capability-precise row in the per-surface grandfather list, and
+      runs changed-files-blocking (a PR editing the ledger may not add or worsen
+      a claim-altitude leak). It never edits the ledger (owned by the
+      status-ledger reconcile step) and never scans the ledger's structural keys
+      (implementation / tests file lists, l0_decision, enforcer rows — those are
+      the D2 development-view evidence index, not a behavioural claim).

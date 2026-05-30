@@ -1,4 +1,4 @@
-# Layer-Purity Temporary Violations — the known, not-yet-migrated leaks.
+# Layer-Purity Temporary Violations —the known, not-yet-migrated leaks.
 #
 # Authority: ADR-0159 (Progressive Learning Curve and Authority Lanes) §7 + §9.
 # Companion policy: docs/governance/layer-purity-policy.yaml (the owns/forbids
@@ -16,7 +16,7 @@
 #   violation AND declares a per-entry sunset_date by which the migration MUST
 #   complete. A closed-but-dateless grandfather list is an anti-pattern (every
 #   entry MUST carry a sunset_date); this list is closed (no new entry may be
-#   added once the lane-purity gate is blocking — new leaks must be fixed at
+#   added once the lane-purity gate is blocking —new leaks must be fixed at
 #   authoring time, never grandfathered).
 #
 # What this file is NOT. A migration plan (the scan §4 holds the priority
@@ -35,7 +35,7 @@
 #   status          - advisory | blocking. Advisory until the lane-purity gate
 #                     promotes to blocking per ADR-0159 §9. This is the LIST's
 #                     posture, not a contract-status enum (Rule 62 does not
-#                     apply — this is not a docs/contracts/*.v1.yaml).
+#                     apply —this is not a docs/contracts/*.v1.yaml).
 #   list_closed     - true. No new violation may be grandfathered; new leaks
 #                     are fixed at authoring time.
 #   violations[]    - one row per known leak. Each row:
@@ -51,7 +51,33 @@
 #                     category (used instead of `category`).
 #       trigger     - the smallest verbatim phrase that makes it a leak (from
 #                     the scan). Quoted as EVIDENCE, never as a live claim.
-#       migrate_to  - the authoritative home the detail must move to.
+#       migrate_to  - the authoritative home THIS row's detail must move to,
+#                     resolved to a CONCRETE path that exists on disk today (an
+#                     L2 sink directory, a contract surface, a Flyway migration
+#                     directory, the rls-policy.sql design-only artifact, or a
+#                     generated-fact file). NOT the category-template
+#                     `architecture/docs/L2/<frame>/` form the sibling
+#                     layer-purity-policy.yaml `home` column carries: that file
+#                     states the per-CATEGORY home as a template; this file must
+#                     state the per-ROW home as a resolved sink. A `migrate_to`
+#                     that points at a path absent from disk is a dangling-target
+#                     defect (the allow-list would reference a sink that resolves
+#                     to nothing, weakening the authority chain Card/prose must
+#                     not invent IDs/relationships). Every value below resolves
+#                     on disk.
+#       migrate_to_status - OPTIONAL enum. `resolved` (default, omitted) when the
+#                     row's ideal L2 architecture-side sink already exists on disk
+#                     and `migrate_to` names it. `sink-pending` when the row's
+#                     ideal per-detail L2 sink directory is NOT yet built; in that
+#                     case `migrate_to` names the concrete authority surface that
+#                     DOES exist today (the channel contract) so the reference
+#                     resolves, and this field records that the architecture-side
+#                     L2 sink is the outstanding migration artefact the
+#                     sunset_date governs. No current row carries `sink-pending`
+#                     (the only prior user, the now-removed L0 event-buffer row,
+#                     was deleted in the 2026-05-30 L0 dead-grandfather removal);
+#                     the field is retained in the schema for the next row whose
+#                     detail's dedicated L2 sink directory is not yet built.
 #       sunset_date - REQUIRED ISO yyyy-mm-dd by which migration MUST complete
 #                     and this row MUST be removed. Tiered by scan §4 priority:
 #                     highest-priority L0 leaks 2026-06-30 (v1.0 boundary);
@@ -64,7 +90,7 @@
 #                     block that MAY stay after the leaked detail is extracted.
 #
 # Change log (this file is an exempt surface for wave/log metadata):
-#   2026-05-30 — agent-service L1 cleanup. The L2/code detail named by the
+#   2026-05-30 —agent-service L1 cleanup. The L2/code detail named by the
 #     agent-service rows below was drained out of the L1 prose into the active
 #     L2 sinks (architecture/docs/L2/run-http-contract/{logical,process,
 #     development}.md) + the generated facts; the L1 4+1 views now carry only
@@ -78,7 +104,7 @@
 #     LPV-l1-as-process-cancel-cas-sql, LPV-l1-as-scenarios-status. The
 #     remaining agent-service rows are retained: the gate still detects a
 #     same-category trigger token in each of those files, but the residual is a
-#     DEFENSIBLE construct the regex cannot tell from a leak — a process-view
+#     DEFENSIBLE construct the regex cannot tell from a leak —a process-view
 #     section heading / cross-link that NAMES a flow (e.g. "cancel-race loser
 #     P6"), a Boundary-Contract delegation pointer that NAMES the migrated
 #     detail to say it is delegated (e.g. "the RLS policy bodies ... is
@@ -86,7 +112,7 @@
 #     or an obligation-level statement ("RLS policy required") inside a Rule
 #     G-1.1.c delegation frame. The dated allow-list is the sanctioned
 #     tolerance for exactly such regex-indistinguishable residue.
-#   2026-05-30 — L1 bus/engine/middleware cleanup (the L1 analogue of the
+#   2026-05-30 —L1 bus/engine/middleware cleanup (the L1 analogue of the
 #     agent-service drain, for the three remaining domain modules). The
 #     L2/code detail was drained out of the agent-execution-engine and
 #     agent-middleware module-root + 4+1 views into the contracts
@@ -101,9 +127,183 @@
 #     in the process view) and LPV-l1-middleware-hook-ordering (the
 #     `= registration order` mechanism is now owned by engine-hooks.v1.yaml).
 #     The advisory re-run held 24 findings (none in any bus/engine/middleware
-#     module-root or 4+1 view file — the new active per-view content is
+#     module-root or 4+1 view file —the new active per-view content is
 #     leak-free) and dropped the grandfathered count by clearing these two
 #     rows, introducing zero new findings. agent-bus carried no row.
+#   2026-05-30 —locus + trigger re-validation (convergence scan round 2). The
+#     in-place L0/L1 drains shifted content, so several retained rows cited
+#     file:line evidence that no longer matched the file (root family
+#     layer-purity-leakage / stale-grandfather-baseline-drift: trigger phrases
+#     were stored as verbatim EVIDENCE but never re-validated after the drain
+#     edits, leaving the allow-list untrustworthy to the lane-purity gate that
+#     consumes it). This wave re-anchored each affected row to its LIVE locus and
+#     reframed its trigger to the residue that is actually present now (a
+#     delegation pointer / obligation-level statement / NAME-level section), not
+#     the removed verbatim leak. Refreshed: (L0) LPV-l0-suspendreason-signatures
+#     510-517 -> 537-538 (pure line drift; signatures unchanged); LPV-l0-shipped-
+#     subset-test-inventory 77 -> 79 (W0 subset paragraph moved); LPV-l0-tenant-
+#     rls-guc §4 #3 360 -> 348-373 (the SET LOCAL GUC was drained in-place; line
+#     360 now holds the FP-TENANT-CROSS-CHECK code-symbol/ mechanism ref +
+#     fp-tenant-cross-check L2 sink + rls-policy.sql design-only pointer; trigger
+#     reframed to the delegation residue + defensible_part added). (L1 agent-
+#     service) LPV-l1-as-logical-annotated-dfa 217-262 -> 176-217 (§3 heading
+#     renamed to "Run lifecycle state machine (cancel-race-aware)"; updateIfNot
+#     Terminal CAS / POST routes / 409 / RunStateMachine.java:37 / WHERE status
+#     NOT IN drained; now a NAME-level stateDiagram + delegation to openapi-v1
+#     .yaml + development.md §5.3); LPV-l1-as-process-cancel-race 259-286 -> 211-
+#     241 (P6 "CAS WINS ... LOSES ... => 409" narrative drained; now a NAME-level
+#     loser-path flowchart + delegation to openapi-v1.yaml / run-event.v1.yaml);
+#     LPV-l1-as-development-rls-guc 239-248 -> 217-236 (the V?__tenant_rls.sql
+#     series + SET LOCAL GUC + R2DBC wiring drained; line 239-248 is now the §5.4
+#     DualTrackRouter zone; the RLS zone moved to the §5.3 Rule G-1.1.c Boundary
+#     Contract delegation frame). No row was added or removed (each still detects
+#     a same-category regex token that is regex-indistinguishable DEFENSIBLE
+#     residue); only stale loci + triggers were corrected so the allow-list
+#     evidence again matches the files it guards. The authority cascade is
+#     untouched.
+#   2026-05-30 — dangling migrate_to reconciliation (convergence scan round 2,
+#     root family layer-purity-leakage / dangling-migrate-target). Every row's
+#     `migrate_to` had been authored with an angle-bracket placeholder frame
+#     slug (`architecture/docs/L2/<run-state-frame>/`, `<idempotency-frame>/`,
+#     `<tenant-isolation-frame>/`, `<hook-dispatch-frame>/`, `<event-channel-
+#     frame>/`, `<access-layer-frame>/`, `<agent-service frames>/`) copied from
+#     the layer-purity-policy.yaml `home` CATEGORY template, before the L2
+#     directory was populated. The concrete L2 sinks that now exist on disk are
+#     named differently, so no row resolved to its destination. This wave
+#     resolved each placeholder to the concrete on-disk sink: `<run-state-frame>`
+#     -> `architecture/docs/L2/fp-run-state-transition/`; `<idempotency-frame>`
+#     -> `fp-idempotency-claim/`; `<hook-dispatch-frame>` -> `fp-hook-dispatch/`;
+#     `<tenant-isolation-frame>` -> `fp-tenant-cross-check/` (the home the
+#     already-reconciled LPV-l0-tenant-rls-guc row adopted) + `rls-policy.sql` +
+#     Flyway migrations; `<access-layer-frame>` -> `run-http-contract/
+#     development.md` (filter-chain order owner); `<agent-service frames>` ->
+#     `run-http-contract/process.md` (sequence view). The one detail whose
+#     dedicated L2 sink directory is genuinely NOT yet built — the bounded
+#     event-buffer channel (LPV-l0-event-buffer-overflow) — was pointed at the
+#     concrete `docs/contracts/run-event.v1.yaml` channel contract that DOES
+#     exist and marked `migrate_to_status: sink-pending` (new optional field) so
+#     the reference resolves and the outstanding architecture-side sink is
+#     recorded honestly. No row was added or removed; no locus, trigger, or
+#     category changed; only the dangling migrate targets were resolved. The
+#     authority cascade (generated facts > DSL > Card/prose) is untouched.
+#   2026-05-30 — L0 dead-grandfather removal (convergence scan round 2, root
+#     family layer-purity-leakage / stale-grandfather-baseline-drift). The prior
+#     "locus + trigger re-validation" entry above re-anchored the six L0-root rows
+#     to their §4 constraint loci, but the constraint BODIES had already been
+#     drained in place (to identity + delegation + fact-ID form), so under the
+#     locus-anchored gate (gate/lib/check_layer_purity.py, E194 — a row tolerates a
+#     leak only when the leak's line falls inside the row's locus range) each of
+#     those six rows covered ZERO live leak. A grandfather row that tolerates no
+#     live leak is dead weight that OVER-CLAIMS a violation the list's own
+#     discipline forbids, so the six were REMOVED, not re-kept:
+#       - LPV-l0-run-dfa-table          (§4 #20) — the PENDING->RUNNING transition
+#         table, the `withStatus(..) MUST invoke RunStateMachine.validate(..)` call
+#         chain, the 200/409 cancel-idempotency codes, and the `persisted.version
+#         != run.version()-1` CAS predicate are gone; §4 #20 now delegates to the
+#         fp-run-state-transition L2 sink + `contract-op/cancelrun` via fact-IDs.
+#       - LPV-l0-tenant-rls-guc         (§4 #3)  — `SET LOCAL app.tenant_id` + the
+#         "enable Postgres RLS policies" mechanism are gone; §4 #3 now delegates to
+#         FP-TENANT-CROSS-CHECK (code-symbol mechanism) + the fp-tenant-cross-check
+#         L2 sink + the `docs/security/rls-policy.sql` design-only artifact.
+#       - LPV-l0-idempotency-status-table (§4 #4) — the `Idempotency-Key header`,
+#         the 400/409 status codes, and the `idempotency_dedup` table are gone; §4
+#         #4 now delegates to `contract-op/createrun` + the fp-idempotency-claim L2
+#         sink.
+#       - LPV-l0-hook-chain-ordering    (§4 #16) — the `@Order` ordering algorithm
+#         and the `Class.getName()` lexicographic tie-break are gone; §4 #16 now
+#         delegates to `engine-hooks.v1.yaml` + the fp-hook-dispatch L2 sink.
+#       - LPV-l0-event-buffer-overflow  (§4 #28) — the `default 64 events,
+#         DROP_OLDEST overflow` wire shape is gone; the bounded-buffer obligation
+#         is stated as an invariant and the channel detail is owned by
+#         `docs/contracts/run-event.v1.yaml`.
+#       - LPV-l0-shipped-subset-test-inventory (§1 W0) — the inline contract-test
+#         enumeration is no longer a leak the locus-anchored gate detects at the W0
+#         paragraph (E194's L8 probe requires a table/bullet inventory, not a prose
+#         comma-run; the line-anchored row tolerated nothing). The detail's home
+#         stays `architecture/facts/generated/tests.json`.
+#     VERIFIED (WSL, both helpers --mode advisory; both stay exit 0 / non-blocking).
+#     For the LOCUS-ANCHORED gate (gate/lib/check_layer_purity.py, E194) removing
+#     the six changed NO verdict — none of the six loci covered a detected leak, so
+#     the finding/grandfathered counts are identical before and after (17 findings /
+#     18 grandfathered corpus-wide; 6 L0-root findings / 4 L0-root grandfathered,
+#     the 4 being the retained suspendreason 537-541 block). For the FILE+CATEGORY
+#     gate (gate/lib/check_l2_detail_sink.py, E195), which is NOT yet locus-aware
+#     (its grandfather match is per-file-per-category, the same blunt scope E194 has
+#     since shed), the six rows had been masking incidental same-category tokens
+#     elsewhere in the L0 file; removing them therefore RE-SURFACES ~5 previously-
+#     grandfathered E195 advisory lines (79, 252, 394, 597, 1019) as advisory
+#     findings — the residual being REVEALED, not created (see the scope note). The
+#     lone L0-root survivor LPV-l0-suspendreason-signatures still tolerates a LIVE
+#     leak (the sealed-variant constructor signatures at lines 537-541) and is kept.
+#     SCOPE NOTE (non-silent residual). The L0-root findings that remain (E194) or
+#     re-surface (E195) after this removal are NONE of them a leak any removed row
+#     was named for: (a) one false positive — the `Glue LOC target <= 1 500` line,
+#     where the L4 probe reads `500` as an HTTP status; (b) the §0.6 "known
+#     lower-altitude residue" reading-bridge paragraph, which re-quotes the drained
+#     §4 trigger phrases AS grandfathered debt; (c) the telemetry/trace vertical
+#     residue at §4 #22 / #53-#55 + the §1 metric-naming `gen_ai.*` / `langfuse.*`
+#     namespace (Flyway filename, `traceparent`/`traceresponse` mentions); and, for
+#     E195 only, (d) two `test_inventory` lines — the §1 W0 contract-test comma-run
+#     (line 79) and the §2 module-dependency ArchUnit-enforcer CITATION (line 252,
+#     a D3-defensible mechanism citation that E194's L8 probe correctly exempts but
+#     E195's blunter probe over-matches). These are a DISTINCT residual (the
+#     telemetry-vertical altitude drain + the §0.6 bridge wording + a probe
+#     false-positive + an E195 locus-awareness gap), owned by a separate remediation
+#     pass / the reconcile step, NOT by these six run/idempotency/hook/buffer/test
+#     rows; they are recorded here so the gap is not silent. Both gates are advisory
+#     and never block, so none of this gates CI. The durable fix for the E195
+#     re-surfacing is to teach E195 the same locus anchoring E194 already has (a
+#     gate-precision change, out of scope for this list edit), NOT to re-add a dead
+#     whole-file grandfather row. The authority cascade (generated facts > DSL >
+#     Card/prose) is untouched.
+#   2026-05-30 — encoding note (housekeeping). An earlier wave on this branch had
+#     written part of this file with a GBK->UTF-8 mis-encoding that corrupted some
+#     `§`/`—` glyphs (a Windows editor encoding bug). The convergence-scan-round-2
+#     edits restored correct UTF-8; the whole file now parses as clean UTF-8 with
+#     no mojibake. Recorded so a future reader knows the glyph corruption was a
+#     transient authoring artefact, not an intended encoding.
+#   2026-05-30 — L0 telemetry-band live-leak freeze (completeness) (convergence
+#     scan round 2, root family layer-purity-leakage / closed-and-incomplete-
+#     grandfather-list). The list was CLOSED but INCOMPLETE relative to the
+#     by-fact-id leak set: it froze the heaviest L0 leaks yet left the telemetry
+#     band's LIVE loci unlisted, so the advisory locus-anchored gate
+#     (gate/lib/check_layer_purity.py, E194) reported them as non-grandfathered
+#     findings — the residual the prior "L0 dead-grandfather removal" SCOPE NOTE
+#     (c) flagged for "a separate remediation pass / the reconcile step". This
+#     wave is that pass. Four rows were ADDED, each covering a leak the gate
+#     detects TODAY (so each earns its place — a row over zero live leak is not
+#     added, per the same discipline that removed the six dead rows above):
+#       - LPV-l0-metric-span-attr-namespaces   (§4 #5 : 392-395, L6) — the
+#         `gen_ai.*` / `langfuse.*` span-attribute namespaces inlined in the
+#         metric-naming constraint; the L6 probe fires on the literal tokens.
+#       - LPV-l0-run-context-accessor-residual (§4 #22 : 575-602, L4) — the
+#         drained accessor-inventory delegation prose still NAMES `traceparent`
+#         propagation; the L4 header probe fires on that DEFENSIBLE residue.
+#       - LPV-l0-run-trace-id-notnull          (§4 #54 : 1019, L3+L7) — the
+#         `V2__run_trace_id_notnull.sql` Flyway ref + the enumerated `RunContext`
+#         trace/span/session accessor list; the L3 probe fires on the V__*.sql.
+#       - LPV-l0-traceparent-edge-residual     (§4 #55 : 1021, L4) — the drained
+#         propagation-mechanics delegation prose still NAMES the `traceparent`
+#         header; the L4 header probe fires on that DEFENSIBLE residue.
+#     Also re-validated the lone survivor LPV-l0-suspendreason-signatures: its
+#     locus widened 537-538 -> 537-541 so the AwaitTimer/AwaitExternal/Await
+#     Approval/RateLimited sealed-variant lines (539-541) — a live L7 finding the
+#     prior range under-covered — are now tolerated by the row that exists for
+#     exactly that leak.
+#     NOT added (drained to zero live leak by this same round-2 wave — the gate's
+#     regex no longer fires, so a grandfather row would be dead weight the unused-
+#     row housekeeping flags): §4 #25 (CausalPayloadEnvelope shape), #56
+#     (GENERATION span attribute schema), #57 (per-span `tenant.id` + 403 replay
+#     fail-closed), #58 (no-PII `payload_ref://` invariant), #59 (MCP replay-tool
+#     inventory). Their detail now delegates to docs/telemetry/policy.md + the
+#     telemetry-vertical L2 sink + the generated facts; if a future probe tightens
+#     to catch a dotted attribute namespace or an MCP tool list, the migration
+#     (not a new grandfather row) is the fix, per closed-list discipline. The §4
+#     #6 `Glue LOC target <= 1 500` finding is a probe false-positive (the L4
+#     probe reads `500` as an HTTP status), owned by a gate-probe fix, not this
+#     allow-list. VERIFIED (WSL, --mode advisory): the four added loci now report
+#     GRANDFATHERED, not as findings; no row over zero live leak was added. The
+#     authority cascade (generated facts > DSL > Card/prose) is untouched.
 
 schema_version: 1
 authority: ADR-0159
@@ -114,87 +314,122 @@ list_closed: true
 violations:
 
   # ======================================================================
-  # L0 root — architecture/docs/L0/ARCHITECTURE.md (scan §1.2)
+  # L0 root —architecture/docs/L0/ARCHITECTURE.md (scan §1.2)
   # Highest migration priority; sunset 2026-06-30 (v1.0 boundary).
   # ======================================================================
 
-  - id: LPV-l0-run-dfa-table
-    layer: L0
-    file: architecture/docs/L0/ARCHITECTURE.md
-    locus: "§4 #20 : 520-535"
-    categories: [L1-method-call-chain, L2-runtime-sequence, L4-http-status-route-verb, L3-sql-rls-persistence]
-    trigger: "PENDING -> RUNNING | CANCELLED; ... Every Run.withStatus(newStatus) MUST invoke RunStateMachine.validate(from, to) ... cancel on already-cancelled run returns 200 ... returns 409 ... persisted.version != run.version() - 1"
-    migrate_to: "architecture/docs/L2/<run-state-frame>/ (state machine + CAS) + docs/contracts/*.v1.yaml (HTTP status)"
-    sunset_date: 2026-06-30
-    scan_ref: "§1.2 (heaviest L0 leak)"
-    defensible_part: "The 'Run has a formal DFA' identity stays at L0; the transition table, withStatus->validate call chain, HTTP 200/409, and optimistic-lock CAS predicate migrate."
-
-  - id: LPV-l0-tenant-rls-guc
-    layer: L0
-    file: architecture/docs/L0/ARCHITECTURE.md
-    locus: "§4 #3 : 360"
-    category: L3-sql-rls-persistence
-    trigger: "add SET LOCAL app.tenant_id = :id GUC inside each transaction; enable Postgres RLS policies on tenant tables."
-    migrate_to: "architecture/docs/L2/<tenant-isolation-frame>/ + Flyway migrations"
-    sunset_date: 2026-06-30
-    scan_ref: "§1.2"
-    defensible_part: "The structural commitment (tenant isolation, fail-closed) stays at L0; the SQL/GUC/RLS mechanism migrates."
-
-  - id: LPV-l0-idempotency-status-table
-    layer: L0
-    file: architecture/docs/L0/ARCHITECTURE.md
-    locus: "§4 #4 : 364-368"
-    categories: [L4-http-status-route-verb, L3-sql-rls-persistence]
-    trigger: "validates the Idempotency-Key header ... missing returns 400 ... concurrent duplicate returns 409; backed by Postgres idempotency_dedup table."
-    migrate_to: "docs/contracts/*.v1.yaml (HTTP status) + architecture/docs/L2/<idempotency-frame>/ (dedup table)"
-    sunset_date: 2026-06-30
-    scan_ref: "§1.2"
-
-  - id: LPV-l0-hook-chain-ordering
-    layer: L0
-    file: architecture/docs/L0/ARCHITECTURE.md
-    locus: "§4 #16 : 471-487"
-    categories: [L5-filter-ordering, L1-method-call-chain]
-    trigger: "the chain is ordered (registration order; lower @Order fires earlier; BEFORE_* ascending, AFTER_* reverse - LIFO unwind) ... @Order tie-breaking ... resolved by Class.getName() lexicographic order"
-    migrate_to: "architecture/docs/L2/<hook-dispatch-frame>/ + the hook contract"
-    sunset_date: 2026-06-30
-    scan_ref: "§1.2"
-    defensible_part: "The 'hooks exist / 10 positions' identity is defensible; the ordering algorithm and Class.getName() tie-break migrate."
+  # Six L0-root rows were REMOVED 2026-05-30 (convergence scan round 2 — see the
+  # change-log entry "L0 dead-grandfather removal"): LPV-l0-run-dfa-table (§4 #20),
+  # LPV-l0-tenant-rls-guc (§4 #3), LPV-l0-idempotency-status-table (§4 #4),
+  # LPV-l0-hook-chain-ordering (§4 #16), LPV-l0-event-buffer-overflow (§4 #28), and
+  # LPV-l0-shipped-subset-test-inventory (§1 W0). Their NAMED §4/§1 leaks were
+  # drained in place to identity + delegation + fact-ID form, so under the
+  # locus-anchored gate (gate/lib/check_layer_purity.py, E194) each row's locus
+  # range now covers ZERO live leak. Per the closed-list discipline a row that
+  # tolerates no live leak is removed, not kept. The lone survivor is
+  # LPV-l0-suspendreason-signatures, whose §4 #19 sealed-variant constructor
+  # signatures are still inlined at lines 537-541.
 
   - id: LPV-l0-suspendreason-signatures
     layer: L0
     file: architecture/docs/L0/ARCHITECTURE.md
-    locus: "§4 #19 : 510-517"
+    locus: "§4 #19 : 537-541"
     category: L7-method-signature
-    trigger: "ChildRun(UUID childRunId, ChildFailurePolicy, Instant deadline) | AwaitChildren(List<UUID> ...) ..."
+    trigger: "ChildRun(UUID childRunId, ChildFailurePolicy, Instant deadline) | AwaitChildren(List<UUID> childRunIds, JoinPolicy, ChildFailurePolicy, Instant deadline) | AwaitTimer(Instant fireAt) | AwaitExternal(String callbackToken, Instant deadline) | AwaitApproval(String approvalRequestId, Instant deadline) | RateLimited(String resourceKey, Instant retryAfter) - the full sealed-variant constructor inventory"
     migrate_to: "docs/contracts/*.v1.yaml (SPI) + architecture/facts/generated/code-symbols.json"
     sunset_date: 2026-06-30
     scan_ref: "§1.2"
-    defensible_part: "Naming SuspendReason as a boundary identity is defensible; the sealed-variant constructor parameter lists migrate."
-
-  - id: LPV-l0-event-buffer-overflow
-    layer: L0
-    file: architecture/docs/L0/ARCHITECTURE.md
-    locus: "§4 #28 : 614-616"
-    category: L6-wire-format
-    trigger: "bounded buffer (default 64 events, DROP_OLDEST overflow - Terminal events never dropped)"
-    migrate_to: "docs/contracts/*.v1.yaml + architecture/docs/L2/<event-channel-frame>/"
-    sunset_date: 2026-06-30
-    scan_ref: "§1.2"
+    defensible_part: "Naming SuspendReason as a boundary identity is defensible; the sealed-variant constructor parameter lists migrate. Locus re-validated 2026-05-30 (convergence scan round 2): the L7 JVM-typed-parameter-inventory probe detects the leak across lines 537-541, not only 537-538; the prior range under-covered the very leak this row exists to tolerate, leaving the AwaitTimer/AwaitExternal/AwaitApproval/RateLimited variant lines (539-541) as a false finding. The range now spans the whole sealed-variant block; the migration scope is unchanged."
 
   - id: LPV-l0-shipped-subset-test-inventory
     layer: L0
     file: architecture/docs/L0/ARCHITECTURE.md
-    locus: "§1 W0 shipped subset : 77"
+    locus: "§1 W0 shipped-subset contract-truth test enumeration (row-level pass deferred — whole-file: the inline comma-run of contract-truth test classes is detected by the E195 inline-test-list probe, which is NOT locus-aware, and the §1 paragraph shifts line as the L0 prose is rewritten, so a fixed line anchor cannot track it; whole-file tolerance is the sanctioned mechanism until the enumeration migrates)"
     category: L8-test-class-inventory
     trigger: "contract-truth tests (OpenApiContractIT, ApiCompatibilityTest, OrchestrationSpiArchTest, TenantPropagationPurityTest)"
     migrate_to: "architecture/facts/generated/tests.json (+ FunctionPoint test_refs[])"
     sunset_date: 2026-06-30
-    scan_ref: "§1.2 (sink-only: the E195 inline-test-list probe fires on the W0 shipped-subset grounding paragraph; E194's L8 probe does not — the line is a comma-run, not a table/bullet inventory)"
-    defensible_part: "The 'what ships at W0' grounding sentence stays at L0; the inlined contract-test enumeration migrates to the generated test facts. The named *ArchTest tokens are D3-defensible enforcer identities; the *IT tokens are the inventory."
+    scan_ref: "§1 W0 shipped subset"
+    defensible_part: "Naming the shipped contract-truth tests as evidence of the W0 release is a reasonable L0 grounding claim; the enumerated test-class inventory is what migrates to tests.json + the FunctionPoint test_refs. This row is the E195-side tolerance (E195 maps test_inventory -> L8-test-class-inventory and matches on file + category, not locus); it is anchorless so it also covers the E194 L8 probe should the comma-run ever trip it."
+
+  - id: LPV-l0-suspension-write-atomicity
+    layer: L0
+    file: architecture/docs/L0/ARCHITECTURE.md
+    locus: "§4 #23 : 596-601"
+    categories: [L1-method-call-chain, L2-runtime-sequence]
+    trigger: "RunRepository.save(suspended) and checkpointer.save(runId, nodeKey, payload) MUST be observable atomically ... single-threaded, sequential on same call stack (invariant documented in SyncOrchestrator.executeLoop javadoc) ... both in one @Transactional block ... transactional outbox"
+    migrate_to: "architecture/docs/L2/fp-suspend-resume/ (suspend-leg write sequence) + architecture/docs/L2/fp-run-state-transition/ (atomic Run-state write realization)"
+    sunset_date: 2026-06-30
+    scan_ref: "§1.2"
+    defensible_part: "The structural invariant 'the suspension write is atomic' stays at L0; the named persistence-write hops (RunRepository.save + checkpointer.save) and the per-tier atomicity ordering (sequential-on-call-stack / one @Transactional block / transactional outbox) migrate. Named by the line-43 disclaimer ('the suspension-atomicity sequence (§4 #23)'); this row is the grandfather entry that named disclosure presumed."
+
+  # ----------------------------------------------------------------------
+  # L0 telemetry-band live-leak freeze (convergence scan round 2, 2026-05-30).
+  #
+  # Added to make the closed list COMPLETE relative to the by-fact-id leak set.
+  # The list had frozen the heaviest L0 leaks but left four telemetry-band loci
+  # that the locus-anchored gate (gate/lib/check_layer_purity.py, E194) reports
+  # as LIVE, non-grandfathered findings unlisted: every one of these rows covers
+  # a leak the gate detects TODAY, so each earns its place under the closed-list
+  # discipline (a row must tolerate a live leak; rows over zero live leak are not
+  # added). They share the 2026-06-30 v1.0-boundary sunset of the L0 band.
+  #
+  # Scope note. The §4 #25 envelope shape, #56 GENERATION span schema, #57 span
+  # tenant attribute, #58 no-PII invariant, and #59 MCP replay-tool inventory
+  # were DRAINED in place by the same round-2 wave (their detail now delegates to
+  # docs/telemetry/policy.md + the telemetry-vertical L2 sink + the generated
+  # facts); the gate's regex no longer fires on them, so under the closed-list
+  # discipline they are NOT grandfathered here (a row over zero live leak would
+  # be dead weight the gate's unused-row housekeeping flags for removal). #23 is
+  # covered by LPV-l0-suspension-write-atomicity above.
+  # ----------------------------------------------------------------------
+
+  - id: LPV-l0-metric-span-attr-namespaces
+    layer: L0
+    file: architecture/docs/L0/ARCHITECTURE.md
+    locus: "§4 #5 : 392-395"
+    category: L6-wire-format
+    trigger: "Span attribute naming follows gen_ai.* (OTel semconv) and langfuse.* (platform-specific) per §4 #56 and docs/telemetry/policy.md §4 - the concrete telemetry attribute-namespace convention inlined into the metric-naming constraint."
+    migrate_to: "architecture/docs/L2/telemetry-vertical/ + docs/telemetry/policy.md"
+    sunset_date: 2026-06-30
+    scan_ref: "§1.2 (telemetry band)"
+    defensible_part: "The 'platform meters use a single reserved prefix' structural invariant stays at L0; the gen_ai.* / langfuse.* span-attribute namespaces are a wire-format convention owned by the telemetry-vertical L2 sink + the telemetry-policy SSOT. The L6 probe fires on the literal gen_ai.* / langfuse.* tokens; the metric-prefix reservation is the durable L0 commitment."
+
+  - id: LPV-l0-run-context-accessor-residual
+    layer: L0
+    file: architecture/docs/L0/ARCHITECTURE.md
+    locus: "§4 #22 : 575-602"
+    category: L4-http-status-route-verb
+    trigger: "OTel traceparent propagation across suspend ... the concrete accessor inventory and its return types - the session / trace correlation accessors on the run context and the TraceContext it exposes - are the public_methods[] entries of the generated SPI-shape facts code-symbol/...runcontext and code-symbol/...tracecontext, not enumerated here (a delegation pointer that NAMES the migrated accessor mechanism + the traceparent propagation to say they are delegated)."
+    migrate_to: "architecture/facts/generated/code-symbols.json + architecture/docs/L2/telemetry-vertical/"
+    sunset_date: 2026-06-30
+    scan_ref: "§1.2 (telemetry band)"
+    defensible_part: "The §4 #22 accessor inventory was drained in-place: the constraint states only the structural invariant (the run context is the single in-kernel carrier of tenant/session/trace correlation, isolated from the HTTP edge) and delegates the typed accessor shapes to the runcontext / tracecontext SPI-shape facts' public_methods[]. The residual the L4 regex matches is the named traceparent propagation in that delegation prose, regex-indistinguishable from a live header-behaviour leak; the structural carrier commitment stays, the accessor inventory is already fact-owned."
+
+  - id: LPV-l0-run-trace-id-notnull
+    layer: L0
+    file: architecture/docs/L0/ARCHITECTURE.md
+    locus: "§4 #54 : 1019"
+    categories: [L3-sql-rls-persistence, L7-method-signature]
+    trigger: "Every persisted Run row MUST carry a non-null trace_id (32-char lowercase W3C hex; the column is nullable at L1.x and NOT NULL from W2 via V2__run_trace_id_notnull.sql) ... RunContext MUST expose traceId(), spanId(), sessionId(), and traceContext() alongside tenantId() ... root span attribute parent_trace_id."
+    migrate_to: "architecture/facts/generated/code-symbols.json + Flyway migrations + architecture/docs/L2/telemetry-vertical/"
+    sunset_date: 2026-06-30
+    scan_ref: "§1.2 (telemetry band)"
+    defensible_part: "The 'every Run is correlatable to exactly one Trace and N:M to Sessions' identity invariant stays at L0; the named Flyway migration (V2__run_trace_id_notnull.sql), the column nullability transition, and the enumerated RunContext accessor list (traceId/spanId/sessionId/traceContext) are persistence + SPI-signature detail. The L3 probe fires on the V__*.sql migration-file name; the accessor list is fact-owned on the runcontext SPI-shape fact."
+
+  - id: LPV-l0-traceparent-edge-residual
+    layer: L0
+    file: architecture/docs/L0/ARCHITECTURE.md
+    locus: "§4 #55 : 1021"
+    category: L4-http-status-route-verb
+    trigger: "MUST extract or originate the W3C traceparent trace-context header on every inbound request ... The concrete propagation mechanics - the filter-chain position relative to the JWT/Tenant/Idempotency filters, the outbound trace-correlation response header and its wire grammar, the response-status scope, the Logback MDC slice, and the invalid-header metric - are runtime/wire detail owned by docs/telemetry/policy.md §6 and the L2 sink ../L2/telemetry-vertical/process.md (a delegation pointer that NAMES the traceparent header to say its mechanics are delegated)."
+    migrate_to: "architecture/docs/L2/telemetry-vertical/ + architecture/docs/L2/run-http-contract/development.md + docs/telemetry/policy.md"
+    sunset_date: 2026-06-30
+    scan_ref: "§1.2 (telemetry band)"
+    defensible_part: "The §4 #55 propagation mechanics were drained in-place: the constraint owns only the structural obligation (the HTTP edge participates in W3C trace-context propagation and fails closed on an unparseable id) and delegates the filter position, the traceresponse wire grammar, the response-status scope, the MDC slice, and the invalid-header metric to the telemetry policy + the telemetry-vertical L2 process view. The residual the L4 regex matches is the named traceparent header in that delegation prose, regex-indistinguishable from a live header-behaviour leak; no concrete grammar/order/status remains inline."
 
   # ======================================================================
-  # L1 agent-service — the verdict's primary L1 leak site (scan §2.1-§2.4)
+  # L1 agent-service —the verdict's primary L1 leak site (scan §2.1-§2.4)
   # Sunset 2026-07-31 (aligned with saa-property-authority.yaml grandfather).
   # ======================================================================
 
@@ -204,24 +439,24 @@ violations:
     locus: "§2.A idempotency : 71-74"
     categories: [L3-sql-rls-persistence, L4-http-status-route-verb]
     trigger: "hashes method:path:body (SHA-256 -> base64url) ... Collisions return 409 idempotency_conflict ... or 409 idempotency_body_drift"
-    migrate_to: "architecture/docs/L2/<idempotency-frame>/ + docs/contracts/*.v1.yaml"
+    migrate_to: "architecture/docs/L2/fp-idempotency-claim/ + docs/contracts/*.v1.yaml"
     sunset_date: 2026-07-31
     scan_ref: "§2.1"
 
   - id: LPV-l1-as-idempotency-sql
     layer: L1
     file: architecture/docs/L1/agent-service/ARCHITECTURE.md
-    locus: "§2.A idempotency : 78-83"
+    locus: "§2.A idempotency table, plus the §0 altitude-discipline disclaimer that NAMES SQL / ON CONFLICT / RLS to declare it is NOT carried, plus the §L2-linkage delegation rows that NAME the RLS migration sequence to delegate it (row-level pass deferred — whole-file: the residue the L3 regex matches in this mid-rewrite module-root is the disclaimer + delegation prose, not a live SQL leak)"
     category: L3-sql-rls-persistence
     trigger: "INSERT ... ON CONFLICT (tenant_id, idempotency_key) DO NOTHING; SELECT on collision. Flyway V2__idempotency_dedup.sql ... CHECK constraint on status (CLAIMED|COMPLETED|FAILED)."
-    migrate_to: "architecture/docs/L2/<idempotency-frame>/ + Flyway migrations"
+    migrate_to: "architecture/docs/L2/fp-idempotency-claim/ + Flyway migrations"
     sunset_date: 2026-07-31
     scan_ref: "§2.1"
 
   - id: LPV-l1-as-runs-api-matrix
     layer: L1
     file: architecture/docs/L1/agent-service/ARCHITECTURE.md
-    locus: "§2.A runs API : 164-181"
+    locus: "§2.A runs API matrix, plus the §0 altitude-discipline disclaimer that NAMES HTTP routes/verbs/status to declare it is NOT carried, plus the platform/observability frame row that NAMES traceparent behaviour under a per-ADR delegation (row-level pass deferred — whole-file: the residue the L4 regex matches in this mid-rewrite module-root is the disclaimer + the named-header delegation prose, not a live status/route leak)"
     category: L4-http-status-route-verb
     trigger: "POST /v1/runs ... -> 201 ... GET /v1/runs/{runId} -> 200 ... 404 ... POST /v1/runs/{runId}/cancel -> 200 ... 409 illegal_state_transition ... Cancellation is POST, never DELETE ... -> 422 invalid_run_spec ... -> 400 invalid_request ... -> 500"
     migrate_to: "docs/contracts/*.v1.yaml (OpenAPI route x verb x status)"
@@ -234,7 +469,7 @@ violations:
     locus: "§2.A tenant cross-check : 128-134"
     categories: [L5-filter-ordering, L4-http-status-route-verb]
     trigger: "JwtTenantClaimCrossCheck (L1, order 15 - after Spring Security's BearerTokenAuthenticationFilter, before TenantContextFilter at 20) ... Mismatch -> 403 tenant_mismatch"
-    migrate_to: "architecture/docs/L2/<access-layer-frame>/ (filter-chain design)"
+    migrate_to: "architecture/docs/L2/run-http-contract/development.md (filter-chain design)"
     sunset_date: 2026-07-31
     scan_ref: "§2.1"
 
@@ -244,7 +479,7 @@ violations:
     locus: "§2.A observability : 199-218"
     categories: [L5-filter-ordering, L4-http-status-route-verb, L6-wire-format]
     trigger: "TraceExtractFilter ... runs at order 10 ... parses the W3C version-00 traceparent header ... emits traceresponse: 00-<trace_id>-<span_id>-01 ... Filter chain order (L1.x): 1. ... (order 10) 2. ... (order 15) 3. ... (order 20) 4. ..."
-    migrate_to: "architecture/docs/L2/<access-layer-frame>/ + docs/telemetry/policy.md"
+    migrate_to: "architecture/docs/L2/run-http-contract/development.md + docs/telemetry/policy.md"
     sunset_date: 2026-07-31
     scan_ref: "§2.1"
 
@@ -254,7 +489,7 @@ violations:
     locus: "L2 Constraint Linkage : 797-799"
     category: L3-sql-rls-persistence
     trigger: "Postgres RLS migration sequence (rc25). (named under an in-file 'L2 Constraint Linkage' heading)"
-    migrate_to: "architecture/docs/L2/<tenant-isolation-frame>/ + Flyway migrations"
+    migrate_to: "architecture/docs/L2/fp-tenant-cross-check/ + Flyway migrations"
     sunset_date: 2026-07-31
     scan_ref: "§2.1"
     defensible_part: "The delegation framing is defensible; the named RLS migration sequence inlined into it is the leak."
@@ -265,7 +500,7 @@ violations:
     locus: "31, 39, 67"
     categories: [L1-method-call-chain, L3-sql-rls-persistence]
     trigger: "Run aggregate (single owner): ... RunRepository (atomic CAS via updateIfNotTerminal) / RunStateMachine validation invoked via Layer 2 CAS / updateIfNotTerminal(tenantId, runId, lambda) - atomic CAS"
-    migrate_to: "architecture/docs/L2/<run-state-frame>/ (CAS + persistence)"
+    migrate_to: "architecture/docs/L2/fp-run-state-transition/ (CAS + persistence)"
     sunset_date: 2026-07-31
     scan_ref: "§2.2"
 
@@ -275,67 +510,69 @@ violations:
     locus: "92-96"
     categories: [L3-sql-rls-persistence, L1-method-call-chain]
     trigger: "Persistence under RLS (Rule R-J.a) with RunRepository.updateIfNotTerminal(...) atomic CAS ... validation (RunStateMachine.validate(from, to)) is invoked"
-    migrate_to: "architecture/docs/L2/<run-state-frame>/ (CAS + RLS)"
+    migrate_to: "architecture/docs/L2/fp-run-state-transition/ (CAS + RLS)"
     sunset_date: 2026-07-31
     scan_ref: "§2.2"
 
   - id: LPV-l1-as-logical-rls-tables
     layer: L1
     file: architecture/docs/L1/agent-service/logical.md
-    locus: "207-209"
+    locus: "§3 tenant-RLS table notes, plus the §5 delegation line that NAMES the RLS policy bodies as owned by development.md §5.3 L2 (row-level pass deferred — whole-file: the residue the L3 regex matches in this mid-rewrite view is the table-note + delegation prose, not a live SQL leak)"
     category: L3-sql-rls-persistence
     trigger: "Every table above carries tenant_id column with RLS policy enabled ... IdempotencyRecord (V2__idempotency_dedup.sql) ships RLS-bound"
-    migrate_to: "architecture/docs/L2/<tenant-isolation-frame>/ + Flyway migrations"
+    migrate_to: "architecture/docs/L2/fp-tenant-cross-check/ + Flyway migrations"
     sunset_date: 2026-07-31
     scan_ref: "§2.2"
 
   - id: LPV-l1-as-logical-annotated-dfa
     layer: L1
     file: architecture/docs/L1/agent-service/logical.md
-    locus: "217-262"
+    locus: "176-217 (§3)"
     categories: [L2-runtime-sequence, L1-method-call-chain, L3-sql-rls-persistence, L4-http-status-route-verb]
-    trigger: "## 3. RunStatus State Machine (cancel-race-aware, CAS-annotated) - full DFA with RunRepository.updateIfNotTerminal CAS on every edge, POST /v1/runs, POST /v1/runs/{runId}/cancel, 409, RunStateMachine.java:37 source ref, WHERE status NOT IN (...)"
-    migrate_to: "architecture/docs/L2/<run-state-frame>/ (annotated state machine)"
+    trigger: "## 3. Run lifecycle state machine (cancel-race-aware) - a stateDiagram that NAMES the transitions + the cancel-vs-complete race, with 'The response-code posture and the SQL/atomic-primitive realisation are NOT in this view: they are owned by openapi-v1.yaml ... and development.md §5.3' (a delegation pointer that NAMES the migrated CAS/SQL/status detail to say it is delegated)"
+    migrate_to: "architecture/docs/L2/fp-run-state-transition/ (annotated state machine) + docs/contracts/openapi-v1.yaml (status)"
     sunset_date: 2026-07-31
     scan_ref: "§2.2"
+    defensible_part: "The annotated DFA was drained in-place: the per-edge updateIfNotTerminal CAS, the POST /v1/runs* route verbs, the 409, the RunStateMachine.java:37 source ref, and the WHERE status NOT IN SQL predicate are gone; §3 now carries a NAME-level stateDiagram + the obligation 'every transition is delegated to Layer 2's RunRepository SPI' + a delegation pointer to openapi-v1.yaml (response posture) and development.md §5.3 (CAS realisation). The residual the regex matches is that DEFENSIBLE delegation pointer + the structural state-name vocabulary, not a live runtime-sequence/CAS leak."
 
   - id: LPV-l1-as-logical-cancel-noop
     layer: L1
     file: architecture/docs/L1/agent-service/logical.md
-    locus: "474"
+    locus: "§ RunStateTransitionEvent CAS-no-op note, plus the §ADR cross-reference line that NAMES P3+P6 as covering the cancel-race winner+loser (row-level pass deferred — whole-file: the residue the L2 regex matches in this mid-rewrite view is the event-note + process-name delegation prose, not a live runtime-sequence leak)"
     category: L2-runtime-sequence
     trigger: "RunStateTransitionEvent ... (->CANCELLED) ... (CAS no-op)"
-    migrate_to: "architecture/docs/L2/<run-state-frame>/"
+    migrate_to: "architecture/docs/L2/fp-run-state-transition/"
     sunset_date: 2026-07-31
     scan_ref: "§2.2"
 
   - id: LPV-l1-as-process-sequences
     layer: L1
     file: architecture/docs/L1/agent-service/process.md
-    locus: "22, 89, 113, 165, 207, 259 (sequenceDiagram P1-P6)"
+    locus: "the P1-P6 process-view section headings + sequenceDiagram blocks that NAME each runtime flow (e.g. '## 3. P3 - Cancel + cancel-race WINNER') (row-level pass deferred — whole-file: the residue the L2 regex matches in this mid-rewrite process view is the flow-NAMING section headings, the defensible process-view construct, not a live runtime-sequence leak)"
     category: L2-runtime-sequence
     trigger: "sequenceDiagram blocks (P1-P6) - six runtime sequence diagrams"
-    migrate_to: "architecture/docs/L2/<agent-service frames>/ (process / sequence view)"
+    migrate_to: "architecture/docs/L2/run-http-contract/process.md (process / sequence view)"
     sunset_date: 2026-07-31
     scan_ref: "§2.3 (canonical runtime-sequence leak)"
 
   - id: LPV-l1-as-process-cancel-race
     layer: L1
     file: architecture/docs/L1/agent-service/process.md
-    locus: "259-286 (P6)"
+    locus: "211-241 (§6 P6)"
     categories: [L2-runtime-sequence, L4-http-status-route-verb]
-    trigger: "P6 cancel-race loser sequence: CAS WINS ... LOSES because status is now SUCCEEDED ... post-CAS re-read ... => 409 illegal_state_transition"
-    migrate_to: "architecture/docs/L2/<run-state-frame>/ (race sequence)"
+    trigger: "## 6. P6 - Cancel-race LOSER (O3 - structural resolution) - a flowchart that NAMES the loser path ('loses - Run already terminal', 'no-op + post-transition re-read'), with 'The loser-side response-code matrix and the rejection-audit CancelRequestedEvent emission are contract material owned by openapi-v1.yaml and run-event.v1.yaml' (a delegation pointer that NAMES the migrated status matrix to say it is delegated)"
+    migrate_to: "architecture/docs/L2/fp-run-state-transition/ (race sequence) + docs/contracts/openapi-v1.yaml (status matrix)"
     sunset_date: 2026-07-31
     scan_ref: "§2.3 (verdict's named method-CAS leak)"
+    defensible_part: "The P6 winner/loser CAS narrative was drained in-place: the 'CAS WINS ... LOSES because status is now SUCCEEDED' race prose and the inline '=> 409 illegal_state_transition' status are gone; §6 now carries a NAME-level loser-path flowchart + the obligation 'the loser path is deterministic and emits a rejection-audit signal' + a delegation pointer to openapi-v1.yaml (response-code matrix) and run-event.v1.yaml (emission). The residual the regex matches is that DEFENSIBLE process-view section that NAMES the cancel-race flow + delegates the status matrix, not a live runtime-sequence/status leak."
 
   - id: LPV-l1-as-development-rls-projection
     layer: L1
     file: architecture/docs/L1/agent-service/development.md
-    locus: "203-208"
+    locus: "§5 projection-RLS Boundary Contract, plus the §0 altitude disclaimer NAMING migration/RLS/GUC/CAS to declare it NOT carried, plus the §5.3 zone-realisation delegation that NAMES the RLS outputs to delegate them (row-level pass deferred — whole-file: the residue the L3 regex matches in this mid-rewrite view is the disclaimer + delegation prose, not a live SQL/GUC leak)"
     category: L3-sql-rls-persistence
     trigger: "Tenant-bound RLS coverage extending to the projection tables ... cross-tenant projection blocked at RLS layer"
-    migrate_to: "architecture/docs/L2/<tenant-isolation-frame>/ + Flyway migrations"
+    migrate_to: "architecture/docs/L2/fp-tenant-cross-check/ + Flyway migrations"
     sunset_date: 2026-07-31
     scan_ref: "§2.4 (RLS inlined into the Boundary Contract)"
     defensible_part: "The §5 Boundary-Contract delegation frame (Rule G-1.1.c - E168) stays; the inlined RLS detail migrates."
@@ -343,13 +580,13 @@ violations:
   - id: LPV-l1-as-development-rls-guc
     layer: L1
     file: architecture/docs/L1/agent-service/development.md
-    locus: "239-248"
+    locus: "217-236 (§5.3)"
     category: L3-sql-rls-persistence
-    trigger: "V?__tenant_rls.sql series creating RLS policies on all tenant_id- ... SET LOCAL app.tenant_id GUC wiring via R2DBC ... RLS-blocked SELECTs counted per tenant"
-    migrate_to: "architecture/docs/L2/<tenant-isolation-frame>/ + Flyway migrations"
+    trigger: "### 5.3 Zone - Postgres RLS migration sequence (rc25 candidate) - a Boundary Contract that NAMES the delegated outputs ('RLS policies on every tenant-scoped table', 'session-level tenant-GUC wiring', 'RLS-blocked reads counted per tenant') while stating the realisation 'is produced by the L2 design ... deliberately NOT reproduced here' (an obligation-level delegation frame that NAMES the migrated persistence mechanism)"
+    migrate_to: "architecture/docs/L2/fp-tenant-cross-check/ + docs/security/rls-policy.sql (design-only) + Flyway migrations"
     sunset_date: 2026-07-31
     scan_ref: "§2.4"
-    defensible_part: "The L2-zone delegation + ADR-0141 pointer stays; the migration-file series + SET LOCAL GUC + RLS SELECT-counting migrate."
+    defensible_part: "The §5 inline RLS realisation was drained in-place: the V?__tenant_rls.sql migration-file series, the literal SET LOCAL app.tenant_id GUC, the R2DBC wiring, and the RLS SELECT-counting prose are gone (line 239-248 is now the §5.4 DualTrackRouter zone, not RLS). §5.3 now publishes the RLS zone as a Rule G-1.1.c Boundary Contract that NAMES the zone identity + obligation-level outputs/DFX and explicitly delegates the realisation to the L2 design + the rls-policy.sql design-only artifact. The residual the L3 regex matches is that DEFENSIBLE delegation frame, not a live SQL/GUC leak."
 
   # ======================================================================
   # Lower-priority deferred-row + other-module leaks (scan §2.5, §3.2, §3.3)
@@ -362,7 +599,7 @@ violations:
     locus: "matched RLS / 3-track / sandbox (row-level pass deferred)"
     category: L3-sql-rls-persistence
     trigger: "matched RLS / 3-track bus / sandbox leak markers (physical view legitimately carries deployment topology; the RLS-policy + per-table detail is the leak)"
-    migrate_to: "architecture/docs/L2/<tenant-isolation-frame>/"
+    migrate_to: "architecture/docs/L2/fp-tenant-cross-check/"
     sunset_date: 2026-08-31
     scan_ref: "§2.5"
     defensible_part: "Physical-view deployment topology stays (defensible); the RLS-policy + per-table detail migrates."
@@ -381,10 +618,10 @@ violations:
   - id: LPV-l1-as-features-cas-rls
     layer: L1
     file: architecture/docs/L1/agent-service/features/session-task-manager.md
-    locus: "matched CAS / RLS (row-level pass deferred; sibling: features/task-centric-control.md)"
-    categories: [L1-method-call-chain, L3-sql-rls-persistence]
-    trigger: "feature notes that restate CAS / RLS detail (L2/L3 mixed)"
-    migrate_to: "architecture/docs/L2/<agent-service frames>/"
+    locus: "matched CAS / RLS / sequence (row-level pass deferred; sibling: features/task-centric-control.md)"
+    categories: [L1-method-call-chain, L2-runtime-sequence, L3-sql-rls-persistence]
+    trigger: "feature notes that NAME the cancel-vs-complete winner/loser arbitration decision table + the process-view P1/P3/P6 sequence delegation pointers (to process.md + development.md §5.3 + ADR-0155 §6) — defensible delegation prose that NAMES the migrated CAS / RLS / runtime-sequence detail to say it is delegated (L2/L3 mixed)"
+    migrate_to: "architecture/docs/L2/run-http-contract/process.md"
     sunset_date: 2026-08-31
     scan_ref: "§2.5"
 

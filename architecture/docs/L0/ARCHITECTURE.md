@@ -40,7 +40,7 @@ This document is the **declarative L0** system boundary + 65 numbered architectu
 - **L1 module design** (how a module realises its slice of the constraints) — read [`architecture/docs/L1/<module>{.md,/}`](../L1/) for that.
 - **Per-capability shipped/deferred ledger** — read [`docs/governance/architecture-status.yaml#capabilities`](../../../docs/governance/architecture-status.yaml) for that.
 
-**Known lower-altitude residue in §4 — single reading.** The four "does NOT carry" clauses above are the standing intent, but they are NOT yet uniformly true of the §4 body: a closed, dated set of §4 constraints (and the §1 W0 shipped-subset paragraph) still state runtime-contract, persistence, filter-ordering, or method-signature detail inline — e.g. §4 #3 the `SET LOCAL app.tenant_id` GUC + RLS-policy mechanism, §4 #16 the hook `@Order` / `Class.getName()` tie-break ordering algorithm, §4 #20 the `withStatus → RunStateMachine.validate` call chain + HTTP 200/409 + optimistic-lock CAS predicate, §4 #28 the bounded-buffer `DROP_OLDEST` wire shape, plus the re-authorization 403 (§4 #14), the kernel-SPI accessor signatures (§4 #22), the suspension-atomicity sequence (§4 #23), and the `CausalPayloadEnvelope` field shape (§4 #25). To prevent two readings of the same fact: where any §4 inline detail in a lower-altitude category conflicts with the demotion recorded in the normalized-ADR views (`docs/adr/normalized/ADR-*.yaml`, which quarantine exactly this detail under `non_authoritative_legacy_content` / `l2_refs` per ADR-0160), **the normalized demotion governs and the §4 inline form is a time-boxed grandfathered violation, NOT independent standing L0 authority**. The closed, per-entry-dated grandfather list of these loci is [`docs/governance/layer-purity-temporary-violations.yaml`](../../../docs/governance/layer-purity-temporary-violations.yaml) (authority ADR-0159 §7; category vocabulary in [`docs/governance/layer-purity-policy.yaml`](../../../docs/governance/layer-purity-policy.yaml); baseline-truth scan at [`docs/governance/remediation-inventory/layer-purity-scan.md`](../../../docs/governance/remediation-inventory/layer-purity-scan.md)); the highest-priority L0 loci carry a 2026-06-30 (v1.0) sunset by which the detail MUST migrate to its L2 / contract / generated-fact home and the inline form be reduced to the structural identity, and the lane-purity gate in the Rule G-27..G-33 band enforces this once promoted to blocking per ADR-0159 §9. The structural identity each constraint asserts (e.g. "tenant isolation is fail-closed", "the run has a formal DFA", "hooks exist at 10 named positions") is the defensible L0 commitment and stays.
+**Known lower-altitude residue in §4 — single reading.** The four "does NOT carry" clauses above are the standing intent, but they are NOT yet uniformly true of the §4 body: a closed, dated set of §4 constraints (and the §1 W0 shipped-subset paragraph) still state — or, after an in-place drain, still NAME under a delegation pointer — runtime-contract, persistence, filter-ordering, or method-signature detail that a same-category leak scan cannot tell from a live leak. **The authoritative, exhaustive, per-entry-dated roster of these loci is NOT this paragraph — it is the closed grandfather list [`docs/governance/layer-purity-temporary-violations.yaml`](../../../docs/governance/layer-purity-temporary-violations.yaml)** (authority ADR-0159 §7; category vocabulary in [`docs/governance/layer-purity-policy.yaml`](../../../docs/governance/layer-purity-policy.yaml); baseline-truth + re-scan input at [`docs/governance/remediation-inventory/layer-purity-scan.md`](../../../docs/governance/remediation-inventory/layer-purity-scan.md)), which the lane-purity gate consumes as its allow-list. This paragraph is a **non-exhaustive reader's pointer** into that roster, NOT an independent inventory and NOT in bijection with it — so it cannot desynchronize from the §4 body in either direction (over-claiming residue already drained, or under-claiming residue still present); the YAML is the single source of truth for the live, complete set. To keep this paragraph from re-acquiring the very drift it warns against, it deliberately does NOT reproduce the per-locus roster inline — each `LPV-l0-*` row in the grandfather list carries its own `§4 #N` locus, leaked-`category`, `trigger` phrase, `migrate_to` home, and `sunset_date`, and that row set (not a hand-maintained list here) is what the reader and the gate consult; reproducing the loci as prose would re-introduce the same desynchronization (naming residue already drained, or omitting residue still present) and would itself restate the lower-altitude tokens this clause forbids at L0. To prevent two readings of the same fact: where any §4 inline detail in a lower-altitude category conflicts with the demotion recorded in the normalized-ADR views (`docs/adr/normalized/ADR-*.yaml`, which quarantine exactly this detail under `non_authoritative_legacy_content` / `l2_refs` per ADR-0160), **the normalized demotion governs and the §4 inline form is a time-boxed grandfathered violation, NOT independent standing L0 authority**. The highest-priority L0 loci carry a 2026-06-30 (v1.0) sunset by which the detail MUST finish migrating to its L2 / contract / generated-fact home and the inline form be reduced to the structural identity, and the lane-purity gate in the Rule G-27..G-33 band enforces this once promoted to blocking per ADR-0159 §9. The structural identity each constraint asserts (e.g. "tenant isolation is fail-closed", "the run has a formal DFA", "hooks exist at 10 named positions") is the defensible L0 commitment and stays.
 
 Readers seeking "the architecture" should start at [`architecture/workspace.dsl`](../../workspace.dsl) (the machine-readable architecture authority root per ADR-0147 + ADR-0150). This document is one slice (the declarative constraint corpus), not the architecture as a whole.
 
@@ -76,7 +76,7 @@ The platform targets two distinct audiences in W0–W2 + W3+ sequence; the activ
 
 **Target architecture (W1–W4).** The W1–W4 product accepts authenticated tenant HTTP requests, drives LLMs through a tool-calling loop with audit-grade evidence, and persists durable side effects through an idempotent outbox. Built on Spring Boot 4.0.5 + Java 21.
 
-**W0 shipped subset.** What runs at the current release: a `GET /v1/health` probe; `TenantContextFilter` + `IdempotencyHeaderFilter` posture-aware edge filters; the Orchestration SPI contracts (`Orchestrator`, `GraphExecutor`, `AgentLoopExecutor`, `SuspendSignal`, `Checkpointer`, `ExecutorDefinition`, `RunContext`); the `Run` entity + `RunStatus` formal DFA validator; posture-gated in-memory reference executors (`SyncOrchestrator`, `SequentialGraphExecutor`, `IterativeAgentLoopExecutor`, `InMemoryCheckpointer`, `InMemoryRunRegistry`) that fail-closed in research/prod via `AppPostureGate`; the `ResilienceContract` operation-routing SPI; the `GraphMemoryRepository` SPI scaffold (no adapter shipped); contract-truth tests (`OpenApiContractIT`, `ApiCompatibilityTest`, `OrchestrationSpiArchTest`, `TenantPropagationPurityTest`). The LLM gateway, tool registry, outbox publisher, durable Postgres checkpointer, ActionGuard, and Temporal workflow implementations are staged as W1–W4 design contracts (see `§5` + `docs/governance/architecture-status.yaml`); they are not present as half-built runtime paths.
+**W0 shipped subset.** What runs at the current release: the `HealthController` liveness probe (its route and response body shape are the `contract-op/gethealth` OpenAPI surface fact, not restated here — see `§5`); `TenantContextFilter` + `IdempotencyHeaderFilter` posture-aware edge filters; the Orchestration SPI contracts (`Orchestrator`, `GraphExecutor`, `AgentLoopExecutor`, `SuspendSignal`, `Checkpointer`, `ExecutorDefinition`, `RunContext`); the `Run` entity + `RunStatus` formal DFA validator; posture-gated in-memory reference executors (`SyncOrchestrator`, `SequentialGraphExecutor`, `IterativeAgentLoopExecutor`, `InMemoryCheckpointer`, `InMemoryRunRegistry`) that fail-closed in research/prod via `AppPostureGate`; the `ResilienceContract` operation-routing SPI; the `GraphMemoryRepository` SPI scaffold (no adapter shipped); contract-truth tests (`OpenApiContractIT`, `ApiCompatibilityTest`, `OrchestrationSpiArchTest`, `TenantPropagationPurityTest`). The LLM gateway, tool registry, outbox publisher, durable Postgres checkpointer, ActionGuard, and Temporal workflow implementations are staged as W1–W4 design contracts (see `§5` + `docs/governance/architecture-status.yaml`); they are not present as half-built runtime paths.
 
 **Not in scope:** admin UI, LangChain4j dispatch, Python sidecars (out-of-process IPC), multi-region replication, on-device models. In-process polyglot (GraalVM Polyglot embedded in the JVM) is a W3-optional sandbox impl per ADR-0018 — it is not a sidecar. See `docs/governance/architecture-status.yaml` (per-capability deferral ledger) and `docs/governance/escalations.md` (legacy rules awaiting human review) for deferred items.
 
@@ -396,7 +396,7 @@ repo-wide.
 
 6. **OSS-first**: every core concern is delegated to an existing OSS project.
    New glue must answer "why is this not a configuration of an existing OSS dep?"
-   Glue LOC target ≤ 1 500 at W0 close.
+   Glue LOC target ≤ 1500 at W0 close.
 
 7. **SPI purity**: new agentic SPI surfaces default to strict package purity:
    `com.huawei.ascend.middleware..spi..` imports only `java.*` plus same-package
@@ -572,8 +572,10 @@ repo-wide.
     Failed | Terminal`. PII redaction hooks (§4 #16) depend on `TypedPayload<T>` to locate PII fields
     per type. All implementation deferred to W2 (Rule 22). See ADR-0022.
 
-22. **Canonical run context propagation.** `RunContext.tenantId()` is the sole carrier of tenant
-    identity inside the runtime kernel. The kernel SPI types (`RunContext`, `SuspendSignal`,
+22. **Canonical run context propagation.** The L0 invariant is a **single in-kernel carrier of a
+    run's tenant identity, isolated from the HTTP edge**: tenant identity inside the runtime kernel is
+    carried solely by the run context, never by the HTTP-edge thread-local. The kernel SPI types
+    (`RunContext`, `SuspendSignal`,
     `Checkpointer`, `Orchestrator`, `ExecutorDefinition`) live under
     `agent-bus.bus.spi.engine` per ADR-0158 (transport-agnostic EnginePort boundary; the neutral
     execution contract is owned by the Bus & State Hub plane, re-homed from the transient
@@ -587,32 +589,52 @@ repo-wide.
     (ArchUnit — original narrow Rule R-C.e per ADR-0023, preserved as defence-in-depth).
     Timer-driven and async resumes source tenant
     from `Run.tenantId`. `TenantContextFilter` populates Logback MDC `tenant_id` alongside
-    `TenantContextHolder` for log correlation (shipped at W0). `RunContext.tenantId() : String` migrates
-    to `UUID` at W1 alongside Keycloak integration. Micrometer `tenant_id` tag enforcement and OTel
-    `traceparent` propagation across suspend are deferred to W1/W2. `RunContext.traceId()` /
-    `spanId()` / `sessionId()` / `traceContext()` are mandatory L1.x accessors per §4 #54
-    and ADR-0062 (Trace ↔ Run ↔ Session N:M). See ADR-0023, ADR-0061.
+    `TenantContextHolder` for log correlation (shipped at W0). The tenant identity narrows from a
+    string handle to a UUID-typed value at W1 alongside Keycloak integration; the accessor's typed
+    shape (its return type and the W1 type migration) is owned by the generated SPI-shape fact
+    `code-symbol/com-huawei-ascend-bus-spi-engine-runcontext` (the `tenantId()` entry in its
+    `public_methods[]`), not an L0 commitment. Micrometer `tenant_id` tag enforcement and OTel
+    `traceparent` propagation across suspend are deferred to W1/W2. The same carrier also exposes a
+    run's session and trace correlation, but the concrete accessor inventory and its return types —
+    the session / trace correlation accessors on the run context and the `TraceContext` it exposes —
+    are the `public_methods[]` entries of the generated SPI-shape facts
+    `code-symbol/com-huawei-ascend-bus-spi-engine-runcontext` and
+    `code-symbol/com-huawei-ascend-bus-spi-engine-tracecontext`, not enumerated here. The Trace ↔ Run
+    ↔ Session N:M correlation model those accessors realize is owned by §4 #54 and ADR-0062.
+    See ADR-0023, ADR-0061.
 
-23. **Suspension write atomicity.** At the suspension boundary, `RunRepository.save(suspended)` and
-    `checkpointer.save(runId, nodeKey, payload)` MUST be observable atomically. Tiered contract:
-    W0 in-memory — single-threaded, sequential on same call stack (invariant documented in
-    `SyncOrchestrator.executeLoop` javadoc); W2 Postgres — both in one `@Transactional` block;
-    W2 Redis Checkpointer — transactional outbox (ADR-0007); W4 Temporal — SPI bypassed entirely.
-    Any W2+ orchestrator that violates this contract is a ship-blocking defect (Rule 23, deferred).
-    See ADR-0024.
+23. **Suspension write atomicity.** The L0 invariant is that **the two state writes at a suspension
+    boundary are observable atomically**: when a run parks, its persisted run record reaching
+    `SUSPENDED` and its checkpoint becoming durable are a single observable step — no reader ever sees
+    one without the other. L0 owns this all-or-nothing observability invariant, not the named
+    persistence-write hops, the per-durability-tier mechanism, or the call ordering that realizes it.
+    The concrete write hops (the run-record save and the checkpoint save), the tiered realization
+    (W0 in-memory sequential-on-call-stack, W2 Postgres single transaction, W2 Redis transactional
+    outbox per ADR-0007, W4 Temporal bypassing the SPI), and the suspend-leg sequence that orders them
+    are the L2 FunctionPoint sink [`../L2/fp-suspend-resume/`](../L2/fp-suspend-resume/) (the
+    cross-suspend write boundary). A W2+ orchestrator that violates the atomicity invariant is a
+    ship-blocking defect (Rule 23, deferred). See ADR-0024.
 
 24. **Typed payload + PayloadCodec SPI.** *(Renumbered — formerly constraint #21 in this list.)*
     See §4 #21 above. No content change; number preserved for backward reference in older docs.
 
 25. **Causal payload envelope and semantic ontology.** Every payload that crosses a suspend/resume
-    boundary at W2+ MUST be wrapped in a `CausalPayloadEnvelope` declaring: (a) `SemanticOntology`
-    tag — `FACT | PLACEHOLDER | HYPOTHESIS | REDACTED`; (b) `payloadFingerprint` — SHA-256 hex of
-    encoded bytes (tamper detection on resume); (c) `byteSize` and `decayed` flag (logical decay:
-    payloads exceeding 16 KiB inline cap are replaced with a `PayloadStoreRef`). Consumers MUST
-    inspect the `SemanticOntology` tag before passing content to LLM context: `PLACEHOLDER` data
-    MUST NOT be interpreted as a verified fact. The PII filter hook (§4 #16) exempts `PLACEHOLDER`
-    and `REDACTED` payloads from further field-level redaction. Implementation deferred to W2.
-    See ADR-0028, `causal_payload_envelope`, `semantic_ontology_tags`, `payload_fingerprint_precommit`.
+    boundary at W2+ MUST be wrapped in a `CausalPayloadEnvelope` carrying three L0 *invariants*:
+    (a) a **semantic-ontology classification** that distinguishes verified content from unverified
+    content, so a consumer can tell whether the data may be trusted as fact; (b) **tamper-evidence
+    on resume** — the envelope binds an integrity digest of the encoded payload so a mismatch is
+    detectable when the payload is rehydrated; (c) **bounded inlining** — an oversize payload is
+    externalized by reference rather than carried inline, so the envelope itself stays small. The
+    behavioural obligation L0 owns is the **trust contract**: a consumer MUST inspect the
+    classification before passing content to LLM context and MUST NOT treat unverified content as a
+    verified fact, and the PII filter hook (§4 #16) keeps already-classified content out of redundant
+    field-level redaction. L0 owns these envelope *invariants*, not the envelope's field shape. The
+    typed shape — the classification tag set, the digest algorithm and its encoding, the size
+    threshold, the field names, and the externalized-payload reference type — is a wire-format /
+    SPI-signature fact below L0: its detail home is the L2 FunctionPoint sink
+    [`../L2/fp-suspend-resume/`](../L2/fp-suspend-resume/) (the cross-suspend payload boundary), and
+    the cross-boundary shape is the contract surface, not this constraint. Implementation deferred to
+    W2. See ADR-0028, `causal_payload_envelope`, `semantic_ontology_tags`, `payload_fingerprint_precommit`.
 
 26. **Cognition-Action separation.** Cognitive processes (LLM-driven reasoning, plan synthesis,
     hallucination tolerance) are isolated from action processes (database writes, tool invocations,
@@ -996,11 +1018,11 @@ repo-wide.
 
 54. **Trace ↔ Run ↔ Session identity (N:M).** Every persisted `Run` row MUST carry a non-null `trace_id` (32-char lowercase W3C hex; the column is nullable at L1.x and NOT NULL from W2 via `V2__run_trace_id_notnull.sql`). `Run.sessionId` MAY be null at L1.x; in posture=research/prod from W2 it MUST be non-null. Multiple Runs MAY share a Trace or a Session. `RunContext` MUST expose `traceId()`, `spanId()`, `sessionId()`, and `traceContext()` alongside `tenantId()`. Child Runs spawned via `SuspendForChild` inherit `sessionId` from the parent and start a new Trace whose root span attribute `parent_trace_id` points to the parent's `traceId` (ADR-0062 default policy). Enforced by ArchUnit `RunContextIdentityAccessorsTest` + integration `RunTraceSessionConsistencyIT` + (W2) Flyway schema constraint. See ADR-0062.
 
-55. **W3C traceparent propagation at HTTP edge.** `agent-service.service.platform` (HTTP edge sub-package, formerly the standalone `agent-platform` module pre-ADR-0078) MUST extract or originate a W3C version-00 `traceparent` on every inbound request (filter order 10, before JWT/Tenant/Idempotency), populate Logback MDC with `trace_id` + `span_id` alongside `tenant_id` + `run_id`, and emit `traceresponse: 00-<trace_id>-<server_span_id>-01` on every outbound response (200/4xx/5xx) so client SDKs can correlate. Invalid `traceparent` headers MUST fall back to originating a fresh trace (never propagate an unparseable id) and increment `springai_ascend_traceparent_invalid_total`. Enforced by `TraceExtractFilterIT` + extended `LogFieldShapeIT`. See ADR-0061 §4.
+55. **W3C traceparent propagation at HTTP edge.** The HTTP-edge sub-package of `agent-service` (`com.huawei.ascend.service.platform`, formerly the standalone `agent-platform` module pre-ADR-0078) MUST extract or originate the W3C `traceparent` trace-context header on every inbound request and propagate the resulting trace/span correlation outbound so client SDKs can correlate. An unparseable inbound `traceparent` MUST fail closed by originating a fresh trace (never propagating an unparseable id). The concrete propagation mechanics — the filter-chain position relative to the JWT/Tenant/Idempotency filters, the outbound trace-correlation response header and its wire grammar, the response-status scope, the Logback MDC slice, and the invalid-header metric — are runtime/wire detail owned by [`docs/telemetry/policy.md`](../../../docs/telemetry/policy.md) §6 and the L2 sink [`../L2/telemetry-vertical/process.md`](../L2/telemetry-vertical/process.md) §1–§2, verified by the generated test facts `test/…-traceextractfilterit` + `test/…-logfieldshapeit` ([`architecture/facts/generated/tests.json`](../../facts/generated/tests.json)); they are NOT restated here. See ADR-0061 §4.
 
-56. **GENERATION span schema.** Every LLM invocation in posture=research/prod MUST emit a Span carrying attributes `gen_ai.system`, `gen_ai.request.model`, `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`, `langfuse.cost_usd`, and `langfuse.latency_ms`. Raw prompt/completion content MUST be stored in `PayloadStore` and referenced via `payload_ref://<id>` — never inline as a span attribute (negative invariant; see §4 #58). Direct LLM calls bypassing `HookChain` are a ship-blocking defect under Rule D-5 (observability category). Enforced by ArchUnit `LlmGatewayHookChainOnlyTest` (no `service.runtime.llm.*` class may import `org.springframework.ai.chat.ChatModel` outside the HookChain package; Wave C1 Spring AI shells remain design-only until W2 hook binding ships) + integration `GenerationSpanSchemaIT` (W2 trigger; class FQN locked here per Rule R-C.a contract-then-enforcer pair). See ADR-0061 §1 + ADR-0061 §7.
+56. **GENERATION span schema.** Every LLM invocation in posture=research/prod MUST emit a GENERATION Span through the Hook SPI — no LLM call may bypass the hook chain. The raw prompt/completion payload MUST NOT be inlined as a span attribute (negative invariant; the payload-reference indirection and the PII rule live at §4 #58). Direct LLM calls bypassing the hook chain are a ship-blocking defect under Rule D-5 (observability category). The span's required attribute schema (the OTel-semconv `gen_ai` and Langfuse `langfuse` attribute namespaces and their concrete keys) is runtime detail owned by [`docs/telemetry/policy.md`](../../../docs/telemetry/policy.md) §4 and the L2 sink [`../L2/telemetry-vertical/logical.md`](../L2/telemetry-vertical/logical.md) §2 + [`process.md`](../L2/telemetry-vertical/process.md) §3, and is NOT restated here. Enforced by the ArchUnit hook-chain-only enforcer (`test/…-llmgatewayhookchainonlytest`, recorded in [`architecture/facts/generated/tests.json`](../../facts/generated/tests.json)) — the structural mechanism — with the GENERATION-span emission assertion deferred to the W2 integration test named in [`docs/telemetry/policy.md`](../../../docs/telemetry/policy.md) §10. See ADR-0061 §1 + ADR-0061 §7.
 
-57. **Tenant attribute on every span.** Every Span emitted by the platform MUST carry `tenant.id` matching `RunContext.tenantId()`. MCP trace replay (`get_run_trace`, `list_runs`, `list_sessions`, `get_llm_call`) MUST fail closed on tenant mismatch — the caller's tenant (resolved from JWT) MUST match `trace.tenant_id`, returning 403 otherwise. Reconciliation with `TenantTagMeterFilter` (L1): the filter strips `tenant_id` from raw meter tags (high-cardinality protection); the span attribute is unaffected because span storage is sampled (1-10 %) and span attributes are not aggregation dimensions. Enforced by ArchUnit `SpanTenantAttributeRequiredTest` + (W2) `McpTraceLookupTenantIsolationIT`. See ADR-0061 §5–§6.
+57. **Tenant attribute on every span.** Every Span emitted by the platform MUST carry a `tenant.id` attribute bound to `RunContext.tenantId()`, and the MCP trace-replay surface (§4 #59) MUST fail closed on tenant mismatch — the caller's resolved tenant MUST match the stored `trace.tenant_id`. The span-attribute requirement and the metric-cardinality reconciliation with `TenantTagMeterFilter` (the raw-span-attribute vs bucketed-meter-tag split, and the per-posture sampling that makes it safe) are runtime detail owned by [`docs/telemetry/policy.md`](../../../docs/telemetry/policy.md) §2 + §4; the replay-path fail-closed status code and the concrete replay-operation set are owned by the L2 sink [`../L2/telemetry-vertical/process.md`](../L2/telemetry-vertical/process.md) §5 and §4 #59; neither is restated here. Enforced by the ArchUnit span-attribute enforcer (`test/…-spantenantattributerequiredtest`, recorded in [`architecture/facts/generated/tests.json`](../../facts/generated/tests.json)) — the structural mechanism — with the replay-path tenant-isolation assertion deferred to the W2 integration test named in [`docs/telemetry/policy.md`](../../../docs/telemetry/policy.md) §10. See ADR-0061 §5–§6.
 
 58. **No PII in span attributes.** Raw prompt, completion, tool-input, and tool-output content MUST NOT appear in Span attributes in posture=research/prod. Payloads MUST be stored in `PayloadStore` and referenced via `payload_ref://<id>`. `PiiRedactionHook` MUST be registered at boot in posture=research/prod (verified by `AppPostureGate`); startup MUST fail closed if the hook is absent. Enforced by integration `PostureBootPiiHookPresenceContractIT` (L1.x — asserts the boot-gate contract; the negative emission test `PiiSpanAttributeIT` lands at W2 alongside Hook SPI implementation; class FQN locked here per Rule R-C.a). See ADR-0061 §5.
 
@@ -1023,12 +1045,15 @@ repo-wide.
 ## 5. W0 shipped capabilities
 
 This list names the W0-shipped capabilities as **boundary identities** and their wave
-phasing. It carries no wire detail: the routes, over-the-wire body shapes, header names,
-mutating verbs, and HTTP status codes of the HTTP-edge capabilities below are
-runtime-contract facts owned by the OpenAPI surface (facts `contract-op/gethealth`,
-`contract-op/createrun`, sourced from `docs/contracts/openapi-v1.yaml`) and expanded in
-the L2 sinks [`../L2/run-http-contract/`](../L2/run-http-contract/) +
-[`../L2/fp-idempotency-claim/`](../L2/fp-idempotency-claim/).
+phasing. It carries no wire detail and no method-signature or test-class detail: the routes,
+over-the-wire body shapes, header names, mutating verbs, and HTTP status codes of the
+HTTP-edge capabilities below are runtime-contract facts owned by the OpenAPI surface (facts
+`contract-op/gethealth`, `contract-op/createrun`, sourced from `docs/contracts/openapi-v1.yaml`)
+and expanded in the L2 sinks [`../L2/run-http-contract/`](../L2/run-http-contract/) +
+[`../L2/fp-idempotency-claim/`](../L2/fp-idempotency-claim/); a capability's canonical method
+set is its `public_methods` in `architecture/facts/generated/code-symbols.json`, and the
+test classes that verify a capability resolve in `architecture/facts/generated/tests.json` —
+neither is restated here (per the authority cascade, generated facts > DSL > this prose).
 
 - `HealthController` — W0 liveness probe; the route and response body shape are
   `contract-op/gethealth` (OpenAPI surface), not restated here.
@@ -1044,12 +1069,21 @@ the L2 sinks [`../L2/run-http-contract/`](../L2/run-http-contract/) +
 - `ResilienceContract` + `YamlResilienceContract` — per-operation resilience routing (operationId → policy triple).
 - `Run` entity + `RunRepository` SPI — contract-spine entity (Rule R-C.c target); `mode` field (`GRAPH`|`AGENT_LOOP`) discriminates executor type; `parentRunId` + `parentNodeKey` + `SUSPENDED` status support interrupt-driven nesting.
 - `IdempotencyRecord` entity — contract-spine entity with mandatory `tenantId` (Rule R-C.c target).
-- `OssApiProbeTest` — compile-time probe verifying Spring AI + Spring Boot API surface.
-- `ApiCompatibilityTest` — ArchUnit rules enforcing SPI purity and dependency direction.
-- `RuntimeMustNotDependOnPlatformTest` — ArchUnit Rule R-C.e (L1 generalisation per ADR-0055): no class under `com.huawei.ascend.service.runtime..` (re-consolidated into `agent-service` per ADR-0088, rc13 — the intermediate post-ADR-0079 split into `agent-runtime-core` was dissolved) may import any class under `com.huawei.ascend.service.platform..` (HTTP-edge sub-package of `agent-service`, formerly the `agent-platform` module pre-Phase-C).
-- `TenantPropagationPurityTest` — ArchUnit Rule R-C.e (original narrow case per ADR-0023, preserved as defence-in-depth): no class under `com.huawei.ascend.service.runtime..` may import `TenantContextHolder` (located at `agent-service.service.platform.tenant.TenantContextHolder` post-ADR-0078).
+- W0 architecture-conformance verification — the SPI-purity and dependency-direction
+  invariants (§4 #1 / §4 #10 / §4 #60) and the runtime-must-not-import-platform /
+  tenant-propagation-purity invariants are enforced by ArchUnit (Rule R-C.e) and the
+  compile-time API-surface probe; L0 names the invariants and the enforcer mechanism, not the
+  per-class assertion catalogue. The verifying test classes resolve in
+  `architecture/facts/generated/tests.json` (`test/com-huawei-ascend-service-runtime-probe-ossapiprobetest`,
+  `test/com-huawei-ascend-service-platform-api-apicompatibilitytest`,
+  `test/com-huawei-ascend-service-runtime-architecture-runtimemustnotdependonplatformtest`,
+  `test/com-huawei-ascend-service-runtime-architecture-tenantpropagationpuritytest`) and are
+  not restated here.
 - `Orchestrator` SPI + `GraphExecutor` + `AgentLoopExecutor` + `SuspendSignal` + `Checkpointer` — dual-mode runtime SPIs (§4 constraint #9).
-- `RunStateMachine` — DFA validator enforcing §4 #20 legal transitions; `validate/allowedTransitions/isTerminal` (Rule R-C.d). `RunStatus.EXPIRED` added as 7th terminal value.
+- `RunStateMachine` — DFA validator enforcing §4 #20 legal transitions (Rule R-C.d); its
+  canonical method set is the `public_methods` of fact
+  `code-symbol/com-huawei-ascend-service-runtime-runs-runstatemachine`, not restated here.
+  `RunStatus.EXPIRED` added as 7th terminal value.
 - `InMemoryCheckpointer` — dev-posture in-memory checkpoint store with posture-aware 16-KiB
   payload cap (§4 #13 / §4 #25): dev posture emits WARN on oversize; research/prod throws
   `IllegalStateException`. W2: replaced by Postgres-backed impl.

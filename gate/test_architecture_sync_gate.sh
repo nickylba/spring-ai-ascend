@@ -10202,6 +10202,184 @@ test_rule_150_adr_id_uniqueness_duplicate_neg() {
 }
 
 # ---------------------------------------------------------------------------
+# Rule 151 / kernel Rule G-34 (enforcer E201) — status_claim_altitude.
+# A minimal synthetic capability-status ledger staged under $sroot:
+#   docs/governance/layer-purity-policy.yaml                       (leaked L3/L4)
+#   docs/governance/architecture-status.yaml                       (the ledger)
+#   docs/governance/layer-purity-status-ledger-grandfather.yaml    (tolerance rows)
+#   gate/lib/check_status_claim_altitude.py + gate/lib/check_layer_purity.py
+# The helper imports the SHARED trigger library from its OWN gate/lib directory
+# (Path(__file__).parent), so the scratch must carry check_layer_purity.py too;
+# the policy / ledger / grandfather are read relative to --repo. Mirrors the
+# standalone unit harness gate/test_status_claim_altitude.py; here we lock the
+# gate-script's landing self-tests (clean / leak negative / grandfathered) per
+# Rule 89 / E122 sub-check (c), plus the W27-style wired-posture lock that the
+# canonical gate invokes the helper changed-files-blocking, never advisory.
+# ---------------------------------------------------------------------------
+_g34_status_claim_scratch() {
+  # $1 = scratch root; $2 = grandfather 'violations:' body (raw YAML block).
+  local sroot="$1"; local gf_body="$2"
+  mkdir -p "$sroot/gate/lib" "$sroot/docs/governance"
+  cp "$PWD/gate/lib/check_status_claim_altitude.py" "$sroot/gate/lib/check_status_claim_altitude.py"
+  cp "$PWD/gate/lib/check_layer_purity.py" "$sroot/gate/lib/check_layer_purity.py"
+  # Minimal shared policy: just the two leaked categories the staged claims trip.
+  cat > "$sroot/docs/governance/layer-purity-policy.yaml" <<'POLICY'
+schema_version: 2
+authority: ADR-0159
+status: advisory
+categories:
+  - id: L3-sql-rls-persistence
+    kind: leaked
+    title: SQL / RLS / GUC / persistence detail
+    owned_at: [L2]
+    forbidden_at: [L0, L1]
+    home: "architecture/docs/L2/<frame>/ + Flyway migrations"
+  - id: L4-http-status-route-verb
+    kind: leaked
+    title: HTTP status / route-verb / header behaviour
+    owned_at: [L2]
+    forbidden_at: [L0, L1]
+    home: "docs/contracts/*.v1.yaml"
+POLICY
+  # A ledger with one leaked claim (cap_alpha -> a bare 409 = L4) and one clean
+  # claim (cap_clean -> capability identity + pointer only).
+  cat > "$sroot/docs/governance/architecture-status.yaml" <<'LEDGER'
+version: 1
+generated_at: 2026-05-30
+capabilities:
+  cap_alpha:
+    status: design_accepted
+    shipped: false
+    allowed_claim: "Design only -- cancel returns 409 illegal_state_transition on an already-terminal run."
+  cap_clean:
+    status: design_accepted
+    shipped: false
+    allowed_claim: "Design only -- a tenant-scoped dedup capability exists; the SPI identity is the boundary; detail in docs/contracts/."
+LEDGER
+  cat > "$sroot/docs/governance/layer-purity-status-ledger-grandfather.yaml" <<GRAND
+schema_version: 1
+authority: ADR-0159
+last_updated: 2026-05-30
+status: advisory
+list_closed: true
+violations:${gf_body}
+GRAND
+}
+
+test_rule_151_status_claim_altitude_clean_pos() {
+  # POSITIVE: a ledger whose only leaked claim is grandfathered AND a clean claim
+  # present -> full-blocking passes (0 findings). Here we stage NO leak by
+  # grandfathering cap_alpha, proving the clean path with the matcher engaged.
+  local helper="$PWD/gate/lib/check_status_claim_altitude.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_151_status_claim_altitude_clean_pos" "Rule G-34 / Rule 151: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_151_status_claim_altitude_clean_pos" "Rule G-34 / Rule 151: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r151_clean"
+  _g34_status_claim_scratch "$sroot" "
+  - id: LPV-SL-cap_alpha
+    layer: STATUS-LEDGER
+    file: docs/governance/architecture-status.yaml
+    capability: cap_alpha
+    category: L4-http-status-route-verb
+    trigger: test
+    migrate_to: docs/contracts/x.v1.yaml
+    sunset_date: 2099-12-31"
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_status_claim_altitude.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 0 ]] && echo "$out" | grep -q "0 finding(s)"; then
+    ok "rule_151_status_claim_altitude_clean_pos" "Rule G-34 / Rule 151: a ledger whose only leak is capability-grandfathered passes full-blocking (0 findings)"
+  else
+    fail "rule_151_status_claim_altitude_clean_pos" "Rule G-34 / Rule 151 clean case unexpected: rc=$rc out=$(echo "$out" | grep finding | head -1)"
+  fi
+}
+
+test_rule_151_status_claim_altitude_leak_neg() {
+  # NEGATIVE: the cap_alpha 409 (L4) leak with NO grandfather row -> full-blocking
+  # reports the leak and exits 1. The non-vacuity of the scan (it really sees the
+  # leak) is what this locks; the advisory soak + changed-files scoping + expiry +
+  # capability-precise + config-error cases are proved by the unit-level
+  # gate/test_status_claim_altitude.py.
+  local helper="$PWD/gate/lib/check_status_claim_altitude.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_151_status_claim_altitude_leak_neg" "Rule G-34 / Rule 151: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_151_status_claim_altitude_leak_neg" "Rule G-34 / Rule 151: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r151_leak"
+  _g34_status_claim_scratch "$sroot" " []"
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_status_claim_altitude.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 1 ]] && echo "$out" | grep -qE 'L4-http-status-route-verb'; then
+    ok "rule_151_status_claim_altitude_leak_neg" "Rule G-34 / Rule 151: an ungrandfathered HTTP-status leak in allowed_claim fails full-blocking"
+  else
+    fail "rule_151_status_claim_altitude_leak_neg" "Rule G-34 / Rule 151 leak case did not fail as expected: rc=$rc out=$(echo "$out" | grep -E 'finding|L4' | head -2)"
+  fi
+}
+
+test_rule_151_status_claim_altitude_grandfathered_pos() {
+  # POSITIVE: the SAME cap_alpha leak, now frozen by a capability-matched, open
+  # grandfather row -> full-blocking tolerates it (0 findings, 1 grandfathered).
+  # This is the tolerance half the leak negative omits, proving the matcher pairs
+  # the row to the leak on capability + category.
+  local helper="$PWD/gate/lib/check_status_claim_altitude.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_151_status_claim_altitude_grandfathered_pos" "Rule G-34 / Rule 151: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_151_status_claim_altitude_grandfathered_pos" "Rule G-34 / Rule 151: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r151_grandfathered"
+  _g34_status_claim_scratch "$sroot" "
+  - id: LPV-SL-cap_alpha
+    layer: STATUS-LEDGER
+    file: docs/governance/architecture-status.yaml
+    capability: cap_alpha
+    category: L4-http-status-route-verb
+    trigger: test
+    migrate_to: docs/contracts/x.v1.yaml
+    sunset_date: 2099-12-31"
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_status_claim_altitude.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 0 ]] && echo "$out" | grep -q "1 grandfathered"; then
+    ok "rule_151_status_claim_altitude_grandfathered_pos" "Rule G-34 / Rule 151: a capability-matched open row tolerates its leak under full-blocking (1 grandfathered)"
+  else
+    fail "rule_151_status_claim_altitude_grandfathered_pos" "Rule G-34 / Rule 151 grandfathered case unexpected: rc=$rc out=$(echo "$out" | grep -E 'finding|grandfathered' | head -1)"
+  fi
+}
+
+test_rule_151_status_claim_altitude_wired_changed_files_blocking_pos() {
+  # POSITIVE: the status-claim-altitude helper (E201) is invoked
+  # changed-files-blocking, never advisory, in the canonical gate (the Phase-2
+  # landing rung; full-blocking deferred per ADR-0159 §9).
+  if [[ ! -f gate/check_architecture_sync.sh ]]; then
+    fail "rule_151_status_claim_altitude_wired_changed_files_blocking_pos" "Rule G-34 / Rule 151: canonical gate script missing"
+    return
+  fi
+  if grep -qE '"\$_r151_helper" --mode advisory' gate/check_architecture_sync.sh; then
+    fail "rule_151_status_claim_altitude_wired_changed_files_blocking_pos" "Rule G-34 / Rule 151: status-claim-altitude helper wired --mode advisory (expected changed-files-blocking)"
+    return
+  fi
+  if grep -qE '"\$_r151_helper" --mode changed-files-blocking --base' gate/check_architecture_sync.sh; then
+    ok "rule_151_status_claim_altitude_wired_changed_files_blocking_pos" "Rule G-34 / Rule 151: status-claim-altitude helper (E201) wired changed-files-blocking in canonical gate (full-blocking deferred)"
+  else
+    fail "rule_151_status_claim_altitude_wired_changed_files_blocking_pos" "Rule G-34 / Rule 151: status-claim-altitude helper not wired --mode changed-files-blocking --base in canonical gate"
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #
 # Each test_rule*() function is independent (uses its own $scratch/r<N>_*
