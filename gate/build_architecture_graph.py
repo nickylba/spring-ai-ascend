@@ -91,7 +91,16 @@ def discover_adrs(adr_dir: Path) -> list[Path]:
 def discover_l2_docs(l2_dir: Path) -> list[Path]:
     if not l2_dir.is_dir():
         return []
-    return sorted(p for p in l2_dir.rglob("*.md") if p.name != "README.md")
+    # README.md is a corpus index, not an authored spec. A basename beginning
+    # with `_` is a scaffold/skeleton (e.g. `_function-point-template.md`) that is
+    # COPIED, never linked-to-as-authority; the L2 corpus convention excludes any
+    # `_*.md` from authored-spec globs, so the graph (which indexes authored L2
+    # docs) excludes it too — otherwise the template would project a spurious
+    # artefact node + level/view edges it explicitly disclaims.
+    return sorted(
+        p for p in l2_dir.rglob("*.md")
+        if p.name != "README.md" and not p.name.startswith("_")
+    )
 
 
 # ---------------------------------------------------------------------------

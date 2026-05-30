@@ -203,7 +203,12 @@ docs/governance/SESSION-START-CONTEXT.md=8000
 # --enforced_by--> / --asserts_in--> edges grew the graph to 301596 bytes
 # (matches baseline_metrics architecture_graph_nodes 694 / edges 1357). Ceiling
 # raised 300000 -> 304000 with ~2.4K headroom (same ratchet posture).
-docs/governance/architecture-graph.yaml=304000
+# 2026-05-30 progressive-learning-curve-remediation W20: the Rule-G-30 rule
+# node + E197 enforcer node (FunctionPoint-readiness gate landing) + their
+# --enforced_by--> / --asserts_in--> edges grew the graph to 305917 bytes
+# (matches baseline_metrics architecture_graph_nodes 696 / edges 1359). Ceiling
+# raised 304000 -> 308000 with ~2.1K headroom (same ratchet posture).
+docs/governance/architecture-graph.yaml=308000
 # Structurizr workspace authority W7 (ADR-0149): +1 ADR node (0149) + 6 edges
 # (extends ADR-0147 + ADR-0148; relates_to ADR-0068 + ADR-0119) grew the graph
 # from 265500 to ~266400 bytes. Ceiling raised 265500 → 267000 with ~600 bytes

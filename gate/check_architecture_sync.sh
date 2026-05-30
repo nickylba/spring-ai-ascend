@@ -150,6 +150,8 @@
 #  145. layer_purity                                  -- two ADVISORY helpers encoding the layer-purity VERDICT: gate/lib/check_layer_purity.py (E194 — L2 detail that an authority surface DECLARES it does not carry) + gate/lib/check_l2_detail_sink.py (E195 — L2 implementation detail (SQL/RLS/GUC, HTTP status+verb, wire formats, method signatures + call chains, filter ordering, test-class inventories) left in L0/L1 prose). Both report findings to the gate log; neither blocks at the advisory rung (Rule G-27, enforcers E194-E195).
 #  --- 2026-05-30 progressive-learning-curve-remediation W16/W19 — Frame-Card / DSL parity gate (Rule 146 / kernel Rule G-29; enforcer E196) ---
 #  146. frame_card_consistency                        -- CHANGED-FILES-BLOCKING helper gate/lib/check_frame_card_consistency.py: an EngineeringFrame Frame Card (architecture/docs/L1/frames/<frame-id>.md) is a readable interpretation of DSL+facts, never authority (ADR-0161). A CHANGED card BLOCKS (and a vanished DSL/facts authority fails closed in every mode) when the card's frontmatter frame_id/owner/status/primary_package disagrees with the DSL element, when a cited code-symbol/test/contract-op (or method descriptor) does not resolve in architecture/facts/generated/*.json, or when the card names a FunctionPoint the frame does not 'anchors' in the DSL; pre-existing findings on untouched cards stay advisory. Self-derives the changed-card set from git against --base (W19 promotion from advisory; ADR-0161 §6 Phase-2 rung -> full-blocking after a 14-day soak) (Rule G-29, enforcer E196).
+#  --- 2026-05-30 progressive-learning-curve-remediation W20 — FunctionPoint readiness gate (Rule 147 / kernel Rule G-30; enforcer E197) ---
+#  147. feature_readiness                              -- ADVISORY helper gate/lib/check_feature_readiness.py: a FunctionPoint is the behavioral join point of the progressive learning curve; the helper evaluates every SAA FunctionPoint element in architecture/features/function-points.dsl against the readiness bar its saa.status resolves to under docs/governance/feature-readiness-policy.yaml (design_only->proposed / mock_functional->active / shipped->full per-axis acceptance bar) and reports the obligations the FunctionPoint has NOT discharged across the four axes: STRUCTURE (one frame anchors + an owning-module implements), VALUE (a Feature requires), EVIDENCE (contract-or-rationale + a resolving generated-fact ref + test-or-exception + a gate ref), DECISION (a normalized ADR view in active_guidance/partial_guidance), plus the OWNERSHIP invariant (only an EngineeringFrame may 'anchors' a FunctionPoint). Reports findings to the gate log; always exits 0 at this advisory rung (ADR-0159 §13.3 first-cleanup-wave landing -> changed-files-blocking -> full-blocking once the corpus reaches the acceptance bar). Greenfield-vacuous until the first FunctionPoint; the instant one exists the policy + DSL + facts MUST be readable or the helper fails closed (exit 2) in every mode (Rule G-30, enforcer E197).
 
 set -uo pipefail
 export LC_ALL=C
@@ -7750,6 +7752,66 @@ else
   fi
 fi
 [[ $_r146_fail -eq 0 ]] && pass_rule "frame_card_consistency"
+
+# ---------------------------------------------------------------------------
+# Rule 147 — feature_readiness (enforcer E197, kernel Rule G-30)
+#
+# Authority: ADR-0159 (Progressive Learning Curve and Authority Lanes). One
+# ADVISORY helper that evaluates every FunctionPoint against the readiness bar
+# its saa.status resolves to under the policy data file
+# docs/governance/feature-readiness-policy.yaml — the FunctionPoint is the
+# behavioral JOIN POINT of the curve, and a unit of work is shippable only when
+# every required axis is complete:
+#   * gate/lib/check_feature_readiness.py (E197, slug feature_readiness) — for
+#     every SAA FunctionPoint element in architecture/features/function-points.dsl
+#     it resolves a readiness bar from saa.status (design_only->proposed /
+#     mock_functional->active / shipped->the full bar) and reports the obligations
+#     the FunctionPoint has NOT discharged: STRUCTURE (anchored by exactly one
+#     EngineeringFrame + an owning-module implements edge), VALUE (a Feature
+#     requires it), EVIDENCE (a contract-op ref or no-contract rationale, a
+#     generated-fact ref resolving in architecture/facts/generated/*.json, a test
+#     ref or approved exception, a gate ref), DECISION (saa.sourceAdr resolves to
+#     a normalized ADR view in active_guidance/partial_guidance), plus the
+#     OWNERSHIP invariant (only an EngineeringFrame may 'anchors' a FunctionPoint).
+# Runs ADVISORY here (`--mode advisory`): the helper evaluates every FunctionPoint,
+# reports findings to the gate log, and ALWAYS exits 0 — the ADR-0159 §13.3
+# first-cleanup-wave landing rung. The ratchet is advisory (this rung) ->
+# changed-files-blocking (a PR may not ADD/worsen a finding on a FunctionPoint
+# whose authoring surfaces it touches; self-derives scope from git against --base,
+# same pattern as Rule 145 / E194 + Rule 146 / E196) -> full-blocking (the terminal
+# rung once the corpus reaches the acceptance bar). architecture/features/
+# function-points.dsl is greenfield-vacuous until the first FunctionPoint exists;
+# the instant one does, the policy file + DSL surfaces + generated facts MUST be
+# readable or the helper fails closed (exit 2) in EVERY mode including advisory —
+# a missing authority is never an advisory condition, so it is surfaced as a hard
+# fail here. A missing helper fails closed; a missing python interpreter is a
+# vacuous pass (Rule G-7 lists WSL as canonical).
+#
+# scope_surfaces: architecture/features/function-points.dsl, architecture/features/engineering-frames.dsl, architecture/features/features.dsl, docs/governance/feature-readiness-policy.yaml, architecture/facts/generated/code-symbols.json, architecture/facts/generated/tests.json, architecture/facts/generated/contract-surfaces.json, docs/adr/normalized, architecture/docs/L2, gate/lib/check_feature_readiness.py
+# ---------------------------------------------------------------------------
+_r147_fail=0
+_r147_helper="gate/lib/check_feature_readiness.py"
+if [[ ! -f "$_r147_helper" ]]; then
+  fail_rule "feature_readiness" "$_r147_helper missing -- Rule G-30 / E197"
+  _r147_fail=1
+elif [[ -z "$GATE_PYTHON_BIN" ]]; then
+  : # vacuous pass on hosts without python (Rule G-7 lists WSL as canonical env)
+else
+  _r147_out=$("$GATE_PYTHON_BIN" "$_r147_helper" --mode advisory 2>&1)
+  _r147_rc=$?
+  # Advisory mode ALWAYS exits 0 when the authorities are readable. A non-zero rc
+  # is therefore a CONFIG ERROR (exit 2 — a FunctionPoint exists but the policy /
+  # DSL / facts authority vanished); fail the rule and surface it verbatim.
+  if [[ $_r147_rc -ne 0 ]]; then
+    _r147_err=$(printf '%s' "$_r147_out" | grep -E 'config error' | head -1)
+    fail_rule "feature_readiness" "${_r147_err:-feature-readiness helper exited $_r147_rc (advisory must exit 0)} -- Rule G-30 / E197"
+    _r147_fail=1
+  else
+    _r147_sum=$(printf '%s' "$_r147_out" | grep -E 'finding\(s\)' | tail -1)
+    [[ -n "$_r147_sum" ]] && echo "OK (Rule G-30 / E197 advisory): $_r147_sum"
+  fi
+fi
+[[ $_r147_fail -eq 0 ]] && pass_rule "feature_readiness"
 
 # === END OF RULES ===
 # ---------------------------------------------------------------------------

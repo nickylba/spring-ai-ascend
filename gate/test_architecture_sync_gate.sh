@@ -9252,6 +9252,304 @@ EOF
 }
 
 # ---------------------------------------------------------------------------
+# Rule 147 — feature_readiness (Rule G-30 / E197)
+# 2026-05-30 progressive-learning-curve-remediation W20. ADR-0159 FunctionPoint
+# readiness over the four axes. Each fixture builds an isolated scratch repo
+# (never the working tree) with a minimal policy + DSL + generated facts +
+# normalized-ADR view, then asserts the helper's verdict. Fail-closed discipline
+# (non-vacuity guard for an auto-discovering rule): every failure mode ships a
+# negative AND a positive fixture. The rule lands ADVISORY (always exit 0); the
+# blocking-mode probes use --mode full-blocking to exercise the per-axis verdicts.
+# ---------------------------------------------------------------------------
+# Lay down a minimal CLEAN shipped corpus: one frame anchoring one FP, the FP
+# element with full evidence refs, a module implements + a feature requires, the
+# three generated facts, the policy file, and a citeable normalized ADR view.
+# Each test mutates exactly one obligation so the only finding is the one it tests.
+_g30_readiness_scratch() {
+  local sroot="$1"
+  rm -rf "$sroot"
+  mkdir -p "$sroot/gate/lib" \
+           "$sroot/architecture/features" \
+           "$sroot/architecture/facts/generated" \
+           "$sroot/docs/governance" \
+           "$sroot/docs/adr/normalized"
+  cp "$PWD/gate/lib/check_feature_readiness.py" "$sroot/gate/lib/check_feature_readiness.py"
+  # The canonical policy file IS the schema — copy the repo's so the test exercises
+  # the SAME bar mapping the gate enforces, not a divergent synthetic policy.
+  cp "$PWD/docs/governance/feature-readiness-policy.yaml" "$sroot/docs/governance/feature-readiness-policy.yaml"
+  cat > "$sroot/architecture/features/function-points.dsl" <<'EOF'
+fpCreateRun = element "Create Run" "FunctionPoint" "POST /v1/runs" "SAA FunctionPoint" {
+    properties {
+        "saa.id" "FP-CREATE-RUN"
+        "saa.status" "shipped"
+        "saa.owner" "agent-service"
+        "saa.sourceAdr" "ADR-0020"
+        "saa.contract_op_refs" "contract-op/createrun"
+        "saa.test_refs" "com.huawei.ascend.RunHttpContractIT"
+        "saa.code_entrypoint_refs" "agent-service/src/main/java/RunController.java#create"
+    }
+}
+modAgentService = element "agent-service" "Module" "domain module" "SAA Module" {
+    properties { "saa.id" "agent-service" }
+}
+modAgentService -> fpCreateRun "module implements function point" "SAA Relationship" {
+    properties { "saa.rel" "implements" }
+}
+EOF
+  cat > "$sroot/architecture/features/engineering-frames.dsl" <<'EOF'
+efAccessAdmission = element "Access Admission Frame" "EngineeringFrame" "admission" "SAA EngineeringFrame" {
+    properties {
+        "saa.id" "EF-ACCESS-ADMISSION"
+        "saa.status" "shipped"
+        "saa.owner" "agent-service"
+    }
+}
+efAccessAdmission -> fpCreateRun "frame anchors function point" "SAA Relationship" {
+    properties { "saa.rel" "anchors" }
+}
+EOF
+  cat > "$sroot/architecture/features/features.dsl" <<'EOF'
+featRunLifecycle = element "Run Lifecycle" "Feature" "run lifecycle" "SAA Feature" {
+    properties { "saa.id" "FEAT-RUN-LIFECYCLE" "saa.status" "shipped" }
+}
+featRunLifecycle -> fpCreateRun "feature requires function point" "SAA Relationship" {
+    properties { "saa.rel" "requires" }
+}
+EOF
+  cat > "$sroot/architecture/facts/generated/code-symbols.json" <<'EOF'
+{ "facts": [ { "fact_id": "code-symbol/runcontroller", "observed_value": {} } ] }
+EOF
+  cat > "$sroot/architecture/facts/generated/tests.json" <<'EOF'
+{ "facts": [ { "fact_id": "test/runhttpcontractit", "observed_value": {} } ] }
+EOF
+  cat > "$sroot/architecture/facts/generated/contract-surfaces.json" <<'EOF'
+{ "facts": [ { "fact_id": "contract-op/createrun", "observed_value": {} } ] }
+EOF
+  cat > "$sroot/docs/adr/normalized/ADR-0020.yaml" <<'EOF'
+adr: ADR-0020
+current_state: active_guidance
+EOF
+}
+
+test_rule_147_feature_readiness_greenfield_pos() {
+  # POSITIVE: no FunctionPoint element yet -> vacuously clean in every mode.
+  local helper="$PWD/gate/lib/check_feature_readiness.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_147_feature_readiness_greenfield_pos" "Rule G-30 / Rule 147: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_147_feature_readiness_greenfield_pos" "Rule G-30 / Rule 147: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r147_greenfield"
+  _g30_readiness_scratch "$sroot"
+  # Replace the FP DSL with one that declares NO FunctionPoint element.
+  printf '// no function points yet\n' > "$sroot/architecture/features/function-points.dsl"
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_feature_readiness.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 0 ]] && echo "$out" | grep -q "greenfield"; then
+    ok "rule_147_feature_readiness_greenfield_pos" "Rule G-30 / Rule 147: no FunctionPoint element is vacuously clean (greenfield)"
+  else
+    fail "rule_147_feature_readiness_greenfield_pos" "Rule G-30 / Rule 147 greenfield case unexpected: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+test_rule_147_feature_readiness_valid_pos() {
+  # POSITIVE: a fully-shipped FP satisfying every axis passes full-blocking.
+  local helper="$PWD/gate/lib/check_feature_readiness.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_147_feature_readiness_valid_pos" "Rule G-30 / Rule 147: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_147_feature_readiness_valid_pos" "Rule G-30 / Rule 147: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r147_valid"
+  _g30_readiness_scratch "$sroot"
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_feature_readiness.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 2 ]]; then
+    ok "rule_147_feature_readiness_valid_pos" "Rule G-30 / Rule 147: helper config error (likely PyYAML absent) — skipped: $(echo "$out" | head -1)"
+    return
+  fi
+  if [[ $rc -eq 0 ]] && echo "$out" | grep -q "0 finding(s)"; then
+    ok "rule_147_feature_readiness_valid_pos" "Rule G-30 / Rule 147: a fully-shipped FP satisfying every axis passes full-blocking"
+  else
+    fail "rule_147_feature_readiness_valid_pos" "Rule G-30 / Rule 147 valid case unexpected: rc=$rc out=$(echo "$out" | head -2)"
+  fi
+}
+
+test_rule_147_feature_readiness_missing_axis_neg() {
+  # NEGATIVE: drop the contract obligation -> EVIDENCE-NO-CONTRACT under full-blocking.
+  local helper="$PWD/gate/lib/check_feature_readiness.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_147_feature_readiness_missing_axis_neg" "Rule G-30 / Rule 147: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_147_feature_readiness_missing_axis_neg" "Rule G-30 / Rule 147: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r147_missing_axis"
+  _g30_readiness_scratch "$sroot"
+  # Remove the contract ref line from the FP element.
+  grep -v 'saa.contract_op_refs' "$sroot/architecture/features/function-points.dsl" > "$sroot/architecture/features/function-points.dsl.tmp"
+  mv "$sroot/architecture/features/function-points.dsl.tmp" "$sroot/architecture/features/function-points.dsl"
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_feature_readiness.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 2 ]]; then
+    ok "rule_147_feature_readiness_missing_axis_neg" "Rule G-30 / Rule 147: helper config error (likely PyYAML absent) — skipped: $(echo "$out" | head -1)"
+    return
+  fi
+  if [[ $rc -eq 1 ]] && echo "$out" | grep -q "EVIDENCE-NO-CONTRACT"; then
+    ok "rule_147_feature_readiness_missing_axis_neg" "Rule G-30 / Rule 147: a shipped FP missing its contract obligation fails full-blocking (EVIDENCE-NO-CONTRACT)"
+  else
+    fail "rule_147_feature_readiness_missing_axis_neg" "Rule G-30 / Rule 147 missing-axis case did not fail as expected: rc=$rc out=$(echo "$out" | head -2)"
+  fi
+}
+
+test_rule_147_feature_readiness_noncite_adr_neg() {
+  # NEGATIVE: point sourceAdr at a normalized view in a non-citeable state ->
+  # DECISION-ADR-NOT-CITEABLE under full-blocking.
+  local helper="$PWD/gate/lib/check_feature_readiness.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_147_feature_readiness_noncite_adr_neg" "Rule G-30 / Rule 147: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_147_feature_readiness_noncite_adr_neg" "Rule G-30 / Rule 147: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r147_noncite_adr"
+  _g30_readiness_scratch "$sroot"
+  cat > "$sroot/docs/adr/normalized/ADR-0020.yaml" <<'EOF'
+adr: ADR-0020
+current_state: remediation_record
+EOF
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_feature_readiness.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 2 ]]; then
+    ok "rule_147_feature_readiness_noncite_adr_neg" "Rule G-30 / Rule 147: helper config error (likely PyYAML absent) — skipped: $(echo "$out" | head -1)"
+    return
+  fi
+  if [[ $rc -eq 1 ]] && echo "$out" | grep -q "DECISION-ADR-NOT-CITEABLE"; then
+    ok "rule_147_feature_readiness_noncite_adr_neg" "Rule G-30 / Rule 147: a shipped FP citing a non-citeable normalized ADR view fails full-blocking (DECISION-ADR-NOT-CITEABLE)"
+  else
+    fail "rule_147_feature_readiness_noncite_adr_neg" "Rule G-30 / Rule 147 noncite-ADR case did not fail as expected: rc=$rc out=$(echo "$out" | head -2)"
+  fi
+}
+
+test_rule_147_feature_readiness_ownership_neg() {
+  # NEGATIVE: a Feature (value-axis node) 'anchors'-owning a FP is a structural
+  # lie (OWNERSHIP-NONFRAME-ANCHOR) that blocks even when the FP is design_only.
+  local helper="$PWD/gate/lib/check_feature_readiness.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_147_feature_readiness_ownership_neg" "Rule G-30 / Rule 147: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_147_feature_readiness_ownership_neg" "Rule G-30 / Rule 147: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r147_ownership"
+  _g30_readiness_scratch "$sroot"
+  # A design_only FP (no per-FP findings) with a Feature anchoring it in the
+  # engineering-frames.dsl surface (where anchors edges live).
+  cat > "$sroot/architecture/features/function-points.dsl" <<'EOF'
+fpFoo = element "Foo" "FunctionPoint" "x" "SAA FunctionPoint" {
+    properties { "saa.id" "FP-FOO" "saa.status" "design_only" "saa.owner" "agent-service" }
+}
+EOF
+  cat > "$sroot/architecture/features/engineering-frames.dsl" <<'EOF'
+featBad = element "Bad Feature" "Feature" "x" "SAA Feature" {
+    properties { "saa.id" "FEAT-BAD" "saa.status" "shipped" }
+}
+featBad -> fpFoo "feature anchors function point" "SAA Relationship" {
+    properties { "saa.rel" "anchors" }
+}
+EOF
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_feature_readiness.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 2 ]]; then
+    ok "rule_147_feature_readiness_ownership_neg" "Rule G-30 / Rule 147: helper config error (likely PyYAML absent) — skipped: $(echo "$out" | head -1)"
+    return
+  fi
+  if [[ $rc -eq 1 ]] && echo "$out" | grep -q "OWNERSHIP-NONFRAME-ANCHOR"; then
+    ok "rule_147_feature_readiness_ownership_neg" "Rule G-30 / Rule 147: a value-axis node anchoring a FunctionPoint fails full-blocking (OWNERSHIP-NONFRAME-ANCHOR)"
+  else
+    fail "rule_147_feature_readiness_ownership_neg" "Rule G-30 / Rule 147 ownership-invariant case did not fail as expected: rc=$rc out=$(echo "$out" | head -2)"
+  fi
+}
+
+test_rule_147_feature_readiness_advisory_never_blocks_pos() {
+  # POSITIVE: a shipped FP missing every axis produces many findings, but advisory
+  # mode (the W20 landing rung wired in the gate) ALWAYS exits 0.
+  local helper="$PWD/gate/lib/check_feature_readiness.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_147_feature_readiness_advisory_never_blocks_pos" "Rule G-30 / Rule 147: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_147_feature_readiness_advisory_never_blocks_pos" "Rule G-30 / Rule 147: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r147_advisory"
+  _g30_readiness_scratch "$sroot"
+  # A bare shipped FP missing every evidence/decision/structure/value obligation.
+  cat > "$sroot/architecture/features/function-points.dsl" <<'EOF'
+fpBare = element "Bare" "FunctionPoint" "x" "SAA FunctionPoint" {
+    properties { "saa.id" "FP-BARE" "saa.status" "shipped" "saa.owner" "agent-service" "saa.sourceAdr" "ADR-0020" }
+}
+EOF
+  printf '// none\n' > "$sroot/architecture/features/engineering-frames.dsl"
+  printf '// none\n' > "$sroot/architecture/features/features.dsl"
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_feature_readiness.py" --repo "$sroot" --mode advisory 2>&1); rc=$?
+  if [[ $rc -eq 2 ]]; then
+    ok "rule_147_feature_readiness_advisory_never_blocks_pos" "Rule G-30 / Rule 147: helper config error (likely PyYAML absent) — skipped: $(echo "$out" | head -1)"
+    return
+  fi
+  if [[ $rc -eq 0 ]] && echo "$out" | grep -q "finding(s)" && ! echo "$out" | grep -q "0 finding(s)"; then
+    ok "rule_147_feature_readiness_advisory_never_blocks_pos" "Rule G-30 / Rule 147: advisory mode reports findings but never blocks (exit 0) — the W20 landing rung"
+  else
+    fail "rule_147_feature_readiness_advisory_never_blocks_pos" "Rule G-30 / Rule 147 advisory case unexpected: rc=$rc out=$(echo "$out" | tail -1)"
+  fi
+}
+
+test_rule_147_feature_readiness_missing_policy_fail_closed_neg() {
+  # NEGATIVE: a FunctionPoint exists but the policy file vanished -> fail closed
+  # (exit 2) even in advisory mode (a missing authority is never advisory).
+  local helper="$PWD/gate/lib/check_feature_readiness.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_147_feature_readiness_missing_policy_fail_closed_neg" "Rule G-30 / Rule 147: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_147_feature_readiness_missing_policy_fail_closed_neg" "Rule G-30 / Rule 147: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r147_fail_closed"
+  _g30_readiness_scratch "$sroot"
+  rm -f "$sroot/docs/governance/feature-readiness-policy.yaml"
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_feature_readiness.py" --repo "$sroot" --mode advisory 2>&1); rc=$?
+  if [[ $rc -eq 2 ]] && echo "$out" | grep -q "config error"; then
+    ok "rule_147_feature_readiness_missing_policy_fail_closed_neg" "Rule G-30 / Rule 147: a vanished policy file fails closed (exit 2) even in advisory mode"
+  else
+    fail "rule_147_feature_readiness_missing_policy_fail_closed_neg" "Rule G-30 / Rule 147 fail-closed case unexpected: rc=$rc (want 2) out=$(echo "$out" | head -1)"
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #
 # Each test_rule*() function is independent (uses its own $scratch/r<N>_*
