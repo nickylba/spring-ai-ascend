@@ -158,6 +158,10 @@ fpChildRunSpawn = element "Child Run Spawn" "FunctionPoint" "SuspendSignal child
         "saa.channel" "internal"
         "saa.actor" "platform-runtime"
         "saa.trigger" "internal-orchestration-event"
+        "saa.no_contract_rationale" "Internal SuspendSignal child-Run variant: the parent suspends in-process and the child Run is materialised through the single-owner RunRepository (parent->child linkage by parentRunId); there is no external wire surface to describe. The carrier shape is the engine-envelope.v1.yaml contract."
+        "saa.code_entrypoint_refs" "agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/InMemoryRunRegistry.java#findByParentRunId"
+        "saa.fact_refs" "code-symbol/com-huawei-ascend-service-runtime-orchestration-inmemory-inmemoryrunregistry"
+        "saa.test_refs" "com.huawei.ascend.service.runtime.orchestration.NestedDualModeIT"
     }
 }
 
@@ -174,6 +178,7 @@ fpIdempotencyClaim = element "Idempotency Claim" "FunctionPoint" "Idempotency-ke
         "saa.channel" "internal"
         "saa.actor" "platform-runtime"
         "saa.trigger" "internal-orchestration-event"
+        "saa.no_contract_rationale" "Internal boot-installed OncePerRequestFilter: IdempotencyHeaderFilter claims/replays an Idempotency-Key at the IdempotencyStore boundary before the request reaches the handler; the claim+replay record shape is internal to the filter, with no external wire operation to name."
     }
 }
 
@@ -222,6 +227,10 @@ fpGraphMemoryStore = element "Graph Memory Store" "FunctionPoint" "GraphMemoryRe
         "saa.channel" "internal"
         "saa.actor" "platform-runtime"
         "saa.trigger" "internal-orchestration-event"
+        "saa.no_contract_rationale" "Internal SPI auto-wired by the graphmemory starter: GraphMemoryRepository tenant-scoped CRUD is consumed in-process; the persisted record + query shape is the memory-store.v1.yaml contract surface. There is no external wire operation to name."
+        "saa.code_entrypoint_refs" "agent-service/src/main/java/com/huawei/ascend/service/runtime/memory/spi/GraphMemoryRepository.java#query"
+        "saa.fact_refs" "code-symbol/com-huawei-ascend-service-runtime-memory-spi-graphmemoryrepository"
+        "saa.test_refs" "com.huawei.ascend.service.runtime.graphmemory.GraphMemoryAutoConfigurationTest|com.huawei.ascend.service.runtime.memory.spi.MemorySpiArchTest"
     }
 }
 
@@ -238,6 +247,10 @@ fpEngineDispatch = element "Engine Dispatch" "FunctionPoint" "EngineRegistry.res
         "saa.channel" "internal"
         "saa.actor" "platform-runtime"
         "saa.trigger" "internal-orchestration-event"
+        "saa.no_contract_rationale" "Internal registry resolve: EngineRegistry.resolve(envelope) selects a typed ExecutorAdapter inside the process; the envelope shape it dispatches over is the engine-envelope.v1.yaml contract surface. There is no external wire operation to name."
+        "saa.code_entrypoint_refs" "agent-execution-engine/src/main/java/com/huawei/ascend/engine/runtime/EngineRegistry.java#resolve"
+        "saa.fact_refs" "code-symbol/com-huawei-ascend-engine-runtime-engineregistry"
+        "saa.test_refs" "com.huawei.ascend.engine.runtime.EngineRegistryResolveTest|com.huawei.ascend.engine.runtime.EnginePayloadDispatchOnlyViaRegistryTest"
     }
 }
 
@@ -254,6 +267,10 @@ fpHookDispatch = element "Hook Dispatch" "FunctionPoint" "RuntimeMiddleware list
         "saa.channel" "internal"
         "saa.actor" "platform-runtime"
         "saa.trigger" "internal-orchestration-event"
+        "saa.no_contract_rationale" "Internal hook dispatch: HookDispatcher.fire(context) drives RuntimeMiddleware listeners on canonical HookPoint events in-process; the HookPoint catalog + outcome shape is the engine-hooks.v1.yaml contract surface. There is no external wire operation to name."
+        "saa.code_entrypoint_refs" "agent-middleware/src/main/java/com/huawei/ascend/middleware/HookDispatcher.java#fire"
+        "saa.fact_refs" "code-symbol/com-huawei-ascend-middleware-hookdispatcher"
+        "saa.test_refs" "com.huawei.ascend.middleware.HookDispatcherFireOrderTest|com.huawei.ascend.engine.runtime.RuntimeMiddlewareInterceptsHooksIT"
     }
 }
 

@@ -81,10 +81,19 @@
 #     FP-GET-RUN-STATUS evidence) and every design_only FunctionPoint carry no
 #     row (they discharge their bar / sit at the `proposed` bar). No ownership
 #     finding exists in the corpus, and none may ever be added here.
+#   2026-05-31 — residual-cleanup C1a (feature-readiness wiring batch 1/3).
+#     Discharged the full evidence axis of FP-CHILD-RUN-SPAWN, FP-ENGINE-DISPATCH,
+#     FP-GRAPH-MEMORY-STORE, FP-HOOK-DISPATCH (resolvable saa.code_entrypoint_refs
+#     + saa.fact_refs + real saa.test_refs + explicit saa.no_contract_rationale on
+#     each element in architecture/features/function-points.dsl) and the
+#     EVIDENCE-NO-CONTRACT row of FP-IDEMPOTENCY-CLAIM. 13 rows removed (the
+#     readiness gate no longer reports those findings); 26 rows remain for
+#     batches 2/3. No ref was fabricated — every code_entrypoint_refs / fact_refs
+#     resolves to a code-symbol fact and every test_refs to a tests.json fact.
 
 schema_version: 1
 authority: ADR-0159
-last_updated: 2026-05-30
+last_updated: 2026-05-31
 status: blocking
 list_closed: true
 
@@ -97,121 +106,21 @@ findings:
   # Closes when the fact-extractor lands the entrypoint + test + (if any)
   # contract-op facts and the refs are added to the element. Sunset 2026-08-31.
   # -------------------------------------------------------------------------
-  - id: FRB-child-run-spawn-no-contract
-    fp_id: FP-CHILD-RUN-SPAWN
-    axis: evidence
-    code: EVIDENCE-NO-CONTRACT
-    note: |
-      Internal SuspendSignal child-Run variant; no external wire contract.
-      Discharge by either citing the engine-envelope/suspend contract surface
-      or recording an explicit saa.no_contract_rationale on the element.
-    sunset_date: 2026-08-31
-  - id: FRB-child-run-spawn-no-fact
-    fp_id: FP-CHILD-RUN-SPAWN
-    axis: evidence
-    code: EVIDENCE-NO-FACT
-    note: |
-      Element declares no saa.code_entrypoint_refs / saa.fact_refs. The
-      child-Run spawn path ships in agent-service; wire the entry symbol once
-      it is extracted into architecture/facts/generated/code-symbols.json.
-    sunset_date: 2026-08-31
-  - id: FRB-child-run-spawn-no-test
-    fp_id: FP-CHILD-RUN-SPAWN
-    axis: evidence
-    code: EVIDENCE-NO-TEST
-    note: |
-      Element declares no saa.test_refs. The dual-mode nesting test
-      (NestedDualModeIT) covers the path; cite it once verification.dsl /
-      tests.json resolves the test fact for this FunctionPoint.
-    sunset_date: 2026-08-31
-
-  - id: FRB-engine-dispatch-no-contract
-    fp_id: FP-ENGINE-DISPATCH
-    axis: evidence
-    code: EVIDENCE-NO-CONTRACT
-    note: |
-      EngineRegistry.resolve dispatch over engine-envelope.v1.yaml. Discharge
-      by citing the engine-envelope contract surface (or its contract-op) on the
-      element, or recording an explicit no-contract rationale.
-    sunset_date: 2026-08-31
-  - id: FRB-engine-dispatch-no-fact
-    fp_id: FP-ENGINE-DISPATCH
-    axis: evidence
-    code: EVIDENCE-NO-FACT
-    note: |
-      Element declares no saa.code_entrypoint_refs / saa.fact_refs. Wire the
-      EngineRegistry.resolve entry symbol once extracted into code-symbols.json.
-    sunset_date: 2026-08-31
-  - id: FRB-engine-dispatch-no-test
-    fp_id: FP-ENGINE-DISPATCH
-    axis: evidence
-    code: EVIDENCE-NO-TEST
-    note: |
-      Element declares no saa.test_refs. Cite the engine-dispatch test once the
-      verifies edge / test fact resolves.
-    sunset_date: 2026-08-31
-
-  - id: FRB-graph-memory-store-no-contract
-    fp_id: FP-GRAPH-MEMORY-STORE
-    axis: evidence
-    code: EVIDENCE-NO-CONTRACT
-    note: |
-      GraphMemoryRepository tenant-scoped CRUD auto-wired by the starter; the
-      SPI surface is internal. Discharge by citing the graph-memory contract or
-      recording an explicit no-contract rationale.
-    sunset_date: 2026-08-31
-  - id: FRB-graph-memory-store-no-fact
-    fp_id: FP-GRAPH-MEMORY-STORE
-    axis: evidence
-    code: EVIDENCE-NO-FACT
-    note: |
-      Element declares no saa.code_entrypoint_refs / saa.fact_refs. Wire the
-      repository entry symbol once extracted into code-symbols.json.
-    sunset_date: 2026-08-31
-  - id: FRB-graph-memory-store-no-test
-    fp_id: FP-GRAPH-MEMORY-STORE
-    axis: evidence
-    code: EVIDENCE-NO-TEST
-    note: |
-      Element declares no saa.test_refs. Cite the graph-memory store test once
-      its test fact resolves.
-    sunset_date: 2026-08-31
-
-  - id: FRB-hook-dispatch-no-contract
-    fp_id: FP-HOOK-DISPATCH
-    axis: evidence
-    code: EVIDENCE-NO-CONTRACT
-    note: |
-      RuntimeMiddleware hook dispatch over engine-hooks.v1.yaml. Discharge by
-      citing the engine-hooks contract surface (or its contract-op) on the
-      element, or recording an explicit no-contract rationale.
-    sunset_date: 2026-08-31
-  - id: FRB-hook-dispatch-no-fact
-    fp_id: FP-HOOK-DISPATCH
-    axis: evidence
-    code: EVIDENCE-NO-FACT
-    note: |
-      Element declares no saa.code_entrypoint_refs / saa.fact_refs. Wire the
-      RuntimeMiddleware hook-dispatch entry symbol once extracted.
-    sunset_date: 2026-08-31
-  - id: FRB-hook-dispatch-no-test
-    fp_id: FP-HOOK-DISPATCH
-    axis: evidence
-    code: EVIDENCE-NO-TEST
-    note: |
-      Element declares no saa.test_refs. Cite the HookChainConformanceTest once
-      its test fact resolves for this FunctionPoint.
-    sunset_date: 2026-08-31
-
-  - id: FRB-idempotency-claim-no-contract
-    fp_id: FP-IDEMPOTENCY-CLAIM
-    axis: evidence
-    code: EVIDENCE-NO-CONTRACT
-    note: |
-      IdempotencyHeaderFilter -> IdempotencyStore claim+replay; internal filter,
-      no external wire contract. Discharge by citing the idempotency contract or
-      recording an explicit no-contract rationale.
-    sunset_date: 2026-08-31
+  # FunctionPoints FP-CHILD-RUN-SPAWN, FP-ENGINE-DISPATCH, FP-GRAPH-MEMORY-STORE,
+  # and FP-HOOK-DISPATCH discharged their full evidence axis (contract/fact/test)
+  # on 2026-05-31 (progressive-learning-curve-remediation residual-cleanup C1a):
+  # each element now carries a resolvable saa.code_entrypoint_refs + saa.fact_refs
+  # (the EngineRegistry.resolve / HookDispatcher.fire / GraphMemoryRepository.query
+  # / InMemoryRunRegistry.findByParentRunId code-symbol facts), real saa.test_refs
+  # (EngineRegistryResolveTest, HookDispatcherFireOrderTest, GraphMemoryAuto-
+  # ConfigurationTest, NestedDualModeIT, etc.), and an explicit
+  # saa.no_contract_rationale naming the governing internal contract surface
+  # (engine-envelope / engine-hooks / memory-store .v1.yaml). FP-IDEMPOTENCY-CLAIM
+  # discharged its EVIDENCE-NO-CONTRACT row the same way (no_contract_rationale);
+  # its remaining no-fact / no-test / no-normalized-view rows stay below. The
+  # twelve evidence rows for the four FunctionPoints + the idempotency contract row
+  # were removed because their obligation is genuinely discharged (readiness gate
+  # no longer reports those (fp_id, axis, code) findings).
   - id: FRB-idempotency-claim-no-fact
     fp_id: FP-IDEMPOTENCY-CLAIM
     axis: evidence
