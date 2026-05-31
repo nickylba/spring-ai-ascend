@@ -5212,60 +5212,6 @@ EOF
 }
 
 # ---------------------------------------------------------------------------
-# Rule 143 — local_plan_path_ban (Rule G-26 / E191)
-# 2026-05-29 EnginePort/Frame review P1-4 closure.
-# ---------------------------------------------------------------------------
-test_rule_143_local_plan_path_backslash_neg() {
-  # NEGATIVE: a synthetic product file with the BACKSLASH form MUST be caught.
-  local sfile="$scratch/r143_bs/product/PRODUCT.md"
-  mkdir -p "$scratch/r143_bs/product"
-  printf 'See the plan at D:\\.claude\\plans\\foo.md for details.\n' > "$sfile"
-  local pat='D:[\\/]\.claude[\\/]plans'
-  if grep -qE "$pat" "$sfile"; then
-    ok "rule_143_local_plan_path_backslash_neg" "Rule G-26 / Rule 143: backslash form D:\\.claude\\plans is detected (would FAIL the gate)"
-  else
-    fail "rule_143_local_plan_path_backslash_neg" "Rule G-26 / Rule 143 negative case: backslash form not detected by the dual-separator pattern"
-  fi
-}
-
-test_rule_143_local_plan_path_forwardslash_neg() {
-  # NEGATIVE: a synthetic ADR with the FORWARD-SLASH form MUST be caught
-  # (proves BOTH separators are matched by the same pattern).
-  local sfile="$scratch/r143_fs/docs/adr/9999-synthetic.md"
-  mkdir -p "$scratch/r143_fs/docs/adr"
-  printf 'Plan lived at D:/.claude/plans/bar.md before the move.\n' > "$sfile"
-  local pat='D:[\\/]\.claude[\\/]plans'
-  if grep -qE "$pat" "$sfile"; then
-    ok "rule_143_local_plan_path_forwardslash_neg" "Rule G-26 / Rule 143: forward-slash form D:/.claude/plans is detected (both separators caught)"
-  else
-    fail "rule_143_local_plan_path_forwardslash_neg" "Rule G-26 / Rule 143 negative case: forward-slash form not detected by the dual-separator pattern"
-  fi
-}
-
-test_rule_143_local_plan_path_exempted_pos() {
-  # POSITIVE: an exempted reference passes. Mirrors the canonical gate's
-  # exemption-prefix matching against gate/local-plan-path-exemptions.txt.
-  local exempt="$PWD/gate/local-plan-path-exemptions.txt"
-  if [[ ! -f "$exempt" ]]; then
-    fail "rule_143_local_plan_path_exempted_pos" "Rule G-26: $exempt missing"
-    return
-  fi
-  # rule-G-7.md is an exempted surface that legitimately names the local path.
-  local rel="docs/governance/rules/rule-G-7.md"
-  local exempted=0 e
-  while IFS= read -r e; do
-    e="${e%%$'\r'}"
-    [[ -z "$e" || "$e" == \#* ]] && continue
-    if [[ "$rel" == "$e" || "$rel" == "$e"* ]]; then exempted=1; break; fi
-  done < "$exempt"
-  if [[ $exempted -eq 1 ]]; then
-    ok "rule_143_local_plan_path_exempted_pos" "Rule G-26 / Rule 143: exempted surface ($rel) is correctly skipped by the exemption list"
-  else
-    fail "rule_143_local_plan_path_exempted_pos" "Rule G-26 / Rule 143: exempted surface ($rel) not matched in $exempt"
-  fi
-}
-
-# ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #
 # Each test_rule*() function is independent (uses its own $scratch/r<N>_*

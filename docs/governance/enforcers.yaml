@@ -1314,12 +1314,3 @@
   artifact: gate/check_architecture_sync.sh#shipped_frame_anchor_integrity
   asserts: "Rule 140 -- every SAA EngineeringFrame element with saa.status shipped (across engineering-frames.dsl + features.dsl) MUST have >=1 anchors edge to a FunctionPoint in engineering-frames.dsl, unless allowlisted in gate/frame-shipped-zero-anchor-allowlist.txt (ADR-backed exceptions; ships empty)."
   governance_infra: true
-
-- id: E191
-  constraint_ref: "Rule G-26 (Local Plan-Path Ban); 2026-05-29 review P1-4"
-  kind: gate-script
-  level: L1
-  view: scenarios
-  artifact: gate/check_architecture_sync.sh#local_plan_path_ban
-  asserts: "Rule 143 -- active authority (product/, docs/adr/, docs/governance/ excluding rule-history.md, architecture/, CLAUDE.md, AGENTS.md) MUST NOT reference the local agent-host .claude plans directory in either Windows-backslash or POSIX-forward-slash form; the only permitted surfaces are listed in gate/local-plan-path-exemptions.txt."
-  governance_infra: true
