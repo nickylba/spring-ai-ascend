@@ -385,6 +385,58 @@
 #     grandfathered; E195 0 findings / 2 grandfathered; render-idempotency
 #     byte-identical; layer-purity self-tests 47/47; full architecture-sync gate PASS.
 #     The authority cascade (generated facts > DSL > Card/prose) is untouched.
+#   2026-05-31 — C4 closeout dead-grandfather removal (residual-cleanup; root family
+#     layer-purity-leakage / stale-grandfather-baseline-drift). Per-row raw-coverage
+#     of EVERY open row was measured against the live corpus using the helpers' own
+#     matching logic (file + layer + category + locus for E194 via suppressing_row's
+#     predicate; file + family->LP-category + locus for E195 via _grandfathered's
+#     predicate), independent of the gate's first-match preference. SEVEN L1
+#     agent-service rows covered ZERO live finding on BOTH E194 and E195 — their
+#     adjudicated inline leak had been genuinely DRAINED by the agent-service /
+#     bus-engine-middleware L1 cleanups (2026-05-30) and the C3a drain, and every
+#     residual same-category token still in their file is absorbed by a still-live
+#     anchorless whole-file row (L3 by LPV-l1-as-idempotency-sql /
+#     LPV-l1-as-logical-rls-tables; L4 by LPV-l1-as-runs-api-matrix). A row over zero
+#     live leak is dead weight that OVER-CLAIMS a violation the closed-list discipline
+#     forbids, so the seven were REMOVED, not re-kept:
+#       - LPV-l1-as-idempotency-hash-status (§2.A : 71-74, L3+L4) — the
+#         `hashes method:path:body (SHA-256 -> base64url) ... 409 idempotency_conflict`
+#         hash/collision-status leak is drained; the file's residual L3 (lines 19,397)
+#         is covered by LPV-l1-as-idempotency-sql and L4 (line 94) by
+#         LPV-l1-as-runs-api-matrix.
+#       - LPV-l1-as-tenant-filter-order (§2.A : 128-134, L4+L5) — the
+#         `JwtTenantClaimCrossCheck (L1, order 15 ...) ... 403 tenant_mismatch`
+#         filter-order/status leak is drained; no L5 leak remains in the file and the
+#         lone L4 token (line 94) is covered by LPV-l1-as-runs-api-matrix.
+#       - LPV-l1-as-observability-filter-wire (§2.A : 199-218, L4+L5+L6) — the
+#         `TraceExtractFilter ... order 10 ... traceresponse: 00-<trace_id>-...`
+#         wire/order leak is drained; no L5/L6 leak remains and the L4 token (line 94)
+#         is covered by LPV-l1-as-runs-api-matrix.
+#       - LPV-l1-as-l2-linkage-rls (L2 Constraint Linkage : 797-799, L3) — the
+#         `Postgres RLS migration sequence` leak under the L2-linkage heading is
+#         drained; the file's residual L3 (lines 19,397) is covered by
+#         LPV-l1-as-idempotency-sql.
+#       - LPV-l1-as-logical-cas-chain (logical.md 31,39,67, L1+L3) — the
+#         `RunRepository (atomic CAS via updateIfNotTerminal) / ... invoked via Layer 2
+#         CAS` method-call/CAS leak is drained; no L1-method-call-chain leak remains in
+#         logical.md and the L3 token (line 169) is covered by
+#         LPV-l1-as-logical-rls-tables.
+#       - LPV-l1-as-logical-rls-chain (logical.md 92-96, L3+L1) — the
+#         `Persistence under RLS ... RunStateMachine.validate(from, to) is invoked`
+#         leak is drained; same coverage as the row above (no L1 leak; L3 line 169
+#         covered by LPV-l1-as-logical-rls-tables).
+#       - LPV-l1-as-spi-appendix-shapes (spi-appendix.md, L7) — the SPI method-body /
+#         parameter-list leak is fully drained: spi-appendix.md carries ZERO leak of
+#         any category anywhere in the file (genuine drain, not locus drift).
+#     VERIFIED (WSL): removing the seven changed NO verdict — both gates report the
+#     IDENTICAL count before and after (E194 0 findings / 28 grandfathered; E195 0
+#     findings / 2 grandfathered), because each removed row suppressed nothing. No row
+#     was removed whose locus still covered a live leak, and no still-live leak was
+#     left un-grandfathered (every same-category token in the affected files remains
+#     covered by a retained anchorless whole-file row). The retained rows are exactly
+#     those that tolerate >=1 live finding on the current disk state. No L0/L1
+#     document was edited — this is a pure allow-list prune; the facts/DSL/graph and
+#     the authority cascade (generated facts > DSL > Card/prose) are untouched.
 
 schema_version: 1
 authority: ADR-0159
@@ -565,15 +617,11 @@ violations:
   # Sunset 2026-07-31 (aligned with saa-property-authority.yaml grandfather).
   # ======================================================================
 
-  - id: LPV-l1-as-idempotency-hash-status
-    layer: L1
-    file: architecture/docs/L1/agent-service/ARCHITECTURE.md
-    locus: "§2.A idempotency : 71-74"
-    categories: [L3-sql-rls-persistence, L4-http-status-route-verb]
-    trigger: "hashes method:path:body (SHA-256 -> base64url) ... Collisions return 409 idempotency_conflict ... or 409 idempotency_body_drift"
-    migrate_to: "architecture/docs/L2/fp-idempotency-claim/ + docs/contracts/*.v1.yaml"
-    sunset_date: 2026-07-31
-    scan_ref: "§2.1"
+  # LPV-l1-as-idempotency-hash-status was REMOVED 2026-05-31 (C4 closeout dead-
+  # grandfather removal — see the change-log entry above). Its §2.A hash/collision-
+  # status leak was drained; the file's residual L3 (19,397) is covered by
+  # LPV-l1-as-idempotency-sql and L4 (94) by LPV-l1-as-runs-api-matrix, so the row
+  # tolerated ZERO live finding on either gate (verdict-neutral removal).
 
   - id: LPV-l1-as-idempotency-sql
     layer: L1
@@ -595,56 +643,27 @@ violations:
     sunset_date: 2026-07-31
     scan_ref: "§2.1"
 
-  - id: LPV-l1-as-tenant-filter-order
-    layer: L1
-    file: architecture/docs/L1/agent-service/ARCHITECTURE.md
-    locus: "§2.A tenant cross-check : 128-134"
-    categories: [L5-filter-ordering, L4-http-status-route-verb]
-    trigger: "JwtTenantClaimCrossCheck (L1, order 15 - after Spring Security's BearerTokenAuthenticationFilter, before TenantContextFilter at 20) ... Mismatch -> 403 tenant_mismatch"
-    migrate_to: "architecture/docs/L2/run-http-contract/development.md (filter-chain design)"
-    sunset_date: 2026-07-31
-    scan_ref: "§2.1"
+  # LPV-l1-as-tenant-filter-order and LPV-l1-as-observability-filter-wire were
+  # REMOVED 2026-05-31 (C4 closeout dead-grandfather removal — see the change-log
+  # entry above). Both §2.A filter-order/wire leaks (`order 15 ... 403 tenant_mismatch`;
+  # `order 10 ... traceresponse: 00-<trace_id>-...`) were drained; no L5/L6 leak
+  # remains in the file and the lone residual L4 token (94) is covered by
+  # LPV-l1-as-runs-api-matrix, so each row tolerated ZERO live finding on either gate
+  # (verdict-neutral removal).
 
-  - id: LPV-l1-as-observability-filter-wire
-    layer: L1
-    file: architecture/docs/L1/agent-service/ARCHITECTURE.md
-    locus: "§2.A observability : 199-218"
-    categories: [L5-filter-ordering, L4-http-status-route-verb, L6-wire-format]
-    trigger: "TraceExtractFilter ... runs at order 10 ... parses the W3C version-00 traceparent header ... emits traceresponse: 00-<trace_id>-<span_id>-01 ... Filter chain order (L1.x): 1. ... (order 10) 2. ... (order 15) 3. ... (order 20) 4. ..."
-    migrate_to: "architecture/docs/L2/run-http-contract/development.md + docs/telemetry/policy.md"
-    sunset_date: 2026-07-31
-    scan_ref: "§2.1"
+  # LPV-l1-as-l2-linkage-rls was REMOVED 2026-05-31 (C4 closeout dead-grandfather
+  # removal — see the change-log entry above). The `Postgres RLS migration sequence`
+  # leak under the in-file 'L2 Constraint Linkage' heading was drained; the file's
+  # residual L3 (19,397) is covered by LPV-l1-as-idempotency-sql, so the row
+  # tolerated ZERO live finding on either gate (verdict-neutral removal).
 
-  - id: LPV-l1-as-l2-linkage-rls
-    layer: L1
-    file: architecture/docs/L1/agent-service/ARCHITECTURE.md
-    locus: "L2 Constraint Linkage : 797-799"
-    category: L3-sql-rls-persistence
-    trigger: "Postgres RLS migration sequence (rc25). (named under an in-file 'L2 Constraint Linkage' heading)"
-    migrate_to: "architecture/docs/L2/fp-tenant-cross-check/ + Flyway migrations"
-    sunset_date: 2026-07-31
-    scan_ref: "§2.1"
-    defensible_part: "The delegation framing is defensible; the named RLS migration sequence inlined into it is the leak."
-
-  - id: LPV-l1-as-logical-cas-chain
-    layer: L1
-    file: architecture/docs/L1/agent-service/logical.md
-    locus: "31, 39, 67"
-    categories: [L1-method-call-chain, L3-sql-rls-persistence]
-    trigger: "Run aggregate (single owner): ... RunRepository (atomic CAS via updateIfNotTerminal) / RunStateMachine validation invoked via Layer 2 CAS / updateIfNotTerminal(tenantId, runId, lambda) - atomic CAS"
-    migrate_to: "architecture/docs/L2/fp-run-state-transition/ (CAS + persistence)"
-    sunset_date: 2026-07-31
-    scan_ref: "§2.2"
-
-  - id: LPV-l1-as-logical-rls-chain
-    layer: L1
-    file: architecture/docs/L1/agent-service/logical.md
-    locus: "92-96"
-    categories: [L3-sql-rls-persistence, L1-method-call-chain]
-    trigger: "Persistence under RLS (Rule R-J.a) with RunRepository.updateIfNotTerminal(...) atomic CAS ... validation (RunStateMachine.validate(from, to)) is invoked"
-    migrate_to: "architecture/docs/L2/fp-run-state-transition/ (CAS + RLS)"
-    sunset_date: 2026-07-31
-    scan_ref: "§2.2"
+  # LPV-l1-as-logical-cas-chain and LPV-l1-as-logical-rls-chain were REMOVED
+  # 2026-05-31 (C4 closeout dead-grandfather removal — see the change-log entry
+  # above). Both logical.md method-call/CAS leaks (`RunRepository (atomic CAS via
+  # updateIfNotTerminal)`; `RunStateMachine.validate(from, to) is invoked`) were
+  # drained; no L1-method-call-chain leak remains in logical.md and the residual L3
+  # token (169) is covered by LPV-l1-as-logical-rls-tables, so each row tolerated
+  # ZERO live finding on either gate (verdict-neutral removal).
 
   - id: LPV-l1-as-logical-rls-tables
     layer: L1
@@ -736,16 +755,12 @@ violations:
     scan_ref: "§2.5"
     defensible_part: "Physical-view deployment topology stays (defensible); the RLS-policy + per-table detail migrates."
 
-  - id: LPV-l1-as-spi-appendix-shapes
-    layer: L1
-    file: architecture/docs/L1/agent-service/spi-appendix.md
-    locus: "matched SPI signatures (row-level pass deferred)"
-    category: L7-method-signature
-    trigger: "SPI identities are defensible (D1); any method-body / parameter-list detail is L7-leaked"
-    migrate_to: "docs/contracts/*.v1.yaml (SPI) + architecture/facts/generated/code-symbols.json"
-    sunset_date: 2026-08-31
-    scan_ref: "§2.5"
-    defensible_part: "SPI boundary identities (D1) stay; method-body / parameter-list detail migrates."
+  # LPV-l1-as-spi-appendix-shapes was REMOVED 2026-05-31 (C4 closeout dead-
+  # grandfather removal — see the change-log entry above). spi-appendix.md carries
+  # ZERO leak of any category anywhere in the file (the SPI method-body /
+  # parameter-list detail was fully drained to docs/contracts/*.v1.yaml +
+  # code-symbols.json), so the row tolerated ZERO live finding on either gate
+  # (genuine drain, not locus drift; verdict-neutral removal).
 
   - id: LPV-l1-as-features-cas-rls
     layer: L1

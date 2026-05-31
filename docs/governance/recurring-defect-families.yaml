@@ -98,8 +98,8 @@ families:
   - id: F-numeric-drift
     title: Numeric Drift Across Authority Surfaces
     first_observed_rc: rc5
-    last_observed_rc: progressive-learning-curve-remediation-W27-2026-05-30
-    occurrences: [rc5, rc6, rc7, rc8, rc9, rc10, rc12, rc14, rc15, pr57, rc36, rc37, rc39-formal-release-transaction, rc40-agent-execution-engine-readiness-corrective, engineport-frame-authority-convergence-2026-05-29, progressive-learning-curve-remediation-W3-2026-05-29, progressive-learning-curve-remediation-W8-2026-05-30, progressive-learning-curve-remediation-W11-2026-05-30, progressive-learning-curve-remediation-W16-2026-05-30, progressive-learning-curve-remediation-W19-2026-05-30, progressive-learning-curve-remediation-W20-2026-05-30, progressive-learning-curve-remediation-W22-2026-05-30, progressive-learning-curve-remediation-W24-2026-05-30, progressive-learning-curve-remediation-W25-2026-05-30, progressive-learning-curve-remediation-W26-2026-05-30, progressive-learning-curve-remediation-W27-2026-05-30]
+    last_observed_rc: progressive-learning-curve-remediation-C4-2026-05-31
+    occurrences: [rc5, rc6, rc7, rc8, rc9, rc10, rc12, rc14, rc15, pr57, rc36, rc37, rc39-formal-release-transaction, rc40-agent-execution-engine-readiness-corrective, engineport-frame-authority-convergence-2026-05-29, progressive-learning-curve-remediation-W3-2026-05-29, progressive-learning-curve-remediation-W8-2026-05-30, progressive-learning-curve-remediation-W11-2026-05-30, progressive-learning-curve-remediation-W16-2026-05-30, progressive-learning-curve-remediation-W19-2026-05-30, progressive-learning-curve-remediation-W20-2026-05-30, progressive-learning-curve-remediation-W22-2026-05-30, progressive-learning-curve-remediation-W24-2026-05-30, progressive-learning-curve-remediation-W25-2026-05-30, progressive-learning-curve-remediation-W26-2026-05-30, progressive-learning-curve-remediation-W27-2026-05-30, progressive-learning-curve-remediation-C4-2026-05-31]
       # engineport-frame-authority-convergence (2026-05-29): the ADR-0158 engine-boundary
       # wave (EnginePort neutral boundary + EngineeringFrame re-home + 5 new gate rules
       # G-22..G-26) moved eight baseline_metrics in lockstep — active_gate_checks 152→157,
@@ -349,6 +349,32 @@ families:
       # blocking rung before the flip moves exactly ONE baseline (the self-test TOTAL) + the README
       # phrases, needs no baseline machinery, and touches none of the rule/enforcer/graph counts — the
       # inverse of the W22 promotion that had to ship a dated allow-list for honestly-recorded debt.
+      # progressive-learning-curve-remediation-C4 (2026-05-31): the LATENT-DRIFT vector of this family —
+      # a self-test count that moved at the LIVE runtime but was never reconciled to its baseline metric,
+      # and which the gate did NOT flag because Rule 82 / E115 checks DOCUMENTED "Tests passed: N/N"
+      # claims against baseline_metrics, not the live runtime TOTAL against the metric. The R3 round-3
+      # detector-recoupling wave added one self-test fixture to gate/test_architecture_sync_gate.sh
+      # (moving the runtime TOTAL 345->346) but left gate_executable_test_cases at 345; because no doc
+      # yet claimed "346", the parity gate stayed green and the drift sat latent. The C4 closeout drained
+      # it: gate_executable_test_cases 345->346 (the true WSL runtime, MEASURED 346/346 with 0 fail on two
+      # captured runs — never estimated) plus the four documented self-test phrases (README.md headline,
+      # gate/README.md blockquote + run-comment + harness-table row) AND — the coupled-surface obligation
+      # this family owns since W25 — their render-idempotency .md.j2 seeds (readme-root.md.j2 /
+      # readme-gate.md.j2; Rule G-13.b / E174 detected README.md render drift the instant the rendered
+      # output was edited but its seed was not, exactly the rendered-output-edited-not-seed break W14/W25
+      # hit). The same commit also pruned 7 dead layer-purity grandfather rows from
+      # layer-purity-temporary-violations.yaml (verdict-neutral; tracked under
+      # F-layer-gate-flags-delegation-pointer / stale-grandfather-baseline-drift, not this family). NO
+      # other count moved (active_gate_checks 165, enforcer_rows 200, active_engineering_rules 63, the
+      # graph node/edge counts, recurring_defect_families 45 — this is an OCCURRENCE on F-numeric-drift,
+      # not a new family); the long C4 baseline_metrics + allowed_claim reconcile prose was kept terse to
+      # hold architecture-status.yaml under its 138000 always-loaded byte ceiling (Rule 70 / E100 — the
+      # byte-budget surface this family couples since W11/W25; the file landed at 137789 < 138000).
+      # Lesson (the new one for the LATENT case): a self-test TOTAL that drifts at runtime but stays under
+      # the parity gate's radar (because the gate compares documented claims, not live runtime) is invisible
+      # until a doc updates its "Tests passed" phrase and trips Rule 82 — so a closeout MUST re-measure the
+      # live runtime against the metric directly, and any metric reconcile that grows an always-loaded file
+      # must hold its byte ceiling in the SAME edit.
     root_cause: |
       Numeric claims (rule counts, gate counts, enforcer counts, graph
       nodes/edges, self-tests) are estimated when a release note is written

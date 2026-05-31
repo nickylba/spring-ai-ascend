@@ -1,6 +1,6 @@
 # gate/ — Architecture-Sync Gate
 
-> Document-corpus consistency checks for spring-ai-ascend. **165 active gate rules** (canonical bash, executable rule sections counted from `# Rule N — slug` headers), backed by **345 self-tests** (`gate/test_architecture_sync_gate.sh` derives the total at runtime). The canonical numbers live in [`docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics`](../docs/governance/architecture-status.yaml) (single source of truth — Rule G-2 sub-clause .b numeric-agreement check rejects stale counts here; Rule G-5 sub-clause .c enforces `active_gate_checks` AND `enforcer_rows` against live extractors).
+> Document-corpus consistency checks for spring-ai-ascend. **165 active gate rules** (canonical bash, executable rule sections counted from `# Rule N — slug` headers), backed by **346 self-tests** (`gate/test_architecture_sync_gate.sh` derives the total at runtime). The canonical numbers live in [`docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics`](../docs/governance/architecture-status.yaml) (single source of truth — Rule G-2 sub-clause .b numeric-agreement check rejects stale counts here; Rule G-5 sub-clause .c enforces `active_gate_checks` AND `enforcer_rows` against live extractors).
 >
 > **Python ≥ 3.10 required** for `gate/build_architecture_graph.py` and `gate/migrate_adrs_to_yaml.py`. Install once: `pip install -r gate/requirements.txt`. Rule R-H (`architecture_graph_well_formed`) fails fast with a clear message if PyYAML is missing.
 >
@@ -19,7 +19,7 @@ It does **not** prove the running system behaves correctly. That is the operator
 ```bash
 bash gate/check_parallel.sh                 # 165 active gate rules, parallel (~7min wall-clock); emits parallel_summary trailer per Rule G-5 sub-clause .a
 bash gate/check_architecture_sync.sh        # 165 active gate rules, serial   (~24min wall-clock); terminates at # === END OF RULES === marker
-bash gate/test_architecture_sync_gate.sh    # 345 self-tests (~20s); TOTAL derived at runtime per Rule G-5 sub-clause .b; fails closed when passed != TOTAL
+bash gate/test_architecture_sync_gate.sh    # 346 self-tests (~20s); TOTAL derived at runtime per Rule G-5 sub-clause .b; fails closed when passed != TOTAL
 python gate/build_architecture_graph.py     # regenerate the architecture-graph from canonical inputs
 ```
 
@@ -52,7 +52,7 @@ Run the bash entrypoint from Git Bash / WSL / any POSIX shell on Windows.
 |------|------|
 | `check_architecture_sync.sh` | **Canonical L0 release gate — 163 active executable sections. `gate/rules/` filenames stay numeric by design per ADR-0086 `gate_layer_boundary:` section (implementation-layer identifier vs semantic-authority namespace).** |
 | `check_architecture_sync.ps1` | DEPRECATED. Fail-closed stub; see deprecation banner. |
-| `test_architecture_sync_gate.sh` | Self-test harness — 345 self-test cases. `TOTAL` derived at runtime per Rule G-5.b. |
+| `test_architecture_sync_gate.sh` | Self-test harness — 346 self-test cases. `TOTAL` derived at runtime per Rule G-5.b. |
 | `build_architecture_graph.py` | Regenerates `docs/governance/architecture-graph.yaml` from the authoritative inputs (Rule G-1 sub-clause .b). |
 | `doctor.sh` / `doctor.ps1` | Dev-only env probe (not a gate). |
 | `run_operator_shape_smoke.sh` / `.ps1` | Dev-only fail-closed smoke shells (not a gate). |
