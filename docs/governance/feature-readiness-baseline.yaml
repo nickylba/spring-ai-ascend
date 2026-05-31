@@ -90,6 +90,29 @@
 #     readiness gate no longer reports those findings); 26 rows remain for
 #     batches 2/3. No ref was fabricated — every code_entrypoint_refs / fact_refs
 #     resolves to a code-symbol fact and every test_refs to a tests.json fact.
+#   2026-05-31 — residual-cleanup C1b (feature-readiness wiring batch A, 2/3).
+#     Discharged the full evidence axis of FP-S2C-CALLBACK, FP-RUN-STATE-TRANSITION,
+#     and FP-SUSPEND-RESUME (each element now carries saa.no_contract_rationale + a
+#     resolving saa.fact_refs [bus.spi.s2c.S2cCallbackTransport / service.runtime.
+#     runs.spi.RunRepository / bus.spi.engine.SuspendSignal] + saa.code_entrypoint_refs
+#     at a real public method [#dispatch / #updateIfNotTerminal / #forClientCallback]
+#     + real saa.test_refs [S2cCallbackRoundTripIT, RunRepositoryAtomicContractTest,
+#     RunStatusTransitionIT, SuspendSignalTest, ...]); the EVIDENCE-NO-FACT +
+#     EVIDENCE-NO-TEST rows of FP-IDEMPOTENCY-CLAIM (IdempotencyHeaderFilter +
+#     IdempotencyHeaderFilterTest/IT); and the EVIDENCE-NO-CONTRACT + EVIDENCE-NO-FACT
+#     rows of FP-INGRESS-ENVELOPE (no_contract_rationale + the IngressGateway SPI
+#     interface fact). FP-RUN-STATE-TRANSITION's DECISION-ADR-NOT-CITEABLE row was
+#     discharged by re-pointing saa.sourceAdr ADR-0118 (remediation_record) ->
+#     ADR-0142 (run-aggregate-single-owner, active_guidance — the active ADR that
+#     governs the RunRepository atomic compare-and-set invariant, Rule R-C.2.b).
+#     14 rows removed; 12 rows remain for batch B/3 (FP-TENANT-CROSS-CHECK +
+#     FP-POSTURE-BOOT-GUARD evidence + the design_only-ADR decision holds). KEPT
+#     (honest holds, refreshed): FP-INGRESS-ENVELOPE EVIDENCE-NO-TEST (IngressGateway
+#     is a design-only SPI with no implementation/test); FP-IDEMPOTENCY-CLAIM
+#     DECISION-NO-NORMALIZED-VIEW (ADR-0027 is a Markdown-era ADR with no raw YAML
+#     to normalize — cannot author a view without fabricating decision content). No
+#     ref was fabricated — every fact_refs resolves in code-symbols.json and every
+#     test_refs in tests.json; ADR-0142's normalized view is on-disk and citeable.
 
 schema_version: 1
 authority: ADR-0159
@@ -121,56 +144,36 @@ findings:
   # twelve evidence rows for the four FunctionPoints + the idempotency contract row
   # were removed because their obligation is genuinely discharged (readiness gate
   # no longer reports those (fp_id, axis, code) findings).
-  - id: FRB-idempotency-claim-no-fact
-    fp_id: FP-IDEMPOTENCY-CLAIM
-    axis: evidence
-    code: EVIDENCE-NO-FACT
-    note: |
-      Element declares no saa.code_entrypoint_refs / saa.fact_refs. Wire the
-      IdempotencyHeaderFilter entry symbol once extracted.
-    sunset_date: 2026-08-31
-  - id: FRB-idempotency-claim-no-test
-    fp_id: FP-IDEMPOTENCY-CLAIM
-    axis: evidence
-    code: EVIDENCE-NO-TEST
-    note: |
-      Element declares no saa.test_refs. Cite the idempotency claim/replay test
-      once its test fact resolves.
-    sunset_date: 2026-08-31
   - id: FRB-idempotency-claim-no-normalized-view
     fp_id: FP-IDEMPOTENCY-CLAIM
     axis: decision
     code: DECISION-NO-NORMALIZED-VIEW
     note: |
       saa.sourceAdr ADR-0027 has no normalized view at
-      docs/adr/normalized/ADR-0027.yaml. Discharge by authoring the normalized
-      view in a citeable state (active_guidance / partial_guidance).
-    sunset_date: 2026-07-31
+      docs/adr/normalized/ADR-0027.yaml. ADR-0027 is a Markdown-era decision that
+      is NOT in the apex fact-layer corpus (architecture/facts/generated/adrs.json
+      carries only the YAML ADRs from ADR-0068 onward; there is no raw
+      docs/adr/0027-*.yaml to normalize), so a normalized view cannot be authored
+      without fabricating decision content. KEEP until either ADR-0027 is migrated
+      to a raw YAML ADR (then author its normalized view) or saa.sourceAdr is
+      re-pointed to the active YAML ADR that currently governs the idempotency
+      claim+replay invariant. Honest hold, not a wiring gap.
+    sunset_date: 2026-08-31
 
-  - id: FRB-ingress-envelope-no-contract
-    fp_id: FP-INGRESS-ENVELOPE
-    axis: evidence
-    code: EVIDENCE-NO-CONTRACT
-    note: |
-      IngressGateway routing of IngressEnvelope; internal orchestration. Discharge
-      by citing the ingress-envelope contract or recording an explicit no-contract
-      rationale.
-    sunset_date: 2026-08-31
-  - id: FRB-ingress-envelope-no-fact
-    fp_id: FP-INGRESS-ENVELOPE
-    axis: evidence
-    code: EVIDENCE-NO-FACT
-    note: |
-      Element declares no saa.code_entrypoint_refs / saa.fact_refs. Wire the
-      IngressGateway routing entry symbol once extracted.
-    sunset_date: 2026-08-31
   - id: FRB-ingress-envelope-no-test
     fp_id: FP-INGRESS-ENVELOPE
     axis: evidence
     code: EVIDENCE-NO-TEST
     note: |
-      Element declares no saa.test_refs. Cite the ingress-routing test once its
-      test fact resolves.
+      Element declares no saa.test_refs. IngressGateway is a design-only SPI
+      surface in agent-bus (bus.spi.ingress carries only the IngressGateway
+      interface + IngressEnvelope/IngressResponse records; there is NO concrete
+      implementation and NO test referencing IngressGateway.routeClientRequest /
+      IngressEnvelope in tests.json). The evidence axis is otherwise discharged
+      (no_contract_rationale + a resolving saa.fact_refs to the IngressGateway
+      interface fact + code_entrypoint_refs). KEEP until a concrete ingress-routing
+      implementation lands with a test fact to cite; fabricating a test_exception
+      for a surface that has no production implementation would be dishonest.
     sunset_date: 2026-08-31
 
   - id: FRB-posture-boot-guard-no-contract
@@ -207,93 +210,6 @@ findings:
       docs/adr/normalized/ADR-0058.yaml. Discharge by authoring the normalized
       view in a citeable state.
     sunset_date: 2026-07-31
-
-  - id: FRB-run-state-transition-no-contract
-    fp_id: FP-RUN-STATE-TRANSITION
-    axis: evidence
-    code: EVIDENCE-NO-CONTRACT
-    note: |
-      RunRepository.updateIfNotTerminal CAS transition; internal persistence.
-      Discharge by recording an explicit no-contract rationale (no external wire
-      surface).
-    sunset_date: 2026-08-31
-  - id: FRB-run-state-transition-no-fact
-    fp_id: FP-RUN-STATE-TRANSITION
-    axis: evidence
-    code: EVIDENCE-NO-FACT
-    note: |
-      Element declares no saa.code_entrypoint_refs / saa.fact_refs. Wire the
-      RunRepository.updateIfNotTerminal symbol once extracted.
-    sunset_date: 2026-08-31
-  - id: FRB-run-state-transition-no-test
-    fp_id: FP-RUN-STATE-TRANSITION
-    axis: evidence
-    code: EVIDENCE-NO-TEST
-    note: |
-      Element declares no saa.test_refs. Cite the RunStateMachineTest /
-      RunStatusTransitionIT once its test fact resolves for this FunctionPoint.
-    sunset_date: 2026-08-31
-  - id: FRB-run-state-transition-adr-not-citeable
-    fp_id: FP-RUN-STATE-TRANSITION
-    axis: decision
-    code: DECISION-ADR-NOT-CITEABLE
-    note: |
-      saa.sourceAdr ADR-0118 normalizes to current_state remediation_record,
-      not a citeable state. Discharge by re-pointing saa.sourceAdr to the active
-      ADR that currently governs the CAS transition invariant (the remediation
-      record is evidence, not current authority).
-    sunset_date: 2026-07-31
-
-  - id: FRB-s2c-callback-no-contract
-    fp_id: FP-S2C-CALLBACK
-    axis: evidence
-    code: EVIDENCE-NO-CONTRACT
-    note: |
-      S2cCallbackTransport server-to-client callback; the SPI surface is
-      internal. Discharge by citing the s2c-callback contract or recording an
-      explicit no-contract rationale.
-    sunset_date: 2026-08-31
-  - id: FRB-s2c-callback-no-fact
-    fp_id: FP-S2C-CALLBACK
-    axis: evidence
-    code: EVIDENCE-NO-FACT
-    note: |
-      Element declares no saa.code_entrypoint_refs / saa.fact_refs. Wire the
-      S2cCallbackTransport entry symbol once extracted.
-    sunset_date: 2026-08-31
-  - id: FRB-s2c-callback-no-test
-    fp_id: FP-S2C-CALLBACK
-    axis: evidence
-    code: EVIDENCE-NO-TEST
-    note: |
-      Element declares no saa.test_refs. Cite the s2c-callback test once its
-      test fact resolves.
-    sunset_date: 2026-08-31
-
-  - id: FRB-suspend-resume-no-contract
-    fp_id: FP-SUSPEND-RESUME
-    axis: evidence
-    code: EVIDENCE-NO-CONTRACT
-    note: |
-      SuspendSignal throw -> SUSPENDED -> RUNNING transition; internal. Discharge
-      by recording an explicit no-contract rationale (no external wire surface).
-    sunset_date: 2026-08-31
-  - id: FRB-suspend-resume-no-fact
-    fp_id: FP-SUSPEND-RESUME
-    axis: evidence
-    code: EVIDENCE-NO-FACT
-    note: |
-      Element declares no saa.code_entrypoint_refs / saa.fact_refs. Wire the
-      ResumeDispatcher / SuspendSignal entry symbol once extracted.
-    sunset_date: 2026-08-31
-  - id: FRB-suspend-resume-no-test
-    fp_id: FP-SUSPEND-RESUME
-    axis: evidence
-    code: EVIDENCE-NO-TEST
-    note: |
-      Element declares no saa.test_refs. Cite the suspend/resume test once its
-      test fact resolves.
-    sunset_date: 2026-08-31
 
   - id: FRB-tenant-cross-check-no-contract
     fp_id: FP-TENANT-CROSS-CHECK

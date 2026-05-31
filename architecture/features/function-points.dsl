@@ -94,6 +94,9 @@ fpIngressEnvelope = element "Ingress Envelope Routing" "FunctionPoint" "Route In
         "saa.channel" "internal"
         "saa.actor" "platform-runtime"
         "saa.trigger" "internal-orchestration-event"
+        "saa.code_entrypoint_refs" "agent-bus/src/main/java/com/huawei/ascend/bus/spi/ingress/IngressGateway.java#routeClientRequest"
+        "saa.fact_refs" "code-symbol/com-huawei-ascend-bus-spi-ingress-ingressgateway"
+        "saa.no_contract_rationale" "Internal edge-plane routing SPI: IngressGateway.routeClientRequest moves an IngressEnvelope from the edge plane into compute_control in-process; the envelope + response shape is the ingress-envelope.v1.yaml contract surface. There is no external wire operation to name on the gateway itself."
     }
 }
 
@@ -110,6 +113,10 @@ fpS2cCallback = element "S2C Callback" "FunctionPoint" "Server-to-client callbac
         "saa.channel" "internal"
         "saa.actor" "platform-runtime"
         "saa.trigger" "internal-orchestration-event"
+        "saa.code_entrypoint_refs" "agent-bus/src/main/java/com/huawei/ascend/bus/spi/s2c/S2cCallbackTransport.java#dispatch"
+        "saa.fact_refs" "code-symbol/com-huawei-ascend-bus-spi-s2c-s2ccallbacktransport"
+        "saa.test_refs" "com.huawei.ascend.service.runtime.s2c.S2cCallbackRoundTripIT|com.huawei.ascend.service.runtime.s2c.S2cCallbackEnvelopeValidationTest"
+        "saa.no_contract_rationale" "Internal server-to-client callback SPI: S2cCallbackTransport.dispatch carries a capability-invocation envelope to a suspended Run's client and resumes on the response; it is consumed in-process behind the SPI. The callback envelope + response shape is the s2c-callback contract surface. There is no external wire operation to name."
     }
 }
 
@@ -121,11 +128,15 @@ fpRunStateTransition = element "Run State Transition" "FunctionPoint" "Atomic DF
         "saa.view" "scenarios"
         "saa.status" "shipped"
         "saa.owner" "agent-service"
-        "saa.sourceAdr" "ADR-0118"
+        "saa.sourceAdr" "ADR-0142"
         "saa.requirement" "REQ-001"
         "saa.channel" "internal"
         "saa.actor" "platform-runtime"
         "saa.trigger" "internal-orchestration-event"
+        "saa.no_contract_rationale" "Internal single-owner persistence boundary: the atomic DFA-validated compare-and-set Run-status advance (Rule R-C.2.b) is consumed in-process; no external wire operation."
+        "saa.code_entrypoint_refs" "agent-service/src/main/java/com/huawei/ascend/service/runtime/runs/spi/RunRepository.java#updateIfNotTerminal"
+        "saa.fact_refs" "code-symbol/com-huawei-ascend-service-runtime-runs-spi-runrepository"
+        "saa.test_refs" "com.huawei.ascend.service.runtime.architecture.RunRepositoryAtomicContractTest|com.huawei.ascend.service.runtime.orchestration.RunStatusTransitionIT|com.huawei.ascend.service.runtime.runs.RunStateMachineTest"
     }
 }
 
@@ -142,6 +153,10 @@ fpSuspendResume = element "Suspend Resume" "FunctionPoint" "Guarded Run suspend/
         "saa.channel" "internal"
         "saa.actor" "platform-runtime"
         "saa.trigger" "internal-orchestration-event"
+        "saa.code_entrypoint_refs" "agent-bus/src/main/java/com/huawei/ascend/bus/spi/engine/SuspendSignal.java#forClientCallback"
+        "saa.fact_refs" "code-symbol/com-huawei-ascend-bus-spi-engine-suspendsignal"
+        "saa.test_refs" "com.huawei.ascend.bus.spi.engine.SuspendSignalTest|com.huawei.ascend.service.runtime.orchestration.SuspendResumeWireReadinessSpikeTest"
+        "saa.no_contract_rationale" "Internal in-process control flow: a SuspendSignal (raised via SuspendSignal.forClientCallback) drives the RUNNING->SUSPENDED->RUNNING transition keyed by SuspendReason; the signal + reason payload is carried on the engine-envelope.v1.yaml contract surface and consumed in-JVM. There is no external wire operation to name."
     }
 }
 
@@ -179,6 +194,9 @@ fpIdempotencyClaim = element "Idempotency Claim" "FunctionPoint" "Idempotency-ke
         "saa.actor" "platform-runtime"
         "saa.trigger" "internal-orchestration-event"
         "saa.no_contract_rationale" "Internal boot-installed OncePerRequestFilter: IdempotencyHeaderFilter claims/replays an Idempotency-Key at the IdempotencyStore boundary before the request reaches the handler; the claim+replay record shape is internal to the filter, with no external wire operation to name."
+        "saa.code_entrypoint_refs" "agent-service/src/main/java/com/huawei/ascend/service/platform/idempotency/IdempotencyHeaderFilter.java#doFilterInternal"
+        "saa.fact_refs" "code-symbol/com-huawei-ascend-service-platform-idempotency-idempotencyheaderfilter"
+        "saa.test_refs" "com.huawei.ascend.service.platform.idempotency.IdempotencyHeaderFilterTest|com.huawei.ascend.service.platform.idempotency.IdempotencyHeaderFilterIT"
     }
 }
 

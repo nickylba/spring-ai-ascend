@@ -2908,8 +2908,8 @@ families:
   - id: F-ratchet-promotion-without-dated-baseline
     title: An Advisory Gate Promoted to Changed-Files-Blocking on a Corpus Carrying Historical Findings Hard-Blocks the Whole Corpus Without a Dated Baseline Allow-List
     first_observed_rc: progressive-learning-curve-remediation-W22-2026-05-30
-    last_observed_rc: progressive-learning-curve-remediation-C1a-2026-05-31
-    occurrences: [progressive-learning-curve-remediation-W22-2026-05-30, progressive-learning-curve-remediation-C1a-2026-05-31]
+    last_observed_rc: progressive-learning-curve-remediation-C1b-2026-05-31
+    occurrences: [progressive-learning-curve-remediation-W22-2026-05-30, progressive-learning-curve-remediation-C1a-2026-05-31, progressive-learning-curve-remediation-C1b-2026-05-31]
     root_cause: |
       A ratchet gate (advisory -> changed-files-blocking -> full-blocking) whose
       changed-files rung RE-SCOPES the whole corpus on any shared-surface change
@@ -2990,3 +2990,54 @@ families:
       or WORSENED). Remaining: 26 rows in batches 2/3 (20 evidence-axis on internal
       FPs whose entry/test facts are not yet extracted, sunset 2026-08-31; 6
       decision-axis awaiting the missing normalized ADR views, sunset 2026-07-31).
+
+      DRAIN PROGRESS (residual-cleanup C1b, 2026-05-31, batch A of 2/3). The
+      drain continued: the full evidence axis of FP-S2C-CALLBACK,
+      FP-RUN-STATE-TRANSITION, and FP-SUSPEND-RESUME was discharged by wiring a
+      resolvable saa.code_entrypoint_refs at a real public method
+      (S2cCallbackTransport.dispatch / RunRepository.updateIfNotTerminal /
+      SuspendSignal.forClientCallback) + a saa.fact_refs that resolves in
+      code-symbols.json + real saa.test_refs (S2cCallbackRoundTripIT /
+      RunRepositoryAtomicContractTest / RunStatusTransitionIT / SuspendSignalTest /
+      ...) + an explicit saa.no_contract_rationale; the EVIDENCE-NO-FACT +
+      EVIDENCE-NO-TEST rows of FP-IDEMPOTENCY-CLAIM (IdempotencyHeaderFilter +
+      IdempotencyHeaderFilterTest/IT) and the EVIDENCE-NO-CONTRACT +
+      EVIDENCE-NO-FACT rows of FP-INGRESS-ENVELOPE (the IngressGateway SPI
+      interface fact + no_contract_rationale) were also discharged. The
+      FP-RUN-STATE-TRANSITION DECISION-ADR-NOT-CITEABLE row was discharged by
+      re-pointing saa.sourceAdr ADR-0118 (remediation_record, not citeable) to
+      ADR-0142 (run-aggregate-single-owner, active_guidance — the active ADR that
+      governs the RunRepository atomic compare-and-set invariant, Rule R-C.2.b).
+      14 FRB- rows removed (26 -> 12 open); changed-files-blocking exit 0 with all
+      12 residuals BASELINED, zero NEW or WORSENED. HONEST HOLDS kept + refreshed:
+      FP-INGRESS-ENVELOPE EVIDENCE-NO-TEST (IngressGateway is a design-only SPI
+      with no concrete implementation and no test in tests.json — fabricating a
+      saa.test_exception for a surface with no production impl would be dishonest)
+      and FP-IDEMPOTENCY-CLAIM DECISION-NO-NORMALIZED-VIEW (ADR-0027 is a
+      Markdown-era ADR absent from the apex fact-layer corpus; there is no raw
+      YAML to normalize, so a view cannot be authored without fabricating decision
+      content). The same honest hold blocks the ADR-0020 / ADR-0056 / ADR-0058
+      decision rows (batch B): re-pointing or authoring a view requires a real
+      governing YAML ADR, which does not yet exist for those Markdown-era ids.
+
+      DISCOVERED SUB-HAZARD (a fixed-window probe blinds an evidence-axis check
+      and masks a genuine discharge). check_feature_readiness.py reads a
+      FIXED 1400-char window after each element anchor (_parse_block window=1400)
+      to find saa.* properties. When the discharging refs (saa.fact_refs,
+      saa.test_refs) are authored AFTER a long saa.no_contract_rationale on a
+      multi-property FunctionPoint, the closing quote of test_refs falls PAST char
+      1400, the regex cannot complete the match, and the gate reports a SPURIOUS
+      EVIDENCE-NO-TEST / EVIDENCE-NO-CONTRACT even though the element genuinely
+      discharges the axis — i.e. an over-strict false positive that masks a real
+      discharge (and a latent fail-open: a probe that cannot see the whole element
+      cannot be trusted either direction). C1b hit this on FP-RUN-STATE-TRANSITION
+      and fixed it AUTHORING-SIDE: place the short evidence refs BEFORE the long
+      no_contract_rationale and keep every evidence field (contract-or-rationale +
+      fact + test) inside the 1400-char window; an offset probe confirmed each
+      edited element fits before the row was removed. PREVENTION (authoring rule
+      for any future FunctionPoint evidence wiring on function-points.dsl): order
+      properties so the gate-scanned saa.* refs sit early in the element block;
+      the durable fix (deferred, low-risk-only) is to widen _parse_block to scan
+      to the element's closing brace rather than a fixed char count, with its
+      self-tests kept green — recorded here as an open probe-hardening residual,
+      not silently relied upon.
