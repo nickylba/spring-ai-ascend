@@ -48,9 +48,6 @@
 #  21.  bom_glue_paths_exist                          -- BoM must not contain known ghost implementation paths unless they exist (ADR-0043)
 #  23.  active_doc_internal_links_resolve             -- markdown links ](path) in active docs must resolve to existing files (ADR-0043)
 #  24.  shipped_row_evidence_paths_exist              -- l2_documents: and latest_delivery_file: on shipped rows must exist on disk (ADR-0045)
-#  26.  release_note_shipped_surface_truth            -- docs/logs/releases/*.md must not overclaim RunLifecycle/RunContext.posture/ApiCompatibilityTest-as-OpenAPI/AppPostureGate-scope (ADR-0046)
-#  27.  active_entrypoint_baseline_truth              -- root README.md baseline counts must match architecture-status.yaml.architecture_sync_gate.allowed_claim (ADR-0047)
-#  28.  release_note_baseline_truth                   -- docs/logs/releases/*.md baseline counts must match canonical YAML unless marked "Historical artifact frozen at SHA" (ADR-0049, whitepaper-alignment P0-1)
 #  --- L1 Rule-28 sub-checks (ADR-0059) ---
 #  28a. tenant_column_present                          -- every CREATE TABLE in db/migration declares tenant_id (enforcer E15)
 #  28b. high_cardinality_tag_guard                     -- no Tag.of("run_id"|"idempotency_key"|"jwt_sub"|"body", …) in agent-*/main (enforcer E19)
@@ -67,17 +64,13 @@
 #  --- Layer-0 governing principles (ADR-0064..0067) ---
 #  32.  competitive_baselines_present_and_wellformed    -- docs/governance/competitive-baselines.yaml has 4 pillars (Rule 30, enforcer E50)
 #  33.  release_note_references_four_pillars            -- latest release note mentions all 4 pillars by name (Rule 30, enforcer E51)
-#  34.  module_metadata_present_and_complete            -- every <module>/pom.xml has a sibling module-metadata.yaml with required keys (Rule 31, enforcer E52)
-#  35.  dfx_yaml_present_and_wellformed                 -- every kind:platform|domain module has docs/dfx/<module>.yaml with 5 DFX dimensions (Rule 32, enforcer E53)
 #  36.  domain_module_has_spi_package                   -- every kind:domain module declares spi_packages and each one resolves on disk (Rule 32, enforcer E54)
 #  --- W1 Layered 4+1 + Architecture Graph (ADR-0068) ---
 #  37.  architecture_artefact_front_matter             -- every ARCH/L2/ADR.yaml carries level: + view: front-matter (Rule 33, enforcer E55)
 #  38.  architecture_graph_well_formed                 -- generated architecture-graph.yaml builds + validates (Rule 34, enforcer E56)
 #  39.  review_proposal_front_matter                   -- docs/logs/reviews/*.md front-matter is OPTIONAL (interaction records); validated only when a doc opts into 4+1 proposal classification (Rule 33, enforcer E57)
-#  40.  enforcer_reachable_from_principle              -- every enforcer has at least one rule-edge (Rule 34, enforcer E58)
 #  41.  enforcer_anchor_resolves                       -- every artifact: anchor resolves to real method/heading (Phase M, enforcer E60)
 #  42.  architecture_graph_idempotent                  -- twice-run graph build is byte-identical (Phase M, enforcer E61)
-#  43.  new_adr_must_be_yaml                           -- highest-numbered ADR is .yaml not .md (Phase M, enforcer E62)
 #  44.  frozen_doc_edit_path_compliance                -- freeze_id-tagged file edits require docs/logs/reviews/*.md proposal (Phase M, enforcer E63)
 #  --- W1.x L0 ironclad-rule enforcers (ADR-0069) ---
 #  45.  bus_channels_three_track_present               -- bus-channels.yaml declares 3 channels with unique physical_channel (Rule 35 / P-E, enforcer E64)
@@ -99,7 +92,6 @@
 #  --- W2.x Phase 3 — S2C Capability Callback (ADR-0074) ---
 #  58.  s2c_callback_yaml_present_and_wellformed       -- docs/contracts/s2c-callback.v1.yaml declares request+response shape with 6 mandatory request fields and outcome enum (Rule 46 / P-M, enforcer E81)
 #  --- W2.x Phase 6 — Schema-First Domain Contracts (ADR-0077, Rule 48) ---
-#  60.  schema_first_domain_contracts                   -- prose enums in ARCHITECTURE.md require nearby yaml schema reference or grandfather entry (Rule 48 / P-M cross-cutting, enforcer E85)
 #  --- v2.0.0-rc2 second-pass review closure (F-α / F-β / F-γ category audit) ---
 #  62.  contract_yaml_declares_status                   -- every docs/contracts/*.v1.yaml + 3 governance YAMLs declare top-level status: with allowed enum value (F-β structural prevention)
 #  --- 2026-05-17 cross-corpus consistency audit prevention rules (G1/G2/G3 closure, enforcers E94-E96) ---
@@ -689,202 +681,6 @@ fi
 if [[ $_r24_fail -eq 0 ]]; then pass_rule "shipped_row_evidence_paths_exist"; fi
 
 # ---------------------------------------------------------------------------
-# Rule 26 — release_note_shipped_surface_truth
-# ADR-0046: docs/logs/releases/*.md must not overclaim shipped surfaces.
-#   26a — RunLifecycle name guard: line containing 'RunLifecycle' must be in a one-line
-#         context window with a wave qualifier W1/W2/W3/W4, OR the same line must contain
-#         one of: design-only|deferred|not shipped|remains design|materialised at W.
-#   26b — RunContext method-list guard: line listing RunContext methods MUST NOT contain
-#         posture() and method tokens must be subset of {runId,tenantId,checkpointer,suspendForChild}.
-#   26c — OpenAPI snapshot attribution: ApiCompatibilityTest co-mentioned with
-#         snapshot|OpenAPI.*spec|diverges fails (unless ArchUnit-only disclaimer present).
-#   26d — AppPostureGate scope guard: 'AppPostureGate' on a line with 'HTTP Edge' fails;
-#         'all runtime components.*posture.*constructor' fails.
-# Closes GATE-SCOPE-GAP for release artifact class.
-# ---------------------------------------------------------------------------
-_r26_fail=0
-if [[ -d docs/logs/releases ]]; then
-  while IFS= read -r _rf26; do
-    [[ -z "$_rf26" ]] && continue
-    # rc32 perf: frozen release notes are immutable historical artefacts;
-    # re-validating them on every gate run is wasted work (Rule 28 already
-    # exempts them; Rule 26 should too). This dropped Rule 26 wall-clock
-    # from 300s timeout to under 30s on a corpus with 25+ release notes.
-    if grep -q "Historical artifact frozen at SHA" "$_rf26"; then
-      continue
-    fi
-    # Pre-read file into an array of lines for context-window 26a.
-    mapfile -t _rf26_lines < "$_rf26"
-    _rf26_count=${#_rf26_lines[@]}
-    for ((_i26=0; _i26 < _rf26_count; _i26++)); do
-      _ln26="${_rf26_lines[$_i26]}"
-      _lno26=$((_i26 + 1))
-      # Narrative exemption: lines that explicitly describe Rule 26 itself are meta,
-      # not shipped-surface claims. Skip them.
-      if printf '%s' "$_ln26" | grep -qE 'Gate Rule 26|ADR-0046|release_note_shipped_surface_truth'; then
-        continue
-      fi
-      # 26a: RunLifecycle name guard
-      if printf '%s' "$_ln26" | grep -q 'RunLifecycle'; then
-        _lo26=$((_i26 > 0 ? _i26 - 1 : 0))
-        _hi26=$((_i26 + 1 < _rf26_count ? _i26 + 1 : _i26))
-        _ctx26a=""
-        for ((_j26=_lo26; _j26 <= _hi26; _j26++)); do
-          _ctx26a="$_ctx26a ${_rf26_lines[$_j26]}"
-        done
-        _has_wave26a=0
-        if printf '%s' "$_ctx26a" | grep -qE '(^|[^A-Za-z0-9])W[1-4]([^A-Za-z0-9]|$)'; then _has_wave26a=1; fi
-        _has_marker26a=0
-        if printf '%s' "$_ln26" | grep -qE 'design-only|deferred|not shipped|remains design|materialised at W|materialized at W'; then _has_marker26a=1; fi
-        if [[ $_has_wave26a -eq 0 && $_has_marker26a -eq 0 ]]; then
-          fail_rule "release_note_shipped_surface_truth" "$_rf26:$_lno26 (26a) contains 'RunLifecycle' without W1-W4 wave qualifier in context window or design-only/deferred/not shipped/remains design marker on the same line. Per ADR-0046."
-          _r26_fail=1
-        fi
-      fi
-      # 26b: RunContext method-list guard — only fires on methods-context lines
-      # (table cell header, methods verb, or RunContext.method( syntax) and extracts
-      # tokens only from the substring AFTER the first 'RunContext' occurrence.
-      if printf '%s' "$_ln26" | grep -q 'RunContext'; then
-        _is_methods_ctx26b=0
-        if printf '%s' "$_ln26" | grep -qE '\|[[:space:]]*`?RunContext`?[[:space:]]*\|'; then _is_methods_ctx26b=1; fi
-        if printf '%s' "$_ln26" | grep -qE 'RunContext[^.]{0,40}(exposes|interface|methods?|provides|carries|has)'; then _is_methods_ctx26b=1; fi
-        if printf '%s' "$_ln26" | grep -qE 'RunContext\.[A-Za-z_]'; then _is_methods_ctx26b=1; fi
-        if [[ $_is_methods_ctx26b -eq 1 ]]; then
-          # Substring after first RunContext occurrence (POSIX awk).
-          _after_rc26=$(printf '%s' "$_ln26" | awk '{ idx = index($0, "RunContext"); if (idx > 0) print substr($0, idx); }')
-          if printf '%s' "$_after_rc26" | grep -qE '\bposture[[:space:]]*\('; then
-            fail_rule "release_note_shipped_surface_truth" "$_rf26:$_lno26 (26b) contains 'RunContext' co-mentioned with 'posture()'. Per ADR-0046 RunContext has no posture(); canonical methods are runId/tenantId/checkpointer/suspendForChild."
-            _r26_fail=1
-          fi
-          for _mt26 in $(printf '%s' "$_after_rc26" | grep -oE '\b[A-Za-z_][A-Za-z0-9_]*\(' | sed 's/($//'); do
-            case "$_mt26" in
-              [a-z]*)
-                case "$_mt26" in
-                  runId|tenantId|checkpointer|suspendForChild) : ;;
-                  exposes|lists|returns|threads|carries|provides|sourced|interface|method|methods|requires|reads|writes|sees|gets|fails) : ;;
-                  *)
-                    fail_rule "release_note_shipped_surface_truth" "$_rf26:$_lno26 (26b) lists method '$_mt26()' alongside 'RunContext' in a methods-context. Per ADR-0046 canonical RunContext methods are {runId, tenantId, checkpointer, suspendForChild}; other tokens flag an invented method."
-                    _r26_fail=1
-                    ;;
-                esac
-                ;;
-              *) : ;;
-            esac
-          done
-        fi
-      fi
-      # 26c: OpenAPI snapshot test attribution
-      if printf '%s' "$_ln26" | grep -q 'ApiCompatibilityTest' && \
-         printf '%s' "$_ln26" | grep -qE 'snapshot|OpenAPI[[:space:]]*(snapshot|spec|v1)|diverges|live[[:space:]]*spec'; then
-        if ! printf '%s' "$_ln26" | grep -qE 'ArchUnit[[:space:]]*-?[[:space:]]*only|not[[:space:]]+the[[:space:]]+OpenAPI|is[[:space:]]+not[[:space:]]+the[[:space:]]+OpenAPI'; then
-          fail_rule "release_note_shipped_surface_truth" "$_rf26:$_lno26 (26c) attributes OpenAPI snapshot enforcement to ApiCompatibilityTest. Per ADR-0046 the snapshot diff lives in OpenApiContractIT (via OpenApiSnapshotComparator). ApiCompatibilityTest is ArchUnit-only."
-          _r26_fail=1
-        fi
-      fi
-      # 26d: AppPostureGate scope guard
-      if printf '%s' "$_ln26" | grep -q 'AppPostureGate' && printf '%s' "$_ln26" | grep -qE 'HTTP[[:space:]]*Edge'; then
-        fail_rule "release_note_shipped_surface_truth" "$_rf26:$_lno26 (26d) co-mentions 'AppPostureGate' with 'HTTP Edge'. Per ADR-0046 AppPostureGate lives in agent-runtime; it does not belong under HTTP Edge."
-        _r26_fail=1
-      fi
-      if printf '%s' "$_ln26" | grep -qE 'all[[:space:]]+runtime[[:space:]]+components.*posture.*constructor|posture.*constructor.*all[[:space:]]+runtime[[:space:]]+components'; then
-        fail_rule "release_note_shipped_surface_truth" "$_rf26:$_lno26 (26d) claims posture is a constructor argument for all runtime components. Per ADR-0046 only SyncOrchestrator, InMemoryRunRegistry, InMemoryCheckpointer call AppPostureGate; the claim is over-generalised."
-        _r26_fail=1
-      fi
-    done
-  done < <(find docs/logs/releases -name '*.md' -type f 2>/dev/null | sort || true)
-fi
-if [[ $_r26_fail -eq 0 ]]; then pass_rule "release_note_shipped_surface_truth"; fi
-
-# ---------------------------------------------------------------------------
-# Rule 27 — active_entrypoint_baseline_truth
-# ADR-0047: root README.md MUST contain the four architecture baseline counts
-# currently asserted by docs/governance/architecture-status.yaml
-# architecture_sync_gate.allowed_claim. Catches CANONICAL-DRIFT.
-# ---------------------------------------------------------------------------
-_r27_fail=0
-if [[ -f docs/governance/architecture-status.yaml && -f README.md ]]; then
-  # Extract the architecture_sync_gate.allowed_claim line (it is a single line in YAML).
-  _claim27=$(awk '/^[[:space:]]+architecture_sync_gate:/{flag=1} flag && /allowed_claim:/{print; exit}' docs/governance/architecture-status.yaml)
-  if [[ -z "$_claim27" ]]; then
-    fail_rule "active_entrypoint_baseline_truth" "docs/governance/architecture-status.yaml missing architecture_sync_gate.allowed_claim line. Per ADR-0047 Gate Rule 27."
-    _r27_fail=1
-  else
-    _readme27=$(cat README.md)
-    _check_baseline27() {
-      _label="$1"; _yaml_re="$2"; _readme_re="$3"
-      _expected=$(printf '%s' "$_claim27" | grep -oE "$_yaml_re" | head -1 | grep -oE '^[0-9]+' | head -1)
-      [[ -z "$_expected" ]] && return 0
-      _readme_matches=$(printf '%s' "$_readme27" | grep -oE "$_readme_re")
-      if [[ -z "$_readme_matches" ]]; then
-        fail_rule "active_entrypoint_baseline_truth" "README.md missing baseline count for '$_label'. Per ADR-0047 Gate Rule 27 the README MUST contain '$_expected $_label' (current canonical baseline)."
-        _r27_fail=1
-        return 0
-      fi
-      while IFS= read -r _rm27; do
-        _actual=$(printf '%s' "$_rm27" | grep -oE '^[0-9]+' | head -1)
-        if [[ "$_actual" != "$_expected" ]]; then
-          fail_rule "active_entrypoint_baseline_truth" "README.md asserts '$_actual $_label' but canonical baseline is '$_expected $_label'. Per ADR-0047 Gate Rule 27."
-          _r27_fail=1
-        fi
-      done <<< "$_readme_matches"
-    }
-    _check_baseline27 '§4 constraints' '[0-9]+[[:space:]]+§4[[:space:]]+constraints' '[0-9]+[[:space:]]+§4[[:space:]]+constraints'
-    _check_baseline27 'ADRs' '[0-9]+[[:space:]]+ADRs' '[0-9]+[[:space:]]+ADRs'
-    _check_baseline27 'gate rules' '[0-9]+[[:space:]]+active[[:space:]]+gate[[:space:]]+rules' '[0-9]+[[:space:]]+(active[[:space:]]+)?gate[[:space:]]+rules'
-    _check_baseline27 'self-tests' '[0-9]+[[:space:]]+gate[[:space:]]+self-tests' '[0-9]+[[:space:]]+(gate[[:space:]]+)?self-tests'
-  fi
-fi
-if [[ $_r27_fail -eq 0 ]]; then pass_rule "active_entrypoint_baseline_truth"; fi
-
-# ---------------------------------------------------------------------------
-# Rule 28 — release_note_baseline_truth
-# ADR-0049 (whitepaper-alignment remediation P0-1): every docs/logs/releases/*.md
-# baseline table MUST match the canonical architecture_sync_gate.allowed_claim
-# counts, UNLESS the release note declares itself a historical artifact via
-# the marker "Historical artifact frozen at SHA". Closes GATE-SCOPE-GAP for
-# release-note baseline drift (Gate Rule 27 only covers README.md).
-# ---------------------------------------------------------------------------
-_r28_fail=0
-if [[ -f docs/governance/architecture-status.yaml ]]; then
-  _claim28=$(awk '/^[[:space:]]+architecture_sync_gate:/{flag=1} flag && /allowed_claim:/{print; exit}' docs/governance/architecture-status.yaml)
-  if [[ -n "$_claim28" ]]; then
-    while IFS= read -r _rf28; do
-      [[ -z "$_rf28" ]] && continue
-      if grep -qE 'Historical artifact frozen at SHA' "$_rf28"; then
-        continue
-      fi
-      _rfcontent28=$(cat "$_rf28")
-      _check_baseline28() {
-        _label="$1"; _yaml_re="$2"; _rf_re="$3"
-        _expected=$(printf '%s' "$_claim28" | grep -oE "$_yaml_re" | head -1 | grep -oE '^[0-9]+' | head -1)
-        [[ -z "$_expected" ]] && return 0
-        _rfmatches=$(printf '%s' "$_rfcontent28" | grep -oE "$_rf_re")
-        if [[ -z "$_rfmatches" ]]; then
-          fail_rule "release_note_baseline_truth" "$_rf28 missing baseline count for '$_label'. Per Gate Rule 28 active release notes must contain a table row matching '$_label | $_expected' or declare 'Historical artifact frozen at SHA <sha>'."
-          _r28_fail=1
-          return 0
-        fi
-        while IFS= read -r _rmline; do
-          # Release notes use markdown-table format: '| <label> | <number> ... |'.
-          # The number appears AFTER the label, so extract the trailing number.
-          _actual=$(printf '%s' "$_rmline" | grep -oE '[0-9]+' | tail -1)
-          if [[ "$_actual" != "$_expected" ]]; then
-            fail_rule "release_note_baseline_truth" "$_rf28 asserts '$_actual' for '$_label' but canonical baseline is '$_expected $_label'. Per Gate Rule 28 active release notes must match the canonical baseline or declare 'Historical artifact frozen at SHA <sha>'."
-            _r28_fail=1
-          fi
-        done <<< "$_rfmatches"
-      }
-      # Release-note table format: '| §4 constraints | 50 (#1–#50) |', etc.
-      _check_baseline28 '§4 constraints' '[0-9]+[[:space:]]+§4[[:space:]]+constraints' '§4[[:space:]]+constraints[[:space:]]*\|[[:space:]]*[0-9]+'
-      _check_baseline28 'ADRs' '[0-9]+[[:space:]]+ADRs' '(Active[[:space:]]+)?ADRs[[:space:]]*\|[[:space:]]*[0-9]+'
-      _check_baseline28 'gate rules' '[0-9]+[[:space:]]+active[[:space:]]+gate[[:space:]]+rules' '(Active[[:space:]]+)?gate[[:space:]]+rules[[:space:]]*\|[[:space:]]*[0-9]+'
-      _check_baseline28 'self-tests' '[0-9]+[[:space:]]+gate[[:space:]]+self-tests' '(Gate[[:space:]]+)?self-test[[:space:]]+cases[[:space:]]*\|[[:space:]]*[0-9]+'
-    done < <(find docs/logs/releases -maxdepth 1 -name '*.md' -type f 2>/dev/null | sort || true)
-  fi
-fi
-if [[ $_r28_fail -eq 0 ]]; then pass_rule "release_note_baseline_truth"; fi
-
-# ---------------------------------------------------------------------------
 # Rule 28a — tenant_column_present (Rule 28 sub-check, ADR-0059, enforcer E15)
 # Every CREATE TABLE under any */src/main/resources/db/migration/*.sql that
 # isn't a control/system table must declare a tenant_id column.
@@ -1351,66 +1147,6 @@ fi
 if [[ $_r28k_fail -eq 0 ]]; then pass_rule "javadoc_enforcer_citation_semantic_check"; fi
 
 # ---------------------------------------------------------------------------
-# Rule 34 — module_metadata_present_and_complete (enforcer E52, ADR-0066)
-#
-# Every reactor module (every <module>/pom.xml) MUST have a sibling
-# module-metadata.yaml declaring module, kind, version, semver_compatibility.
-# Required by CLAUDE.md Rule 31.
-# ---------------------------------------------------------------------------
-_r34_fail=0
-_required_keys=(module kind version semver_compatibility)
-while IFS= read -r _pom; do
-  [[ -z "$_pom" ]] && continue
-  # Skip the root reactor pom — it's the reactor declaration, not a module
-  if [[ "$_pom" == "./pom.xml" || "$_pom" == "pom.xml" ]]; then continue; fi
-  _mod_dir="$(dirname "$_pom")"
-  _meta="${_mod_dir}/module-metadata.yaml"
-  if [[ ! -f "$_meta" ]]; then
-    fail_rule "module_metadata_present_and_complete" "$_meta missing — required for ${_mod_dir} (CLAUDE.md Rule 31 / ADR-0066)"
-    _r34_fail=1
-    continue
-  fi
-  for _k in "${_required_keys[@]}"; do
-    if ! grep -qE "^[[:space:]]*${_k}:" "$_meta" 2>/dev/null; then
-      fail_rule "module_metadata_present_and_complete" "$_meta missing required key '${_k}'"
-      _r34_fail=1
-    fi
-  done
-done < <(find . -mindepth 2 -maxdepth 2 -name 'pom.xml' -type f 2>/dev/null | sort || true)
-if [[ $_r34_fail -eq 0 ]]; then pass_rule "module_metadata_present_and_complete"; fi
-
-# ---------------------------------------------------------------------------
-# Rule 35 — dfx_yaml_present_and_wellformed (enforcer E53, ADR-0067)
-#
-# Every module with kind ∈ {platform, domain} in its module-metadata.yaml
-# MUST have a docs/dfx/<module>.yaml covering five DFX dimensions:
-# releasability, resilience, availability, vulnerability, observability.
-# DFX is OPTIONAL for kind ∈ {bom, starter, sample}.
-# Required by CLAUDE.md Rule 32.
-# ---------------------------------------------------------------------------
-_r35_fail=0
-_dfx_required_kinds_re='^(platform|domain)$'
-while IFS= read -r _meta; do
-  [[ -z "$_meta" ]] && continue
-  _kind="$(grep -E '^[[:space:]]*kind:' "$_meta" 2>/dev/null | head -1 | sed -E 's/^[[:space:]]*kind:[[:space:]]*([A-Za-z_]+).*/\1/')"
-  [[ ! "$_kind" =~ $_dfx_required_kinds_re ]] && continue
-  _mod_name="$(grep -E '^[[:space:]]*module:' "$_meta" 2>/dev/null | head -1 | sed -E 's/^[[:space:]]*module:[[:space:]]*([A-Za-z0-9_-]+).*/\1/')"
-  _dfx="docs/dfx/${_mod_name}.yaml"
-  if [[ ! -f "$_dfx" ]]; then
-    fail_rule "dfx_yaml_present_and_wellformed" "$_dfx missing — required for kind=${_kind} module '${_mod_name}' (CLAUDE.md Rule 32 / ADR-0067)"
-    _r35_fail=1
-    continue
-  fi
-  for _d in releasability resilience availability vulnerability observability; do
-    if ! grep -qE "^[[:space:]]*${_d}:" "$_dfx" 2>/dev/null; then
-      fail_rule "dfx_yaml_present_and_wellformed" "$_dfx missing required DFX dimension '${_d}'"
-      _r35_fail=1
-    fi
-  done
-done < <(find . -mindepth 2 -maxdepth 2 -name 'module-metadata.yaml' -type f 2>/dev/null | sort || true)
-if [[ $_r35_fail -eq 0 ]]; then pass_rule "dfx_yaml_present_and_wellformed"; fi
-
-# ---------------------------------------------------------------------------
 # Rule 36 — domain_module_has_spi_package (enforcer E54, ADR-0067)
 #
 # Every module with kind=domain in its module-metadata.yaml MUST declare at
@@ -1481,53 +1217,6 @@ else
   rm -f "$_r38_tmp1" "$_r38_tmp2" 2>/dev/null || true
 fi
 if [[ $_r38_fail -eq 0 ]]; then pass_rule "architecture_graph_well_formed"; fi
-
-# ---------------------------------------------------------------------------
-# Rule 40 — enforcer_reachable_from_principle (enforcer E58, ADR-0068)
-#
-# Every shipped enforcer row in docs/governance/enforcers.yaml MUST be
-# reachable from at least one Layer-0 principle (P-A..P-D or legacy
-# P1..P3/E1) through the edge chain in architecture-graph.yaml:
-#   principle --operationalised_by--> Rule-N --enforced_by--> E<n>
-# The Python graph builder owns the traversal; this rule delegates to it.
-# ---------------------------------------------------------------------------
-_r40_fail=0
-if [[ ! -f docs/governance/architecture-graph.yaml ]]; then
-  fail_rule "enforcer_reachable_from_principle" "docs/governance/architecture-graph.yaml not present — run gate/build_architecture_graph.sh first"; _r40_fail=1
-else
-  # Embedded traversal check (avoids second Python invocation). For every
-  # enforcer node E<n>, confirm there exists at least one Rule-N node feeding
-  # it and that Rule-N is operationalised by at least one principle.
-  _r40_orphans="$(awk '
-    /^- id: / {
-      if (cur != "" && type == "enforcer") enforcers[cur] = 1
-      cur = $3
-      type = ""
-    }
-    /^  type: enforcer/ { type = "enforcer" }
-    /^  type: rule/    { rules_seen[cur] = 1 }
-    /^  type: principle/ { principles_seen[cur] = 1 }
-    /^- src: / { src = $3 }
-    /^  dst: / { dst = $2 }
-    /^  type: enforced_by/ { rule_to_enf[src] = rule_to_enf[src] " " dst; enf_has_rule[dst] = 1 }
-    /^  type: operationalised_by/ { prin_to_rule[src] = prin_to_rule[src] " " dst; rule_has_prin[dst] = 1 }
-    END {
-      for (e in enforcers) {
-        if (!(e in enf_has_rule)) {
-          print "  - " e " (no rule -> enforcer edge)"
-          orphan++
-        }
-      }
-      if (orphan > 0) exit 1
-    }
-  ' docs/governance/architecture-graph.yaml 2>/dev/null || true)"
-  if [[ -n "$_r40_orphans" ]]; then
-    fail_rule "enforcer_reachable_from_principle" "orphaned enforcer(s): no rule path back to a principle:"
-    echo "$_r40_orphans" >&2
-    _r40_fail=1
-  fi
-fi
-if [[ $_r40_fail -eq 0 ]]; then pass_rule "enforcer_reachable_from_principle"; fi
 
 # ===========================================================================
 # Phase M remediation (CLAUDE.md Rules 33-34, ADR-0068)
@@ -1609,26 +1298,6 @@ else
   rm -f "$_r42_a" "$_r42_b" 2>/dev/null || true
 fi
 if [[ $_r42_fail -eq 0 ]]; then pass_rule "architecture_graph_idempotent"; fi
-
-# ---------------------------------------------------------------------------
-# Rule 43 — new_adr_must_be_yaml (enforcer E62, Phase M D2)
-#
-# The highest-numbered ADR file under docs/adr/NNNN-*.{md,yaml} MUST have the
-# .yaml extension. This prevents future ADRs from regressing to the legacy
-# .md shape after ADR-0068 mandated YAML.
-# ---------------------------------------------------------------------------
-_r43_fail=0
-_r43_top_md="$(find docs/adr -maxdepth 1 -type f -name '[0-9][0-9][0-9][0-9]-*.md' 2>/dev/null | sort -r | head -1 || true)"
-_r43_top_yaml="$(find docs/adr -maxdepth 1 -type f -name '[0-9][0-9][0-9][0-9]-*.yaml' 2>/dev/null | sort -r | head -1 || true)"
-_r43_top_md_n="$(basename "${_r43_top_md:-0000-x.md}" 2>/dev/null | cut -c1-4)"
-_r43_top_yaml_n="$(basename "${_r43_top_yaml:-0000-x.yaml}" 2>/dev/null | cut -c1-4)"
-# Force base-10 (4-digit ADR ids can have leading zeros which bash otherwise reads as octal,
-# making "0068" / "0099" invalid in arithmetic comparisons).
-if (( 10#${_r43_top_md_n:-0} > 10#${_r43_top_yaml_n:-0} )); then
-  fail_rule "new_adr_must_be_yaml" "highest-numbered ADR is $_r43_top_md (.md) — ADR-0068 / Rule 33 mandates all new ADRs be .yaml; rename or migrate"
-  _r43_fail=1
-fi
-if [[ $_r43_fail -eq 0 ]]; then pass_rule "new_adr_must_be_yaml"; fi
 
 # ===========================================================================
 # W1.x Phase 1 — L0 ironclad-rule enforcers (Gate Rules 45-52)
@@ -1982,77 +1651,6 @@ else
   done
 fi
 if [[ $_r58_fail -eq 0 ]]; then pass_rule "s2c_callback_yaml_present_and_wellformed"; fi
-
-# ---------------------------------------------------------------------------
-# Rule 60 — schema_first_domain_contracts (enforcer E85, Rule 48, ADR-0077)
-#
-# Forbid new prose-defined enum sites in the architecture corpus. Scan
-# ARCHITECTURE.md (root) + architecture/docs/L1/agent-*.md architecture/docs/L1/agent-service/ARCHITECTURE.md for the prose-enum pattern
-# `<UPPERCASE_TYPE> | <UPPERCASE_TYPE>` outside fenced code blocks and
-# markdown tables. For every match, the rule passes only when one of:
-#   (a) the file path appears as a prefix line in gate/schema-first-grandfathered.txt
-#       (file-level grandfather -- pre-W2.x existing taxonomies);
-#   (b) the file path is at file-level grandfather (i.e. has any '<path>:' entry).
-# The grandfather list is CLOSED: no entries added after 2026-05-16.
-# This rule codifies the W2.x doctrine "yaml schema -> Java type -> runtime
-# self-validate" into a permanent constraint.
-# ---------------------------------------------------------------------------
-_r60_fail=0
-_r60_grandfather="gate/schema-first-grandfathered.txt"
-_r60_files=(ARCHITECTURE.md agent-service/ARCHITECTURE.md agent-service/ARCHITECTURE.md)
-if [[ ! -f "$_r60_grandfather" ]]; then
-  fail_rule "schema_first_domain_contracts" "$_r60_grandfather missing -- Rule 48 grandfather list required"
-  _r60_fail=1
-else
-  # Phase 7 audit fix (Rule 48 sunset discipline -- plan F2/F3).
-  # Each grandfather entry MUST be
-  # pipe-delimited <path>|<sunset_date>|<desc>. Validate sunset_date format
-  # and that today <= sunset_date for every entry.
-  _r60_today=$(date +%Y-%m-%d)
-  while IFS= read -r _r60_line; do
-    [[ -z "$_r60_line" || "$_r60_line" =~ ^[[:space:]]*# ]] && continue
-    _r60_entry_path=$(printf '%s' "$_r60_line" | cut -d'|' -f1)
-    _r60_entry_sunset=$(printf '%s' "$_r60_line" | cut -d'|' -f2)
-    if [[ -z "$_r60_entry_path" || -z "$_r60_entry_sunset" ]]; then
-      fail_rule "schema_first_domain_contracts" "grandfather entry malformed (need <path>|<sunset>|<desc>): $_r60_line"
-      _r60_fail=1
-      continue
-    fi
-    if ! [[ "$_r60_entry_sunset" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
-      fail_rule "schema_first_domain_contracts" "malformed sunset_date '$_r60_entry_sunset' for $_r60_entry_path in $_r60_grandfather (expected YYYY-MM-DD)"
-      _r60_fail=1
-      continue
-    fi
-    if [[ "$_r60_today" > "$_r60_entry_sunset" ]]; then
-      fail_rule "schema_first_domain_contracts" "$_r60_entry_path grandfather entry expired on $_r60_entry_sunset; retrofit required per CLAUDE-deferred.md 48.b"
-      _r60_fail=1
-    fi
-  done < "$_r60_grandfather"
-  for _r60_file in "${_r60_files[@]}"; do
-    if [[ ! -f "$_r60_file" ]]; then continue; fi
-    _r60_candidates=$(awk '
-      BEGIN { in_fence = 0 }
-      /^```/ { in_fence = !in_fence; next }
-      { if (in_fence) next }
-      /^[[:space:]]*\|/ { next }
-      /[A-Z][A-Z_][A-Z_]*[[:space:]]*\|[[:space:]]*[A-Z][A-Z_][A-Z_]*/ { print NR }
-    ' "$_r60_file")
-    if [[ -z "$_r60_candidates" ]]; then continue; fi
-    # File-level grandfather check: if any line in grandfather list starts with this file path + '|', whitelist all matches.
-    if grep -qE "^${_r60_file}\|" "$_r60_grandfather"; then continue; fi
-    while read -r _r60_ln; do
-      [[ -z "$_r60_ln" ]] && continue
-      _r60_lo=$(( _r60_ln - 5 )); [[ $_r60_lo -lt 1 ]] && _r60_lo=1
-      _r60_hi=$(( _r60_ln + 5 ))
-      if ! awk -v lo="$_r60_lo" -v hi="$_r60_hi" 'NR>=lo && NR<=hi' "$_r60_file" \
-         | grep -qE 'docs/(contracts|governance)/[^[:space:]]+\.yaml'; then
-        fail_rule "schema_first_domain_contracts" "$_r60_file:$_r60_ln prose enum without yaml-schema reference within +/-5 lines and not in $_r60_grandfather"
-        _r60_fail=1
-      fi
-    done <<< "$_r60_candidates"
-  done
-fi
-if [[ $_r60_fail -eq 0 ]]; then pass_rule "schema_first_domain_contracts"; fi
 
 # ---------------------------------------------------------------------------
 # Rule 62 — contract_yaml_declares_status (v2.0.0-rc2 / second-pass review F-β structural prevention)

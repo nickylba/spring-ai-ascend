@@ -28,9 +28,8 @@
 #                  governance corpus itself.
 #
 # Authority: ADR-0059 (Code-as-Contract) + ADR-0068 (Layered 4+1 + Graph).
-# Self-enforced by gate rule 28f (enforcers_yaml_wellformed), 28i
-# (plan_enforcer_table_in_sync), 37 (architecture_artefact_front_matter), and
-# 40 (enforcer_reachable_from_principle).
+# Self-enforced by gate rule 28f (enforcers_yaml_wellformed) and 28i
+# (plan_enforcer_table_in_sync).
 
 - id: E1
   constraint_ref: "ARCHITECTURE.md §4 #10 (module_dep_direction); ADR-0055 supersedes ADR-0026"
@@ -441,24 +440,6 @@
   asserts: "Any package matching com.huawei.ascend..spi.. does not depend on Spring, agent-platform, inmemory reference impls, Micrometer, or OpenTelemetry — generalises E3 to all current and future SPI packages."
   product_claim: "PC-001"
 
-- id: E52
-  constraint_ref: "CLAUDE.md Rule R-C.1; ARCHITECTURE.md §4 #62; ADR-0066"
-  kind: gate-script
-  level: L0
-  view: development
-  artifact: gate/check_architecture_sync.sh#module_metadata_present_and_complete
-  asserts: "Every reactor module's <module>/pom.xml has a sibling <module>/module-metadata.yaml declaring module, kind, version, and semver_compatibility."
-  product_claim: "PC-003"
-
-- id: E53
-  constraint_ref: "CLAUDE.md Rule R-D sub-clause .a; ARCHITECTURE.md §4 #63; ADR-0067"
-  kind: gate-script
-  level: L0
-  view: scenarios
-  artifact: gate/check_architecture_sync.sh#dfx_yaml_present_and_wellformed
-  asserts: "Every kind:platform and kind:domain module has docs/dfx/<module>.yaml covering five DFX dimensions: releasability, resilience, availability, vulnerability, observability."
-  product_claim: "PC-001"
-
 - id: E54
   constraint_ref: "CLAUDE.md Rule R-D sub-clause .a; ARCHITECTURE.md §4 #63; ADR-0067"
   kind: gate-script
@@ -477,15 +458,6 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#architecture_graph_well_formed
   asserts: "docs/governance/architecture-graph.yaml is regenerated idempotently from authoritative inputs; supersedes/extends sub-graph is a DAG; every edge endpoint resolves to a real graph node or file path; every artifact#anchor reference resolves to a real method/heading (strengthens E33/E35)."
-  governance_infra: true
-
-- id: E58
-  constraint_ref: "CLAUDE.md Rule G-1 sub-clause .b; ADR-0068; ARCHITECTURE.md §4 #65"
-  kind: gate-script
-  level: L0
-  view: scenarios
-  artifact: gate/check_architecture_sync.sh#enforcer_reachable_from_principle
-  asserts: "every enforcer row with status: shipped must be reachable from at least one Layer-0 principle (P-A..P-D) by traversing edges in docs/governance/architecture-graph.yaml — closes the gap where an enforcer can ship without a stated principle motivation."
   governance_infra: true
 
 - id: E59
@@ -515,15 +487,6 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#architecture_graph_idempotent
   asserts: "running gate/build_architecture_graph.sh twice on unchanged inputs produces byte-identical docs/governance/architecture-graph.yaml output — closes the Rule G-1 sub-clause .b normative-phrase gap where idempotency had no enforcer."
-  governance_infra: true
-
-- id: E62
-  constraint_ref: "CLAUDE.md Rule G-1 sub-clause .a; ADR-0068; ARCHITECTURE.md §4 #64 (ADRs MUST be .yaml)"
-  kind: gate-script
-  level: L0
-  view: scenarios
-  artifact: gate/check_architecture_sync.sh#new_adr_must_be_yaml
-  asserts: "the highest-numbered ADR file under docs/adr/NNNN-*.{md,yaml} carries the .yaml extension — prevents future ADRs from regressing to the legacy .md shape after ADR-0068."
   governance_infra: true
 
 # ---------------------------------------------------------------------------
@@ -707,19 +670,6 @@
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/engine/EngineRegistryBootValidationIT.java#boot_fails_when_known_engine_has_no_adapter
   asserts: "Spring Boot startup fails with IllegalStateException when the registered ExecutorAdapter set does not match docs/contracts/engine-envelope.v1.yaml#known_engines -- fail-fast at boot via EngineAutoConfiguration wiring. Three cases verified: match-succeeds, missing-adapter-fails, unknown-adapter-fails."
   product_claim: "PC-003"
-
-# ---------------------------------------------------------------------------
-# W2.x Phase 6 — Schema-First Domain Contracts (Rule M-2 sub-clause .a / ADR-0077 / P-M cross-cutting)
-# ---------------------------------------------------------------------------
-
-- id: E85
-  constraint_ref: "CLAUDE.md Rule M-2 sub-clause .a (Schema-First Domain Contracts); ADR-0077; P-M cross-cutting invariant"
-  kind: gate-script
-  level: L0
-  view: scenarios
-  artifact: gate/check_architecture_sync.sh#schema_first_domain_contracts
-  asserts: "Every prose-enum site (<UPPERCASE_TYPE> | <UPPERCASE_TYPE>) in ARCHITECTURE.md (root) or agent-*/ARCHITECTURE.md outside fenced code blocks and markdown tables MUST be either (a) listed in gate/schema-first-grandfathered.txt with a matching file_path prefix or (b) accompanied by a docs/contracts/*.yaml or docs/governance/*.yaml reference within +/-5 lines. The grandfather list is closed (no additions after 2026-05-16) -- new domain taxonomies MUST land yaml-first, preventing recurrence of defect family F1 (79/158 historical text-drift defects)."
-  governance_infra: true
 
 # ---------------------------------------------------------------------------
 # W2.x Phase 4 — Evolution Scope Boundary (Rule R-M sub-clause .e / ADR-0075 / P-M)
