@@ -2113,8 +2113,8 @@ families:
   - id: F-architecture-authority-fragmentation
     title: "L1 feature/function-point inventory fragmented across multiple authority surfaces"
     first_observed_rc: pre-rc55
-    last_observed_rc: progressive-learning-curve-remediation-R4-2026-05-31
-    occurrences: [pre-rc55, rc55, progressive-learning-curve-remediation-W12-2026-05-30, progressive-learning-curve-remediation-W13-2026-05-30, progressive-learning-curve-remediation-W14-2026-05-30, progressive-learning-curve-remediation-R3-2026-05-30, progressive-learning-curve-remediation-R4-2026-05-31]
+    last_observed_rc: progressive-learning-curve-remediation-C2-2026-05-31
+    occurrences: [pre-rc55, rc55, progressive-learning-curve-remediation-W12-2026-05-30, progressive-learning-curve-remediation-W13-2026-05-30, progressive-learning-curve-remediation-W14-2026-05-30, progressive-learning-curve-remediation-R3-2026-05-30, progressive-learning-curve-remediation-R4-2026-05-31, progressive-learning-curve-remediation-C2-2026-05-31]
     root_cause: |
       L1 capability + function-point semantics split across
       docs/governance/architecture-status.yaml#capabilities, L1 prose
@@ -2317,6 +2317,42 @@ families:
       the render twin-catch-up cleared); E194 0 findings/34 grandfathered; E195 0
       findings/4 grandfathered; E201 0 findings/23 grandfathered; G-28 92 normalized
       views/0 findings; fragment re-emission byte-identical (adr-graph included).
+      C2 (2026-05-31, residual-cleanup) DRAINS the status-ledger ALTITUDE tier to
+      zero — the genuine completion of the surface E201 was built to gate, not a new
+      occurrence shape. Every one of the 23 capability allowed_claim values frozen in
+      docs/governance/layer-purity-status-ledger-grandfather.yaml (eight verdict-named
+      sunset 2026-06-30 + eleven siblings + four detector-recoupling record-ctor/call-hop
+      siblings, sunset 2026-08-31) was reworded UP to the correct altitude: the leaked
+      L1..L8 detail (SQL upsert/PK, route x verb x status matrices, @Order/Class.getName
+      tie-break, DROP_OLDEST overflow, W3C traceparent header grammar, record-component
+      constructor field lists, `via Checkpointer.save(` write hops, the RunHttpContractIT
+      inventory) was removed from the claim and pointed at its authoritative home
+      (docs/contracts/*.v1.yaml + architecture/docs/L2/ + architecture/facts/generated/
+      *.json), keeping the structural capability identity + the ADR/enforcer citation +
+      the shipped-vs-design distinction + the verified-by (<=2, D3-shaped) test citation.
+      No true claim was dropped and NO baseline_metrics number changed (altitude-only).
+      All 23 grandfather rows were then removed (a row over zero live leak is the dead
+      weight the closed-list discipline forbids); the per-surface allow-list is now the
+      empty closed list `violations: []`, retained because the live Rule 151 / G-34 / E201
+      gate + the layer-purity-policy governed_surfaces row still name it. The rewrites
+      were each VERIFIED to drain against the SAME imported TRIGGERS library the gate uses
+      (a scratch probe harness, since deleted) BEFORE applying, and re-verified on disk:
+      E201 now reports 0 findings / 0 GRANDFATHERED at FULL-BLOCKING (the terminal rung,
+      not just changed-files), so the status-ledger surface is altitude-clean end to end.
+      The one verdict-cited locus that never tripped E201 (run_status_transition_validator,
+      whose untyped-arg + prose-verb "RunStateMachine.validate(from, to)" claim evades the
+      typed/arrow/abutting-paren probes exactly as it does at L0/L1) was deliberately left
+      un-rowed and un-drained: the probe-widening alternative was NOT taken (it would risk
+      over-firing on defensible delegation pointers, the round-3 false-positive trap), per
+      the keep-over-a-risky-probe-change guardrail. The C2 rewrites are slightly more
+      verbose than the terse inline leaks they replace, so architecture-status.yaml grew
+      past its always-loaded ceiling (138000); the home-pointer phrasings were tightened
+      in the same pass to land at 137869 bytes (under ceiling) rather than raise it. This
+      commit touches no ADR or ARCHITECTURE.md (governance YAML + this ledger only), so
+      Rule G-9.b is not triggered; this content edit is recorded as the honest
+      remediation milestone. VERIFIED (WSL): canonical gate PASS (GATE: PASS, 168 PASS /
+      0 FAIL incl. always_loaded_budget_enforced + status_claim_altitude); self-test
+      346/346; E201 0 findings/0 grandfathered at full-blocking.
 
   - id: F-hand-authored-factual-drift
     title: "Hand-authored factual fields (devPaths, test FQNs, verification commands, SPI counts) drift from code/contracts/tests"
