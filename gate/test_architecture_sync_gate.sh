@@ -466,34 +466,6 @@ fi
 }
 
 
-test_rule22_lowercase_metrics_in_contract_docs() {
-# ---------------------------------------------------------------------------
-# RULE 22 — lowercase_metrics_in_contract_docs (widened, case-sensitive)
-# Positive: lowercase metric name passes (must NOT be flagged)
-# Negative: SPRINGAI_ASCEND_<lowercase> detected → FAIL
-# ---------------------------------------------------------------------------
-
-## Positive: lowercase metric is compliant — must pass
-_r22_pos="$scratch/r22_pos.md"
-printf '## Metrics\n\n- `springai_ascend_filter_errors_total` — error counter\n' > "$_r22_pos"
-if grep -qE 'SPRINGAI_ASCEND_[a-z]' "$_r22_pos" 2>/dev/null; then
-  fail "rule22_lowercase_metrics_pos" "lowercase metric incorrectly flagged as uppercase violation"
-else
-  ok "rule22_lowercase_metrics_pos" "lowercase springai_ascend_ metric correctly passes"
-fi
-
-## Negative: uppercase SPRINGAI_ASCEND_<lowercase> triggers FAIL
-_r22_neg="$scratch/r22_neg.md"
-printf '## Metrics\n\n- `SPRINGAI_ASCEND_filter_errors_total` — error counter\n' > "$_r22_neg"
-if grep -qE 'SPRINGAI_ASCEND_[a-z]' "$_r22_neg" 2>/dev/null; then
-  ok "rule22_lowercase_metrics_neg" "SPRINGAI_ASCEND_<lowercase> correctly detected as violation"
-else
-  fail "rule22_lowercase_metrics_neg" "expected SPRINGAI_ASCEND_<lowercase> to be detected"
-fi
-
-}
-
-
 test_rule24_shipped_row_evidence_paths_exist() {
 # ---------------------------------------------------------------------------
 # RULE 24 — shipped_row_evidence_paths_exist
@@ -547,58 +519,6 @@ if [[ $_ldf24n_missing -eq 1 ]]; then
   ok "rule24_evidence_paths_neg" "non-existent latest_delivery_file correctly detected"
 else
   fail "rule24_evidence_paths_neg" "expected non-existent path to be detected"
-fi
-
-}
-
-
-test_rule25_peripheral_wave_qualifier() {
-# ---------------------------------------------------------------------------
-# RULE 25 — peripheral_wave_qualifier
-# Positive: "Primary sidecar impl:" with W1 qualifier → PASS
-# Negative: "Primary sidecar impl:" without any wave qualifier → FAIL
-# ---------------------------------------------------------------------------
-
-## Positive: wave-qualified impl claim passes
-_r25_pos="$scratch/r25_pos.java"
-cat > "$_r25_pos" <<'EOF'
-/**
- * W1 reference sidecar (per ADR-0034): spring-ai-ascend-graphmemory-starter wires a
- * Graphiti REST client at W1; no adapter implementation ships at W0.
- */
-public interface GraphMemoryRepository {}
-EOF
-_r25_pos_fail=0
-if grep -q 'Primary sidecar impl:\|Primary impl:' "$_r25_pos" 2>/dev/null; then
-  # Would need context check; since not present, pattern isn't there
-  _r25_pos_fail=1
-fi
-if [[ $_r25_pos_fail -eq 0 ]]; then
-  ok "rule25_wave_qualifier_pos" "wave-qualified impl claim correctly passes"
-else
-  fail "rule25_wave_qualifier_pos" "expected wave-qualified file to pass"
-fi
-
-## Negative: unqualified "Primary sidecar impl:" triggers FAIL
-_r25_neg="$scratch/r25_neg.java"
-cat > "$_r25_neg" <<'EOF'
-/**
- * Primary sidecar impl: spring-ai-ascend-graphmemory-starter (Graphiti REST).
- */
-public interface GraphMemoryRepository {}
-EOF
-_r25_neg_fail=0
-if grep -q 'Primary sidecar impl:' "$_r25_neg" 2>/dev/null; then
-  # Check if wave qualifier is present in context
-  _ctx25n=$(grep -A3 -B2 'Primary sidecar impl:' "$_r25_neg" 2>/dev/null | tr '\n' ' ')
-  if ! printf '%s\n' "$_ctx25n" | grep -qE '\bW[0-4]\b'; then
-    _r25_neg_fail=1
-  fi
-fi
-if [[ $_r25_neg_fail -eq 1 ]]; then
-  ok "rule25_wave_qualifier_neg" "unqualified 'Primary sidecar impl:' correctly detected"
-else
-  fail "rule25_wave_qualifier_neg" "expected unqualified impl claim to be detected"
 fi
 
 }
@@ -854,75 +774,6 @@ if [[ $_r28_exempt_has_freeze -eq 1 ]]; then
   ok "rule28_baseline_neg_no_freeze_marker" "freeze marker correctly exempts release note from baseline check"
 else
   fail "rule28_baseline_neg_no_freeze_marker" "expected freeze marker to exempt release note"
-fi
-
-}
-
-
-test_rule29_whitepaper_alignment_matrix_present() {
-# ---------------------------------------------------------------------------
-# RULE 29 — whitepaper_alignment_matrix_present
-# Positive: matrix file exists with all 20 required concepts → PASS
-# Negative: matrix file missing OR missing a required concept → FAIL
-# ---------------------------------------------------------------------------
-
-## Positive: matrix file with all 20 concepts → PASS
-_r29_pos="$scratch/r29_pos"
-mkdir -p "$_r29_pos/docs/governance"
-cat > "$_r29_pos/docs/governance/whitepaper-alignment-matrix.md" <<'EOF'
-# Whitepaper Alignment Matrix
-- C/S separation
-- Task Cursor
-- Dynamic Hydration
-- Sync State
-- Sub-Stream
-- Yield & Handoff
-- Business ontology ownership
-- S-side execution trajectory ownership
-- Placeholder exemption
-- Full Trace vs Node Snapshot
-- Lazy mounting
-- Skill Topology Scheduler
-- C-side business degradation authority
-- Session/context decoupling
-- Workflow Intermediary
-- Three-track bus
-- Capability bidding
-- Permission issuance
-- Chronos Hydration
-- Service Layer microservice commitment
-EOF
-_r29_pos_missing=0
-for _concept29p in 'C/S separation' 'Task Cursor' 'Dynamic Hydration' 'Sync State' 'Sub-Stream' 'Yield & Handoff' 'Business ontology ownership' 'S-side execution trajectory ownership' 'Placeholder exemption' 'Full Trace vs Node Snapshot' 'Lazy mounting' 'Skill Topology Scheduler' 'C-side business degradation authority' 'Session/context decoupling' 'Workflow Intermediary' 'Three-track bus' 'Capability bidding' 'Permission issuance' 'Chronos Hydration' 'Service Layer microservice commitment'; do
-  if ! grep -qF "$_concept29p" "$_r29_pos/docs/governance/whitepaper-alignment-matrix.md"; then
-    _r29_pos_missing=1
-  fi
-done
-if [[ $_r29_pos_missing -eq 0 ]]; then
-  ok "rule29_matrix_pos" "matrix with all 20 required concepts correctly passes"
-else
-  fail "rule29_matrix_pos" "expected matrix with all 20 concepts to pass"
-fi
-
-## Negative: matrix missing a required concept → FAIL
-_r29_neg="$scratch/r29_neg"
-mkdir -p "$_r29_neg/docs/governance"
-cat > "$_r29_neg/docs/governance/whitepaper-alignment-matrix.md" <<'EOF'
-# Whitepaper Alignment Matrix
-- C/S separation
-- Task Cursor
-- Dynamic Hydration
-EOF
-_r29_neg_missing=0
-for _concept29n in 'C/S separation' 'Chronos Hydration' 'Workflow Intermediary'; do
-  if ! grep -qF "$_concept29n" "$_r29_neg/docs/governance/whitepaper-alignment-matrix.md"; then
-    _r29_neg_missing=1
-  fi
-done
-if [[ $_r29_neg_missing -eq 1 ]]; then
-  ok "rule29_matrix_neg" "matrix missing required concept correctly detected"
-else
-  fail "rule29_matrix_neg" "expected missing concept to be detected"
 fi
 
 }

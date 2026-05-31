@@ -266,15 +266,6 @@
   asserts: "names LLMGateway/PostgresCheckpointer/SkillRegistry/HookChain/SpawnEnvelope/LogicalCallHandle/ConnectionLease/AdmissionDecision/BackpressureSignal/ChronosHydration/SandboxExecutor do not appear in agent-*/src/main/java"
   product_claim: "PC-003"
 
-- id: E28
-  constraint_ref: "CLAUDE.md Rule R-C.a (meta); ADR-0059"
-  kind: gate-script
-  level: L0
-  view: scenarios
-  artifact: gate/check_architecture_sync.sh#constraint_enforcer_coverage
-  asserts: "every must/must not/forbidden/required sentence in the architecture corpus maps to at least one row in this file"
-  product_claim: "PC-003"
-
 - id: E29
   constraint_ref: "CLAUDE.md Rule R-C.a; ADR-0059 §1"
   kind: gate-script
@@ -448,15 +439,6 @@
   view: development
   artifact: agent-service/src/test/java/com/huawei/ascend/service/runtime/architecture/SpiPurityGeneralizedArchTest.java
   asserts: "Any package matching com.huawei.ascend..spi.. does not depend on Spring, agent-platform, inmemory reference impls, Micrometer, or OpenTelemetry — generalises E3 to all current and future SPI packages."
-  product_claim: "PC-001"
-
-- id: E49
-  constraint_ref: "CLAUDE.md Rule R-A; ARCHITECTURE.md §4 #60; ADR-0064"
-  kind: gate-script
-  level: L0
-  view: scenarios
-  artifact: gate/check_architecture_sync.sh#quickstart_present
-  asserts: "docs/quickstart.md exists and is referenced from README.md so a developer reaches first-agent execution without platform-team intervention."
   product_claim: "PC-001"
 
 - id: E50

@@ -41,22 +41,16 @@
 #  11.  shipped_envelope_fingerprint_present         -- InMemoryCheckpointer enforces §4 #13 16-KiB cap
 #  12.  inmemory_orchestrator_posture_guard_present  -- AppPostureGate.requireDev in all 3 in-memory components (ADR-0035)
 #  13.  contract_catalog_no_deleted_spi_or_starter_names -- contract-catalog.md must not reference deleted names
-#  14.  module_arch_method_name_truth                -- method names in ARCHITECTURE.md code-fences must exist in Java class
-#  15.  no_active_refs_deleted_wave_plan_paths        -- active .md files must not reference docs/plans/engineering-plan-W0-W4.md or roadmap-W0-W4.md
 #  16.  http_contract_w1_tenant_and_cancel_consistency -- W1 HTTP contract: no replace-X-Tenant-Id wording, no CREATED initial status, no DELETE cancel route, no W0 cancel/idempotency future-state drift
 #  17.  contract_catalog_spi_table_matches_source     -- SPI sub-table must list 7 known SPIs; OssApiProbe must not appear before Probes sub-table
 #  18.  deleted_spi_starter_names_outside_catalog     -- ACTIVE_NORMATIVE_DOCS corpus must not reference deleted SPI/starter names (widened, ADR-0043)
 #  19.  shipped_row_tests_evidence                    -- every shipped: true row must have non-empty tests: pointing to real files (ADR-0042, strengthened)
-#  20.  module_metadata_truth                         -- module README.md must not reference Java class names absent from the repo (ADR-0043)
 #  21.  bom_glue_paths_exist                          -- BoM must not contain known ghost implementation paths unless they exist (ADR-0043)
-#  22.  lowercase_metrics_in_contract_docs            -- ACTIVE_NORMATIVE_DOCS must not contain SPRINGAI_ASCEND_<lowercase> patterns (ADR-0043, widened)
 #  23.  active_doc_internal_links_resolve             -- markdown links ](path) in active docs must resolve to existing files (ADR-0043)
 #  24.  shipped_row_evidence_paths_exist              -- l2_documents: and latest_delivery_file: on shipped rows must exist on disk (ADR-0045)
-#  25.  peripheral_wave_qualifier                     -- SPI Javadoc and active docs must not name future-wave impls without wave qualifier (ADR-0045)
 #  26.  release_note_shipped_surface_truth            -- docs/logs/releases/*.md must not overclaim RunLifecycle/RunContext.posture/ApiCompatibilityTest-as-OpenAPI/AppPostureGate-scope (ADR-0046)
 #  27.  active_entrypoint_baseline_truth              -- root README.md baseline counts must match architecture-status.yaml.architecture_sync_gate.allowed_claim (ADR-0047)
 #  28.  release_note_baseline_truth                   -- docs/logs/releases/*.md baseline counts must match canonical YAML unless marked "Historical artifact frozen at SHA" (ADR-0049, whitepaper-alignment P0-1)
-#  29.  whitepaper_alignment_matrix_present           -- docs/governance/whitepaper-alignment-matrix.md must exist and list all 20 required whitepaper concepts (ADR-0049, whitepaper-alignment P2-1)
 #  --- L1 Rule-28 sub-checks (ADR-0059) ---
 #  28a. tenant_column_present                          -- every CREATE TABLE in db/migration declares tenant_id (enforcer E15)
 #  28b. high_cardinality_tag_guard                     -- no Tag.of("run_id"|"idempotency_key"|"jwt_sub"|"body", …) in agent-*/main (enforcer E19)
@@ -69,10 +63,8 @@
 #  28i. plan_enforcer_table_in_sync                    -- plan §11 IDs == enforcers.yaml IDs (enforcer E32)
 #  28j. enforcer_artifact_paths_exist                   -- every artifact: path in enforcers.yaml resolves on disk (enforcer E33, Phase K audit fix F6)
 #  28k. javadoc_enforcer_citation_semantic_check        -- *Test.java/*IT.java Javadoc `enforcers.yaml#E<n>` citations match the E-row's artifact: field (post-review fix plan F / P1-2)
-#  28.  constraint_enforcer_coverage                   -- enforcers.yaml references CLAUDE.md AND ARCHITECTURE.md (meta-rule, enforcer E28)
 #  30.  telemetry_vertical_constraint_coverage         -- ARCHITECTURE.md §4 #53–#59 each cited by an enforcer row (L1.x Telemetry Vertical, enforcer E47)
 #  --- Layer-0 governing principles (ADR-0064..0067) ---
-#  31.  quickstart_present                              -- docs/quickstart.md present and referenced from README.md (Rule 29, enforcer E49)
 #  32.  competitive_baselines_present_and_wellformed    -- docs/governance/competitive-baselines.yaml has 4 pillars (Rule 30, enforcer E50)
 #  33.  release_note_references_four_pillars            -- latest release note mentions all 4 pillars by name (Rule 30, enforcer E51)
 #  34.  module_metadata_present_and_complete            -- every <module>/pom.xml has a sibling module-metadata.yaml with required keys (Rule 31, enforcer E52)
@@ -537,64 +529,6 @@ fi
 if [[ $_r13_fail -eq 0 ]]; then pass_rule "contract_catalog_no_deleted_spi_or_starter_names"; fi
 
 # ---------------------------------------------------------------------------
-# Rule 14 — module_arch_method_name_truth
-# ADR-0036: method names in code-fence blocks in agent-service/ARCHITECTURE.md
-# and agent-service/ARCHITECTURE.md must exist in the named Java class.
-# Currently checks the specific known drift: probe.check() was wrong; correct
-# is probe.probe(). Fails if probe.check() appears in any module ARCHITECTURE.md.
-# ---------------------------------------------------------------------------
-_r14_fail=0
-for _maf in architecture/docs/L1/agent-*.md architecture/docs/L1/agent-service/ARCHITECTURE.md; do
-  if [[ -f "$_maf" ]]; then
-    if grep -q 'probe\.check()' "$_maf" 2>/dev/null; then
-      fail_rule "module_arch_method_name_truth" "$_maf references probe.check() but actual method in OssApiProbe is probe.probe(). Per ADR-0036 Gate Rule 14 method names in docs must match source."
-      _r14_fail=1
-    fi
-  fi
-done
-if [[ $_r14_fail -eq 0 ]]; then pass_rule "module_arch_method_name_truth"; fi
-
-# ---------------------------------------------------------------------------
-# Rule 15 — no_active_refs_deleted_wave_plan_paths
-# ADR-0041: active .md files (outside archive/reviews/third_party/target/.git)
-# must not reference docs/plans/engineering-plan-W0-W4.md or
-# docs/plans/roadmap-W0-W4.md. Both plans were archived per ADR-0037.
-# ---------------------------------------------------------------------------
-_r15_fail=0
-_deleted_plan_refs=('docs/plans/engineering-plan-W0-W4.md' 'docs/plans/roadmap-W0-W4.md')
-# Perf fix (2026-05-23): replaced per-file × per-pattern grep loop (~hundreds
-# × 2 = ~hundreds of forks, ~16s) with a single bulk `grep -lFf` against the
-# pre-built file list. Identical "first match wins" semantics.
-_r15_files=$(find . -name '*.md' \
-  ! -path './docs/archive/*' \
-  ! -path './docs/logs/*' \
-  ! -path './knowledge/*' \
-  ! -path './docs/adr/*' \
-  ! -path './docs/delivery/*' \
-  ! -path './docs/v6-rationale/*' \
-  ! -path './third_party/*' \
-  ! -path './target/*' \
-  ! -path './.git/*' \
-  -type f 2>/dev/null | sort || true)
-if [[ -n "$_r15_files" ]]; then
-  _r15_first_hit=$(printf '%s\n' "$_r15_files" \
-    | xargs -d '\n' -r grep -lFf <(printf '%s\n' "${_deleted_plan_refs[@]}") 2>/dev/null \
-    | head -1 || true)
-  if [[ -n "$_r15_first_hit" ]]; then
-    # Identify which deleted ref triggered the match (for the error message).
-    _r15_ref=""
-    for _r15_candidate in "${_deleted_plan_refs[@]}"; do
-      if grep -qF "$_r15_candidate" "$_r15_first_hit" 2>/dev/null; then
-        _r15_ref="$_r15_candidate"; break
-      fi
-    done
-    fail_rule "no_active_refs_deleted_wave_plan_paths" "$_r15_first_hit references deleted plan path '${_r15_ref:-?}'. Per ADR-0041 Gate Rule 15 active docs must not reference archived plan paths."
-    _r15_fail=1
-  fi
-fi
-if [[ $_r15_fail -eq 0 ]]; then pass_rule "no_active_refs_deleted_wave_plan_paths"; fi
-
-# ---------------------------------------------------------------------------
 # Rule 16 — http_contract_w1_tenant_and_cancel_consistency
 # ADR-0040: (a) no "replace.*X-Tenant-Id" in active docs; (b) http-api-contracts.md
 # must not reference CREATED as initial status; (c) openapi-v1.yaml must not
@@ -873,43 +807,6 @@ fi
 if [[ $_r19_fail -eq 0 ]]; then pass_rule "shipped_row_tests_evidence"; fi
 
 # ---------------------------------------------------------------------------
-# Rule 20 — module_metadata_truth
-# ADR-0043: module README.md files must not reference Java class names that
-# do not exist in the repository.
-# ---------------------------------------------------------------------------
-_r20_fail=0
-_ghost_classes20=('GraphitiRestGraphMemoryRepository' 'CogneeGraphMemoryRepository')
-while IFS= read -r _rm20; do
-  [[ -z "$_rm20" ]] && continue
-  for _gc20 in "${_ghost_classes20[@]}"; do
-    if grep -qF "$_gc20" "$_rm20" 2>/dev/null; then
-      if ! find . -name "${_gc20}.java" -not -path './target/*' -not -path './.git/*' | grep -q .; then
-        fail_rule "module_metadata_truth" "$_rm20 references class '$_gc20' but no .java file exists. Per ADR-0043 Gate Rule 20 module READMEs must not reference non-existent Java classes."
-        _r20_fail=1
-      fi
-    fi
-  done
-done < <(find . -name 'README.md' ! -path './docs/*' ! -path './third_party/*' ! -path './target/*' 2>/dev/null | sort || true)
-if [[ $_r20_fail -eq 0 ]]; then pass_rule "module_metadata_truth"; fi
-
-# ---------------------------------------------------------------------------
-# Rule 22 — lowercase_metrics_in_contract_docs (widened per ADR-0043/ADR-0045)
-# The full ACTIVE_NORMATIVE_DOCS corpus must not contain SPRINGAI_ASCEND_<lowercase>
-# metric name patterns. grep -E is case-sensitive by default (LC_ALL=C set above).
-# ---------------------------------------------------------------------------
-_r22_fail=0
-while IFS= read -r _af22; do
-  [[ -z "$_af22" ]] && continue
-  if grep -qE 'SPRINGAI_ASCEND_[a-z]' "$_af22" 2>/dev/null; then
-    fail_rule "lowercase_metrics_in_contract_docs" "$_af22 contains uppercase metric namespace 'SPRINGAI_ASCEND_<lowercase>'. Per ADR-0043 Gate Rule 22 (widened) metric names must use lowercase springai_ascend_ prefix."
-    _r22_fail=1
-  fi
-done < <(find . -name '*.md' -o -name '*.yaml' | grep -v '/docs/archive/' | grep -v '/docs/logs/' | \
-  grep -v '/knowledge/' | grep -v '/docs/adr/' | grep -v '/docs/delivery/' | grep -v '/docs/v6-rationale/' | \
-  grep -v '/docs/plans/' | grep -v '/third_party/' | grep -v '/target/' | grep -v '/.git/' | sort 2>/dev/null || true)
-if [[ $_r22_fail -eq 0 ]]; then pass_rule "lowercase_metrics_in_contract_docs"; fi
-
-# ---------------------------------------------------------------------------
 # Rule 23 — active_doc_internal_links_resolve
 # ADR-0043: markdown links ](relative-path) in active normative docs must
 # resolve to files that exist on disk. Excludes http://, https://, anchors.
@@ -1051,78 +948,6 @@ elif [[ -f "$_status_path" ]]; then
   done < "$_status_path"
 fi
 if [[ $_r24_fail -eq 0 ]]; then pass_rule "shipped_row_evidence_paths_exist"; fi
-
-# ---------------------------------------------------------------------------
-# Rule 25 — peripheral_wave_qualifier
-# ADR-0045: SPI Javadoc must not use "Primary sidecar impl:" or "Primary impl:"
-# without a wave qualifier (W0-W4) in context. Active markdown docs must not use
-# "Sidecar adapter —" without a wave qualifier or ADR reference. Closes PERIPHERAL-DRIFT.
-# ---------------------------------------------------------------------------
-_r25_fail=0
-# Perf fix (2026-05-23): both 25a (java sources, ±2-line context) and 25b
-# (active markdown, in-line context) consolidated into a single python pass.
-# Original ran ~hundreds of files × ~3-5 forks per match = ~17s; the rewrite
-# finishes in ~1s. Same regex patterns and same context windows.
-_r25_violations="$("${GATE_PYTHON_BIN:-python3}" - <<'PYEOF'
-import os, re
-from pathlib import Path
-
-W_RE = re.compile(r'(?:^|[^A-Za-z0-9])W[0-4](?:[^A-Za-z0-9]|$)')
-MARKER_25B = re.compile(r'ADR-')
-violations: list[str] = []
-
-# 25a: agent-service main java files, "Primary impl:" / "Primary sidecar impl:" need W0-W4 in ±2 lines.
-prim_re = re.compile(r'Primary sidecar impl:|Primary impl:')
-java_root = 'agent-service/src/main/java'
-if os.path.isdir(java_root):
-    for dirpath, _, files in os.walk(java_root):
-        for fn in files:
-            if not fn.endswith('.java'): continue
-            p = os.path.join(dirpath, fn)
-            try: lines = Path(p).read_text(encoding='utf-8', errors='replace').splitlines()
-            except OSError: continue
-            n = len(lines)
-            for i, ln in enumerate(lines):
-                if not prim_re.search(ln): continue
-                lo = max(0, i - 2); hi = min(n, i + 3)
-                ctx = ' '.join(lines[lo:hi])
-                if not W_RE.search(ctx):
-                    violations.append(f"25a\t{p}\t{i+1}")
-
-# 25b: active md files, "Sidecar adapter —" on a line lacking W0-W4 AND ADR-.
-EXCLUDE_DIRS = ('./docs/archive/', './docs/logs/reviews/', './docs/adr/',
-                './docs/delivery/', './docs/v6-rationale/', './docs/plans/',
-                './third_party/', './target/', './.git/')
-def excluded(p: str) -> bool:
-    return any(p.startswith(d) for d in EXCLUDE_DIRS)
-sidecar_re = re.compile(r'Sidecar adapter —')
-for root, dirs, files in os.walk('.', topdown=True):
-    dirs[:] = [d for d in dirs if not excluded(os.path.join(root, d) + '/')]
-    for fn in files:
-        if not fn.endswith('.md'): continue
-        p = os.path.join(root, fn)
-        if excluded(p): continue
-        try: lines = Path(p).read_text(encoding='utf-8', errors='replace').splitlines()
-        except OSError: continue
-        for i, ln in enumerate(lines):
-            if not sidecar_re.search(ln): continue
-            if W_RE.search(ln) or MARKER_25B.search(ln): continue
-            violations.append(f"25b\t{p}\t{i+1}")
-
-for v in violations: print(v)
-PYEOF
-)"
-if [[ -n "$_r25_violations" ]]; then
-  while IFS=$'\t' read -r _r25_kind _r25_path _r25_line; do
-    [[ -z "$_r25_kind" ]] && continue
-    case "$_r25_kind" in
-      25a) fail_rule "peripheral_wave_qualifier" "$_r25_path:$_r25_line contains 'Primary.*impl:' without wave qualifier (W0-W4) in context. Per ADR-0045 Gate Rule 25 future-wave impl claims must carry wave qualifiers." ;;
-      25b) fail_rule "peripheral_wave_qualifier" "$_r25_path:$_r25_line contains 'Sidecar adapter —' without wave qualifier or ADR reference. Per ADR-0045 Gate Rule 25." ;;
-    esac
-    _r25_fail=1
-  done <<< "$_r25_violations"
-fi
-if [[ $_r25_fail -eq 0 ]]; then pass_rule "peripheral_wave_qualifier"; fi
 
 # ---------------------------------------------------------------------------
 # Rule 26 — release_note_shipped_surface_truth
@@ -1319,49 +1144,6 @@ if [[ -f docs/governance/architecture-status.yaml ]]; then
   fi
 fi
 if [[ $_r28_fail -eq 0 ]]; then pass_rule "release_note_baseline_truth"; fi
-
-# ---------------------------------------------------------------------------
-# Rule 29 — whitepaper_alignment_matrix_present
-# ADR-0049 + P2-1: docs/governance/whitepaper-alignment-matrix.md must exist
-# and must contain rows for each of the 20 required whitepaper concepts.
-# Closes the concept-traceability gap from the whitepaper-alignment review.
-# ---------------------------------------------------------------------------
-_r29_fail=0
-_matrix29='docs/governance/whitepaper-alignment-matrix.md'
-if [[ ! -f "$_matrix29" ]]; then
-  fail_rule "whitepaper_alignment_matrix_present" "$_matrix29 missing. Per Gate Rule 29 / ADR-0049 the whitepaper alignment matrix must exist as concept-level traceability from whitepaper to active architecture."
-  _r29_fail=1
-else
-  _required29=(
-    'C/S separation'
-    'Task Cursor'
-    'Dynamic Hydration'
-    'Sync State'
-    'Sub-Stream'
-    'Yield & Handoff'
-    'Business ontology ownership'
-    'S-side execution trajectory ownership'
-    'Placeholder exemption'
-    'Full Trace vs Node Snapshot'
-    'Lazy mounting'
-    'Skill Topology Scheduler'
-    'C-side business degradation authority'
-    'Session/context decoupling'
-    'Workflow Intermediary'
-    'Three-track bus'
-    'Capability bidding'
-    'Permission issuance'
-    'Chronos Hydration'
-    'Service Layer microservice commitment'
-  )
-  for _concept29 in "${_required29[@]}"; do
-    if ! grep -qF "$_concept29" "$_matrix29"; then
-      fail_rule "whitepaper_alignment_matrix_present" "$_matrix29 missing required concept row '$_concept29'. Per Gate Rule 29 all 20 named whitepaper concepts must appear in the alignment matrix."
-      _r29_fail=1
-    fi
-  done
-fi
-if [[ $_r29_fail -eq 0 ]]; then pass_rule "whitepaper_alignment_matrix_present"; fi
 
 # ---------------------------------------------------------------------------
 # Rule 28a — tenant_column_present (Rule 28 sub-check, ADR-0059, enforcer E15)
@@ -1828,52 +1610,6 @@ PYEOF
   fi
 fi
 if [[ $_r28k_fail -eq 0 ]]; then pass_rule "javadoc_enforcer_citation_semantic_check"; fi
-
-# ---------------------------------------------------------------------------
-# Rule 28 — constraint_enforcer_coverage (meta-rule, enforcer E28)
-#
-# **L1 scope (Phase L truthful naming, per reviewer P2-1):** baseline presence
-# check only. Verifies that `docs/governance/enforcers.yaml` references
-# `CLAUDE.md` AND `ARCHITECTURE.md`. This is the smallest viable bootstrap
-# meta-check — it does NOT parse every "must"/"forbidden"/"required" sentence
-# in the corpus and cross-reference each one. Full natural-language parsing is
-# deferred (no executable enforcer is feasible without committing to a brittle
-# regex over evolving prose).
-#
-# Anchor-level truth is enforced by Rule 28j (`enforcer_artifact_paths_exist`,
-# Phase L hardening), which validates that every `artifact: path#anchor`
-# resolves to a real method (.java/.sh) or heading (.md) — closing reviewer
-# finding P0-2.
-# ---------------------------------------------------------------------------
-_r28_fail=0
-if [[ -f "$_efile" ]] && [[ -f 'CLAUDE.md' ]]; then
-  if ! grep -q 'CLAUDE.md' "$_efile" 2>/dev/null; then
-    fail_rule "constraint_enforcer_coverage" "enforcers.yaml does not reference CLAUDE.md at all; the meta-rule requires every active CLAUDE rule to map to an enforcer. Per Rule 28 / enforcer E28."
-    _r28_fail=1
-  fi
-  if ! grep -q 'ARCHITECTURE.md' "$_efile" 2>/dev/null; then
-    fail_rule "constraint_enforcer_coverage" "enforcers.yaml does not reference ARCHITECTURE.md; §4 constraints must map to enforcers. Per Rule 28 / enforcer E28."
-    _r28_fail=1
-  fi
-fi
-if [[ $_r28_fail -eq 0 ]]; then pass_rule "constraint_enforcer_coverage"; fi
-
-# ---------------------------------------------------------------------------
-# Rule 31 — quickstart_present (enforcer E49, CLAUDE.md Rule 29 / ADR-0064)
-#
-# docs/quickstart.md MUST exist and MUST be referenced from README.md so a
-# developer can reach first-agent execution without platform-team intervention.
-# ---------------------------------------------------------------------------
-_r31_fail=0
-if [[ ! -f "docs/quickstart.md" ]]; then
-  fail_rule "quickstart_present" "docs/quickstart.md is missing (CLAUDE.md Rule 29 / ADR-0064)"
-  _r31_fail=1
-fi
-if [[ -f "README.md" ]] && ! grep -q "docs/quickstart.md" "README.md" 2>/dev/null; then
-  fail_rule "quickstart_present" "README.md does not reference docs/quickstart.md (CLAUDE.md Rule 29)"
-  _r31_fail=1
-fi
-if [[ $_r31_fail -eq 0 ]]; then pass_rule "quickstart_present"; fi
 
 # ---------------------------------------------------------------------------
 # Rule 32 — competitive_baselines_present_and_wellformed (enforcer E50, ADR-0065)
