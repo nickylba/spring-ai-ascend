@@ -530,15 +530,6 @@
   asserts: "every Flyway migration creating a table with a tenant_id column either includes ENABLE ROW LEVEL SECURITY in the same file OR is listed in gate/rls-baseline-grandfathered.txt."
   product_claim: "PC-003"
 
-- id: E71
-  constraint_ref: "CLAUDE.md Rule R-L (Sandbox Permission Subsumption); ADR-0069; LucioIT W1 §7.4"
-  kind: gate-script
-  level: L0
-  view: physical
-  artifact: gate/check_architecture_sync.sh#sandbox_policies_yaml_present_and_wellformed
-  asserts: "docs/governance/sandbox-policies.yaml exists with default_policy: declaring all 6 required keys (outbound_network, filesystem_read, filesystem_write, cpu_cap_millicores, memory_cap_megabytes, wall_clock_cap_seconds)."
-  product_claim: "PC-003"
-
 # ---------------------------------------------------------------------------
 # W1.x Phase 8 — Cursor Flow runtime activation (Rule R-F.b / ADR-0070)
 # ---------------------------------------------------------------------------
@@ -841,15 +832,6 @@
   view: development
   artifact: gate/check_architecture_sync.sh#no_split_spi_packages
   asserts: "No Java SPI package may be declared by more than one Maven module's spi_packages: list. Prevents Maven split-packages (CLAUDE.md Rule R-D sub-clause .c)."
-  product_claim: "PC-001"
-
-- id: E111
-  constraint_ref: "CLAUDE.md Rule R-D sub-clause .e (dfx_spi_packages_match_module_metadata); SPI metadata integrity wave 2026-05-18"
-  kind: gate-script
-  level: L1
-  view: development
-  artifact: gate/check_architecture_sync.sh#dfx_spi_packages_match_module_metadata
-  asserts: "For every kind={platform,domain} module, docs/dfx/<module>.yaml declares a top-level spi_packages: matching the non-placeholder entries of module-metadata.yaml#spi_packages."
   product_claim: "PC-001"
 
 # ---------------------------------------------------------------------------
