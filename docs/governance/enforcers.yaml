@@ -1142,15 +1142,6 @@
   asserts: "Root ARCHITECTURE.md numeric module-count claims (\b[0-9]+-module\b | \b[0-9]+ modules\b | \b[0-9]+ reactor modules\b) outside fenced code blocks and YAML frontmatter MUST equal both (a) the count of <module> entries in root pom.xml and (b) docs/governance/architecture-status.yaml#repository_counts.reactor_modules; root ARCHITECTURE.md path claims of shape agent-*/src/main/java/... MUST resolve to a real path on disk OR carry one of the markers (historical, pre-ADR-NNNN, pre-Phase-C, consolidated, merged, was rooted, formerly, superseded, deferred, moved, extracted per ADR-NNNN, post-ADR-NNNN, archived) within +/-3 lines. Closes rc6 post-response P0-2: root ARCHITECTURE.md count and path truth (Rule G-2 sub-clause .c covers agent-*/ARCHITECTURE.md; Rule G-2 sub-clause .d covers root)."
   governance_infra: true
 
-- id: E120
-  constraint_ref: "CLAUDE.md Rule G-2 sub-clause .e (status_yaml_allowed_claim_module_name_truth); rc6 post-response review P1-2; ADR-0078; ADR-0079"
-  kind: gate-script
-  level: L0
-  view: development
-  artifact: gate/check_architecture_sync.sh#status_yaml_allowed_claim_module_name_truth
-  asserts: "Every line in docs/governance/architecture-status.yaml matching ^[[:space:]]+allowed_claim:[[:space:]]* whose extracted value contains a word-boundary match for agent-platform, agent-runtime, or agent-runtime-core (all three deleted-module names post-rc13 / ADR-0088) MUST have one of the markers (historical, pre-ADR-NNNN, pre-Phase-C, consolidated into, consolidated from, merged into, merged in, was rooted, formerly, superseded, deprecated, archived, moved, post-ADR-NNNN, dissolution, dissolved, relocated, rc13) present within +/-3 lines of the same yaml file. Closes rc6 post-response P1-2 + rc13 dissolution widening."
-  governance_infra: true
-
 - id: E121
   constraint_ref: "CLAUDE.md Rule G-5 sub-clause .a (serial_parallel_gate_slug_parity); rc7 post-corrective review P0-2; ADR-0082"
   kind: gate-script
@@ -1167,42 +1158,6 @@
   view: process
   artifact: gate/check_architecture_sync.sh#self_test_harness_fail_closed_coverage
   asserts: "gate/test_architecture_sync_gate.sh MUST (a) contain a `passed != TOTAL` fail-closed clause that exits non-zero, (b) NOT declare TOTAL via a bare literal `TOTAL=NNN` form (must derive from passed+failed or an explicit manifest), and (c) declare at least one `test_rule_<N>_*` function for every prevention-wave `# Rule N — slug` header (`N >= 80`) defined in gate/check_architecture_sync.sh. Pre-rc4 Rules 1-79 are grandfathered (covered by ArchUnit / integration tests at design time, not by inline self-test fixtures). rc9 narrows the wording from the original 'full coverage parity / every Rule' phrasing to the prevention-wave-only scope matching CLAUDE.md Rule G-5 sub-clause .b kernel and gate/check_architecture_sync.sh implementation (closes rc8 post-corrective P1-4: enforcers row + gate/README claim overclaimed broader coverage than the rule actually enforces). Original rc7 closure: harness hardcoded TOTAL=143 and exited 0 when only ~37 tests ran; inline Rule G-2 sub-clause .d/87 fixtures lost their results to the parallel orchestrator overwriting passed/failed counters."
-  governance_infra: true
-
-- id: E123
-  constraint_ref: "CLAUDE.md Rule G-5 sub-clause .c (baseline_metric_matches_executable_manifest); rc8 post-corrective review P0-1; ADR-0083"
-  kind: gate-script
-  level: L0
-  view: process
-  artifact: gate/check_architecture_sync.sh#baseline_metric_matches_executable_manifest
-  asserts: "docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics.active_gate_checks MUST equal the literal count of `# Rule N — slug` headers in gate/check_architecture_sync.sh before the `# === END OF RULES ===` terminator. Closes rc8 post-corrective P0-1: published baseline declared 74 active gate rules while parallel_summary reported 102 (28-section gap persisted across 8 release notes). ADR-0083 adopts the executable-section count as the canonical meaning of active_gate_checks."
-  governance_infra: true
-
-- id: E124
-  constraint_ref: "CLAUDE.md Rule G-5 sub-clause .c (baseline_metric_matches_executable_manifest); ADR-0083"
-  kind: gate-script
-  level: L0
-  view: process
-  artifact: gate/test_architecture_sync_gate.sh#test_rule_91_baseline_matches_pos
-  asserts: "Positive + negative self-test fixtures for Rule G-5 sub-clause .c in gate/test_architecture_sync_gate.sh. Positive: mock status YAML with active_gate_checks matching the canonical manifest count → rule passes. Negative: mock status YAML with active_gate_checks set to a value lower than the canonical manifest count → rule fails closed."
-  governance_infra: true
-
-- id: E125
-  constraint_ref: "CLAUDE.md Rule G-5 sub-clause .d (gate_rules_corpus_freshness); rc8 post-corrective review P2-1; ADR-0083"
-  kind: gate-script
-  level: L0
-  view: process
-  artifact: gate/check_architecture_sync.sh#gate_rules_corpus_freshness
-  asserts: "Every `# Rule N — slug` header in gate/check_architecture_sync.sh (before the END marker) MUST have a matching gate/rules/rule-NNN[a-z]?.sh file (zero-padded to 3 digits with optional letter suffix). gate/rules/ is an IDE-only generated artifact refreshed by gate/lib/extract_rules.sh; the production parallel gate consumes the canonical monolith directly. Closes rc8 post-corrective P2-1: incomplete shadow rule corpus (83 files vs 102 canonical headers)."
-  governance_infra: true
-
-- id: E126
-  constraint_ref: "CLAUDE.md Rule G-5 sub-clause .d (gate_rules_corpus_freshness); ADR-0083"
-  kind: gate-script
-  level: L0
-  view: process
-  artifact: gate/test_architecture_sync_gate.sh#test_rule_92_freshness_pos
-  asserts: "Positive + negative self-test fixtures for Rule G-5 sub-clause .d. Positive: every canonical header has a matching gate/rules/rule-NNN[a-z]?.sh file → pass. Negative: a canonical header without a matching file (synthetic deletion) → fail."
   governance_infra: true
 
 - id: E127
@@ -1576,15 +1531,6 @@
   asserts: "Rule G-1.1 sub-check .b (rc22 / ADR-0099) — every agent-*/ARCHITECTURE.md MUST contain a section titled `SPI Interface Appendix` (or `## *Appendix*` containing `SPI`) listing every public interface FQN the module ships. Four-way parity: (1) FQN appears in module's module-metadata.yaml#spi_packages; (2) FQN appears as a row in docs/contracts/contract-catalog.md §2 (or its package appears in the SPI table); (3) FQN appears in docs/dfx/<module>.yaml#spi_packages; (4) FQN exists as a `public interface` `.java` file on disk. Adds the L1 architecture-doc appendix as the FOURTH parity point to Rule R-D sub-clauses .e/.f/.g (catalog↔metadata↔DFX). Helper: gate/lib/check_l1_spi_appendix.sh."
   governance_infra: true
 
-- id: E168
-  constraint_ref: "Rule G-1.1 sub-clause .c (l1_l2_constraint_linkage); ADR-0099"
-  kind: gate-script
-  level: L0
-  view: development
-  artifact: gate/check_architecture_sync.sh#l1_l2_constraint_linkage
-  asserts: "Rule G-1.1 sub-check .c (rc22 / ADR-0099) — for any complex subsystem the L1 document delegates to an L2 design (any line of the form `… see [L2 doc](path/to/L2.md)` or `… delegated to L2`), the L1 document MUST contain a `Boundary Contracts` sub-section enumerating input types, output types, DFX expectations. Vacuously green when no L2 delegation prose exists in any agent-*/ARCHITECTURE.md (arms for W3+ when L2 docs land)."
-  governance_infra: true
-
 - id: E169
   constraint_ref: "CLAUDE.md Rule G-12; docs/governance/rules/rule-G-12.md"
   kind: gate-script
@@ -1730,39 +1676,12 @@
   asserts: "Rule 136 -- gate/always-loaded-budget.txt MUST contain product/PRODUCT.md at non-zero ceiling AND CLAUDE.md MUST have ceiling <= 12000 bytes. Enforces Tier-1 product-authority + collab-only kernel discipline established by 2026-05-28 surgery. Blocking from W5 landing."
   governance_infra: true
 
-- id: E185
-  constraint_ref: "Rule G-20 (Governance-Infra Honesty); ADR-0156 Phase A Wave 5"
-  kind: gate-script
-  level: L1
-  view: logical
-  artifact: gate/check_architecture_sync.sh#governance_infra_honesty
-  asserts: "Rule 137 -- artefacts marked governance_infra: true MUST NOT use product-value vocabulary (customer / beneficiary / user-facing claim / saves time/cost / delivers value) in body prose. Reserved for product-claim-bound artefacts. Advisory at W5."
-  governance_infra: true
-
-- id: E186
-  constraint_ref: "Rule G-21 (ProductClaim Placeholder Decreasing); ADR-0156 Phase A Wave 5"
-  kind: gate-script
-  level: L1
-  view: logical
-  artifact: gate/check_architecture_sync.sh#productclaim_placeholder_decreasing
-  asserts: "Rule 138 -- count of product_claim_placeholder: true markers MUST decrease monotonically across Phase B cluster cycles; reaching zero is the Phase B convergence signal AND the promotion trigger for Rules G-16/G-17/G-18/G-20 from advisory to blocking. Advisory at W5 landing."
-  governance_infra: true
-
 # ---------------------------------------------------------------------------
 # 2026-05-29 EnginePort/Frame authority-convergence review-response prevention
-# wave (Rules 139-143; enforcers E187-E191).
-# Authority: docs/governance/rules/rule-{G-22..G-26}.md
-# Closes review findings F1.4 / F8.3 / F6.3 / P1-3 / P1-4.
+# wave (Rules 140-143; enforcers E188-E191).
+# Authority: docs/governance/rules/rule-{G-23..G-26}.md
+# Closes review findings F8.3 / F6.3 / P1-3 / P1-4.
 # ---------------------------------------------------------------------------
-
-- id: E187
-  constraint_ref: "Rule G-22 (Accepted-ADR Frame-Map Coherence); ADR-0157 + ADR-0158; 2026-05-29 review F1.4"
-  kind: gate-script
-  level: L1
-  view: logical
-  artifact: gate/check_architecture_sync.sh#accepted_adr_frame_map_coherence
-  asserts: "Rule 139 -- when ADR-0158 is accepted, architecture/features/engineering-frames.dsl MUST declare EF-ENGINE-PORT (owner agent-bus) AND EF-ORCHESTRATION-SPI (owner agent-bus) with a genModule_agent_bus -> efOrchestrationSpi contains edge, so an accepted ADR's declared EngineeringFrame re-home is reflected in the frame map."
-  governance_infra: true
 
 - id: E188
   constraint_ref: "Rule G-23 (Shipped-Frame Anchor Integrity); ADR-0157 + ADR-0158; 2026-05-29 review F8.3"

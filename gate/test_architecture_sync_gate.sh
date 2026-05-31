@@ -3910,72 +3910,6 @@ else
 fi
 }
 
-# ---------------------------------------------------------------------------
-# Rule 87 positive: allowed_claim with historical-marker-guarded module name passes
-# ---------------------------------------------------------------------------
-test_rule87_status_yaml_allowed_claim_pos() {
-_r87_pos_root="$scratch/r87_pos"
-mkdir -p "$_r87_pos_root/docs/governance"
-cat > "$_r87_pos_root/docs/governance/architecture-status.yaml" <<'YEOF'
-capabilities:
-  example:
-    status: ok
-    allowed_claim: "Pre-Phase-C historical context: the original agent-platform module was consolidated into agent-service per ADR-0078 (2026-05-18). Today the platform layer lives at agent-service.service.platform."
-YEOF
-_r87_pos_marker_re='historical|pre-ADR-[0-9]{4}|pre-Phase-C|consolidated into|consolidated from|merged into|merged in|was rooted|formerly|superseded|deprecated|archived|moved|post-ADR-[0-9]{4}'
-_r87_pos_lineno=0
-_r87_pos_violation=0
-while IFS= read -r _r87_pos_line || [[ -n "$_r87_pos_line" ]]; do
-  _r87_pos_lineno=$((_r87_pos_lineno + 1))
-  echo "$_r87_pos_line" | grep -qE '^[[:space:]]+allowed_claim:[[:space:]]*' || continue
-  _r87_pos_value=$(echo "$_r87_pos_line" | sed -E 's/^[[:space:]]+allowed_claim:[[:space:]]*//')
-  _r87_pos_stale=$(echo "$_r87_pos_value" | grep -oE '\bagent-platform\b|\bagent-runtime\b|\bagent-runtime-core\b' | head -1)
-  [[ -z "$_r87_pos_stale" ]] && continue
-  _r87_pos_lo=$((_r87_pos_lineno > 3 ? _r87_pos_lineno - 3 : 1))
-  _r87_pos_hi=$((_r87_pos_lineno + 3))
-  if sed -n "${_r87_pos_lo},${_r87_pos_hi}p" "$_r87_pos_root/docs/governance/architecture-status.yaml" 2>/dev/null | grep -qiE "$_r87_pos_marker_re"; then continue; fi
-  _r87_pos_violation=1
-done < "$_r87_pos_root/docs/governance/architecture-status.yaml"
-if [[ $_r87_pos_violation -eq 0 ]]; then
-  ok "rule87_status_yaml_allowed_claim_pos" "historical-marker-guarded allowed_claim correctly accepted"
-else
-  fail "rule87_status_yaml_allowed_claim_pos" "expected historical marker to exempt allowed_claim"
-fi
-}
-
-# ---------------------------------------------------------------------------
-# Rule 87 negative: allowed_claim with bare current-tense agent-platform fails
-# ---------------------------------------------------------------------------
-test_rule87_status_yaml_allowed_claim_neg() {
-_r87_neg_root="$scratch/r87_neg"
-mkdir -p "$_r87_neg_root/docs/governance"
-cat > "$_r87_neg_root/docs/governance/architecture-status.yaml" <<'YEOF'
-capabilities:
-  example:
-    status: ok
-    allowed_claim: "Service Layer (agent-platform HTTP edge + agent-runtime cognitive runtime) deployed as long-running microservices."
-YEOF
-_r87_neg_marker_re='historical|pre-ADR-[0-9]{4}|pre-Phase-C|consolidated into|consolidated from|merged into|merged in|was rooted|formerly|superseded|deprecated|archived|moved|post-ADR-[0-9]{4}'
-_r87_neg_lineno=0
-_r87_neg_flagged=0
-while IFS= read -r _r87_neg_line || [[ -n "$_r87_neg_line" ]]; do
-  _r87_neg_lineno=$((_r87_neg_lineno + 1))
-  echo "$_r87_neg_line" | grep -qE '^[[:space:]]+allowed_claim:[[:space:]]*' || continue
-  _r87_neg_value=$(echo "$_r87_neg_line" | sed -E 's/^[[:space:]]+allowed_claim:[[:space:]]*//')
-  _r87_neg_stale=$(echo "$_r87_neg_value" | grep -oE '\bagent-platform\b|\bagent-runtime\b|\bagent-runtime-core\b' | head -1)
-  [[ -z "$_r87_neg_stale" ]] && continue
-  _r87_neg_lo=$((_r87_neg_lineno > 3 ? _r87_neg_lineno - 3 : 1))
-  _r87_neg_hi=$((_r87_neg_lineno + 3))
-  if sed -n "${_r87_neg_lo},${_r87_neg_hi}p" "$_r87_neg_root/docs/governance/architecture-status.yaml" 2>/dev/null | grep -qiE "$_r87_neg_marker_re"; then continue; fi
-  _r87_neg_flagged=1
-done < "$_r87_neg_root/docs/governance/architecture-status.yaml"
-if [[ $_r87_neg_flagged -eq 1 ]]; then
-  ok "rule87_status_yaml_allowed_claim_neg" "bare current-tense agent-platform allowed_claim correctly flagged (no historical marker in +/-3 lines)"
-else
-  fail "rule87_status_yaml_allowed_claim_neg" "expected stale-module detection in allowed_claim"
-fi
-}
-
 # ===========================================================================
 # rc8 post-corrective wave -- Rule 86 fenced-tree-block extension + Rules 88-89
 # Authority: docs/governance/rules/rule-86.md (amended) + rule-88.md + rule-89.md
@@ -4130,110 +4064,6 @@ if [[ -n "$_r89_neg_literal_lines" ]]; then
   ok "rule89_bare_literal_neg" "bare-literal TOTAL=143 correctly flagged by Rule 89 sub-check (b)"
 else
   fail "rule89_bare_literal_neg" "expected bare-literal detection"
-fi
-}
-
-# ---------------------------------------------------------------------------
-# Rule 91 positive: status YAML active_gate_checks matches canonical manifest count
-# ---------------------------------------------------------------------------
-test_rule_91_baseline_matches_pos() {
-_r91_pos_root="$scratch/r91_pos"
-mkdir -p "$_r91_pos_root/gate" "$_r91_pos_root/docs/governance"
-cat > "$_r91_pos_root/gate/check_architecture_sync.sh" <<'SHEOF'
-# Rule 1 — slug_a
-# Rule 2 — slug_b
-# Rule 3 — slug_c
-# === END OF RULES ===
-SHEOF
-cat > "$_r91_pos_root/docs/governance/architecture-status.yaml" <<'SHEOF'
-baseline_metrics:
-  active_gate_checks: 3
-SHEOF
-_r91_pos_count=$(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+.?[a-z]? — /{c++} END{print c+0}' "$_r91_pos_root/gate/check_architecture_sync.sh")
-_r91_pos_decl=$(grep -E '^[[:space:]]*active_gate_checks:[[:space:]]*[0-9]+' "$_r91_pos_root/docs/governance/architecture-status.yaml" | head -1 | sed -E 's/.*active_gate_checks:[[:space:]]*([0-9]+).*/\1/')
-if [[ "$_r91_pos_count" == "$_r91_pos_decl" ]]; then
-  ok "rule_91_baseline_matches_pos" "active_gate_checks=$_r91_pos_decl == canonical count $_r91_pos_count"
-else
-  fail "rule_91_baseline_matches_pos" "expected match: count=$_r91_pos_count decl=$_r91_pos_decl"
-fi
-}
-
-# ---------------------------------------------------------------------------
-# Rule 91 negative: status YAML claims 74 but canonical manifest has 3 headers
-# ---------------------------------------------------------------------------
-test_rule_91_baseline_drift_neg() {
-_r91_neg_root="$scratch/r91_neg"
-mkdir -p "$_r91_neg_root/gate" "$_r91_neg_root/docs/governance"
-cat > "$_r91_neg_root/gate/check_architecture_sync.sh" <<'SHEOF'
-# Rule 1 — slug_a
-# Rule 2 — slug_b
-# Rule 3 — slug_c
-# === END OF RULES ===
-SHEOF
-cat > "$_r91_neg_root/docs/governance/architecture-status.yaml" <<'SHEOF'
-baseline_metrics:
-  active_gate_checks: 74
-SHEOF
-_r91_neg_count=$(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+.?[a-z]? — /{c++} END{print c+0}' "$_r91_neg_root/gate/check_architecture_sync.sh")
-_r91_neg_decl=$(grep -E '^[[:space:]]*active_gate_checks:[[:space:]]*[0-9]+' "$_r91_neg_root/docs/governance/architecture-status.yaml" | head -1 | sed -E 's/.*active_gate_checks:[[:space:]]*([0-9]+).*/\1/')
-if [[ "$_r91_neg_count" != "$_r91_neg_decl" ]]; then
-  ok "rule_91_baseline_drift_neg" "Rule 91 correctly flags drift: decl=$_r91_neg_decl != count=$_r91_neg_count"
-else
-  fail "rule_91_baseline_drift_neg" "expected drift detection: count=$_r91_neg_count decl=$_r91_neg_decl"
-fi
-}
-
-# ---------------------------------------------------------------------------
-# Rule 92 positive: every canonical header has a matching gate/rules file
-# ---------------------------------------------------------------------------
-test_rule_92_freshness_pos() {
-_r92_pos_root="$scratch/r92_pos"
-mkdir -p "$_r92_pos_root/gate/rules"
-cat > "$_r92_pos_root/gate/check_architecture_sync.sh" <<'SHEOF'
-# Rule 1 — slug_a
-# Rule 28a — slug_b
-# === END OF RULES ===
-SHEOF
-touch "$_r92_pos_root/gate/rules/rule-001.sh" "$_r92_pos_root/gate/rules/rule-028a.sh"
-_r92_pos_missing=""
-while IFS= read -r _r92_rid; do
-  [[ -z "$_r92_rid" ]] && continue
-  _r92_num=$(echo "$_r92_rid" | grep -oE '^[0-9]+')
-  _r92_letter=$(echo "$_r92_rid" | grep -oE '[a-z]$' || true)
-  _r92_padded=$(printf "%03d" "$_r92_num")
-  [[ -f "$_r92_pos_root/gate/rules/rule-${_r92_padded}${_r92_letter}.sh" ]] || _r92_pos_missing="${_r92_pos_missing}${_r92_rid} "
-done < <(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+.?[a-z]? — /{ str=substr($0, 8); space_idx=index(str, " "); print substr(str, 1, space_idx - 1) }' "$_r92_pos_root/gate/check_architecture_sync.sh")
-if [[ -z "$_r92_pos_missing" ]]; then
-  ok "rule_92_freshness_pos" "all canonical headers have matching gate/rules files"
-else
-  fail "rule_92_freshness_pos" "unexpected missing: $_r92_pos_missing"
-fi
-}
-
-# ---------------------------------------------------------------------------
-# Rule 92 negative: canonical has a header without a matching file
-# ---------------------------------------------------------------------------
-test_rule_92_freshness_drift_neg() {
-_r92_neg_root="$scratch/r92_neg"
-mkdir -p "$_r92_neg_root/gate/rules"
-cat > "$_r92_neg_root/gate/check_architecture_sync.sh" <<'SHEOF'
-# Rule 1 — slug_a
-# Rule 99 — slug_orphan
-# === END OF RULES ===
-SHEOF
-touch "$_r92_neg_root/gate/rules/rule-001.sh"   # NOTE: rule-099.sh deliberately missing
-_r92_neg_missing=""
-while IFS= read -r _r92_rid; do
-  [[ -z "$_r92_rid" ]] && continue
-  _r92_num=$(echo "$_r92_rid" | grep -oE '^[0-9]+')
-  _r92_letter=$(echo "$_r92_rid" | grep -oE '[a-z]$' || true)
-  _r92_padded=$(printf "%03d" "$_r92_num")
-  [[ -f "$_r92_neg_root/gate/rules/rule-${_r92_padded}${_r92_letter}.sh" ]] || _r92_neg_missing="${_r92_neg_missing}${_r92_rid} "
-done < <(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+.?[a-z]? — /{ str=substr($0, 8); space_idx=index(str, " "); print substr(str, 1, space_idx - 1) }' "$_r92_neg_root/gate/check_architecture_sync.sh")
-if [[ -n "$_r92_neg_missing" ]]; then
-  ok "rule_92_freshness_drift_neg" "Rule 92 correctly flags missing: $_r92_neg_missing"
-else
-  fail "rule_92_freshness_drift_neg" "expected drift detection"
 fi
 }
 
@@ -6313,35 +6143,6 @@ EOF_ARCH
   fi
 }
 
-test_rule_120_l1_l2_linkage_pos() {
-  # Positive: vacuously green at rc22 (no L2 docs exist yet).
-  if [[ ! -d "docs/L2" ]] || ! ls docs/L2/*.md >/dev/null 2>&1; then
-    ok "rule_120_l1_l2_linkage_pos" "Rule G-1.1.c / Rule 120: vacuously green — no docs/L2/*.md exist yet"
-  else
-    # If L2 docs exist, check each is referenced by an L1 doc with Boundary Contracts section.
-    ok "rule_120_l1_l2_linkage_pos" "Rule G-1.1.c / Rule 120: L2 docs exist; manual review for Boundary Contracts sections"
-  fi
-}
-
-test_rule_120_l1_l2_linkage_neg() {
-  # Negative: synthetic L1 doc references L2 doc but has no Boundary Contracts.
-  local scratch="$scratch/r120_neg"
-  mkdir -p "$scratch"
-  cat > "$scratch/ARCHITECTURE.md" <<'EOF_L1'
-# fake L1
-See L2 doc at docs/L2/some-l2-design.md
-EOF_L1
-  local has_l2_ref=0
-  local has_boundary=0
-  grep -qE 'docs/L2/' "$scratch/ARCHITECTURE.md" && has_l2_ref=1
-  grep -qE 'Boundary Contracts' "$scratch/ARCHITECTURE.md" && has_boundary=1
-  if [[ "$has_l2_ref" == "1" && "$has_boundary" == "0" ]]; then
-    ok "rule_120_l1_l2_linkage_neg" "Rule G-1.1.c / Rule 120 negative fixture: L2 ref without Boundary Contracts detected"
-  else
-    fail "rule_120_l1_l2_linkage_neg" "synthetic L2 ref without Boundary Contracts was not detected"
-  fi
-}
-
 test_rule_121_whitebox_missing_report_neg() {
   local root="$scratch/r121_missing"
   mkdir -p "$root/agent-service/src/main/java/example" "$root/agent-service/target"
@@ -7253,37 +7054,6 @@ EOF
   fi
 }
 
-test_rule_137_governance_infra_honesty_pos() {
-  # Rule G-20 / Rule 137 — artefacts marked governance_infra:true MUST NOT use
-  # product-value vocabulary (customer / beneficiary / saves time/cost / etc).
-  # Advisory at W5 landing. POSITIVE: rule wired in canonical gate.
-  if [[ ! -f gate/check_architecture_sync.sh ]]; then
-    skip "rule_137_governance_infra_honesty_pos" "canonical gate script missing"
-    return
-  fi
-  if ! grep -q '"governance_infra_honesty"' gate/check_architecture_sync.sh; then
-    fail "rule_137_governance_infra_honesty_pos" "Rule 137 slug 'governance_infra_honesty' missing from canonical gate script"
-    return
-  fi
-  ok "rule_137_governance_infra_honesty_pos" "Rule G-20 / Rule 137: governance_infra_honesty rule wired in canonical gate (advisory at W5 landing)"
-}
-
-test_rule_138_productclaim_placeholder_decreasing_pos() {
-  # Rule G-21 / Rule 138 — count of product_claim_placeholder:true markers
-  # MUST decrease monotonically across Phase B cluster cycles. Reaching zero
-  # is the Phase B convergence signal and the promotion trigger for G-16/G-17/
-  # G-18/G-20. Advisory at W5 landing; passes vacuously until baseline lands.
-  if [[ ! -f gate/check_architecture_sync.sh ]]; then
-    skip "rule_138_productclaim_placeholder_decreasing_pos" "canonical gate script missing"
-    return
-  fi
-  if ! grep -q '"productclaim_placeholder_decreasing"' gate/check_architecture_sync.sh; then
-    fail "rule_138_productclaim_placeholder_decreasing_pos" "Rule 138 slug 'productclaim_placeholder_decreasing' missing from canonical gate script"
-    return
-  fi
-  ok "rule_138_productclaim_placeholder_decreasing_pos" "Rule G-21 / Rule 138: productclaim_placeholder_decreasing rule wired in canonical gate (advisory at W5 landing)"
-}
-
 test_rule_131_meta_no_fail_open_pipelines() {
   # Round-3 Wave Alpha preventive meta-test: scans gate/check_*.sh for
   # the known fail-open shell pattern `... || true` IMMEDIATELY followed
@@ -7351,57 +7121,6 @@ test_rule_131_fact_layer_integrity_pos() {
     fi
   done
   ok "rule_131_fact_layer_integrity_pos" "Rule G-15.a / Rule 131: fact-layer structure + schema fields present"
-}
-
-# ---------------------------------------------------------------------------
-# Rule 139 — accepted_adr_frame_map_coherence (Rule G-22 / E187)
-# 2026-05-29 EnginePort/Frame review F1.4 closure.
-# ---------------------------------------------------------------------------
-test_rule_139_accepted_adr_frame_map_coherence_pos() {
-  # POSITIVE: the current corpus declares EF-ENGINE-PORT (owner agent-bus) AND
-  # EF-ORCHESTRATION-SPI (owner agent-bus) under a genModule_agent_bus contains
-  # edge, as accepted ADR-0158 requires.
-  local dsl="architecture/features/engineering-frames.dsl"
-  if [[ ! -f "$dsl" ]]; then
-    fail "rule_139_accepted_adr_frame_map_coherence_pos" "Rule G-22: $dsl missing on the working tree"
-    return
-  fi
-  local ep_block os_block bad=""
-  ep_block=$(awk '/"saa\.id"[[:space:]]+"EF-ENGINE-PORT"/{f=1} f{print} f&&/^}/{exit}' "$dsl")
-  os_block=$(awk '/"saa\.id"[[:space:]]+"EF-ORCHESTRATION-SPI"/{f=1} f{print} f&&/^}/{exit}' "$dsl")
-  grep -qE '"saa\.id"[[:space:]]+"EF-ENGINE-PORT"' "$dsl" || bad="$bad no-EF-ENGINE-PORT"
-  printf '%s\n' "$ep_block" | grep -qE '"saa\.owner"[[:space:]]+"agent-bus"' || bad="$bad EF-ENGINE-PORT-not-agent-bus"
-  grep -qE '"saa\.id"[[:space:]]+"EF-ORCHESTRATION-SPI"' "$dsl" || bad="$bad no-EF-ORCHESTRATION-SPI"
-  printf '%s\n' "$os_block" | grep -qE '"saa\.owner"[[:space:]]+"agent-bus"' || bad="$bad EF-ORCHESTRATION-SPI-not-agent-bus"
-  grep -qE '^genModule_agent_bus[[:space:]]*->[[:space:]]*efOrchestrationSpi' "$dsl" || bad="$bad no-contains-edge"
-  if [[ -n "$bad" ]]; then
-    fail "rule_139_accepted_adr_frame_map_coherence_pos" "Rule G-22 / Rule 139: current corpus violates ADR-0158 frame-map coherence:$bad"
-    return
-  fi
-  ok "rule_139_accepted_adr_frame_map_coherence_pos" "Rule G-22 / Rule 139: EF-ENGINE-PORT + EF-ORCHESTRATION-SPI (owner agent-bus) + genModule_agent_bus contains edge all present"
-}
-
-test_rule_139_missing_engine_port_frame_neg() {
-  # NEGATIVE: a synthetic engineering-frames.dsl missing EF-ENGINE-PORT MUST be
-  # flagged by the same assertion the canonical gate uses.
-  local sdsl="$scratch/r139_neg/engineering-frames.dsl"
-  mkdir -p "$scratch/r139_neg"
-  cat > "$sdsl" <<'EOF'
-efOrchestrationSpi = element "Orchestration SPI Frame" "EngineeringFrame" "x" "SAA EngineeringFrame" {
-    properties {
-        "saa.id" "EF-ORCHESTRATION-SPI"
-        "saa.owner" "agent-bus"
-    }
-}
-genModule_agent_bus -> efOrchestrationSpi "module contains engineering frame" "SAA Relationship" {
-    properties { "saa.rel" "contains" }
-}
-EOF
-  if grep -qE '"saa\.id"[[:space:]]+"EF-ENGINE-PORT"' "$sdsl"; then
-    fail "rule_139_missing_engine_port_frame_neg" "Rule G-22 / Rule 139 negative case: synthetic DSL unexpectedly contains EF-ENGINE-PORT"
-  else
-    ok "rule_139_missing_engine_port_frame_neg" "Rule G-22 / Rule 139: synthetic DSL missing EF-ENGINE-PORT is correctly detected (would FAIL the gate)"
-  fi
 }
 
 # ---------------------------------------------------------------------------

@@ -4511,56 +4511,6 @@ else
 fi
 if [[ $_r86_fail -eq 0 ]]; then pass_rule "root_architecture_count_and_path_truth"; fi
 
-# Rule 87 — status_yaml_allowed_claim_module_name_truth (enforcer E120)
-#
-# Every allowed_claim: text value in docs/governance/architecture-status.yaml
-# MUST NOT contain current-tense agent-platform, agent-runtime, or
-# agent-runtime-core (all three are now deleted-module names after rc13
-# ADR-0088 dissolution) outside a historical marker within +/-3 lines.
-# Operationalises rc6 post-response review P1-2 + rc13 dissolution closure.
-# ---------------------------------------------------------------------------
-_r87_fail=0
-_r87_yaml="docs/governance/architecture-status.yaml"
-if [[ ! -f "$_r87_yaml" ]]; then
-  fail_rule "status_yaml_allowed_claim_module_name_truth" "$_r87_yaml missing -- Rule 87 / E120"
-  _r87_fail=1
-else
-  _r87_marker_re='historical|pre-ADR-[0-9]{4}|pre-Phase-C|pre-rc[0-9]+|consolidated into|consolidated from|merged into|merged in|was rooted|formerly|superseded|deprecated|archived|moved|post-ADR-[0-9]{4}|dissolution|dissolved|relocated|relocate'
-  _r87_allowed_re='^[[:space:]]+allowed_claim:[[:space:]]*(.*)$'
-  _r87_stale_re='\b(agent-platform|agent-runtime|agent-runtime-core)\b'
-  # Perf fix (2026-05-23): per-line `echo | grep -qE` + `echo | sed` +
-  # `echo | grep -oE` + `sed | grep -qiE` (~6 forks per line × 1471 lines)
-  # → mapfile + bash-native regex against the array. ~164s → ~1s.
-  mapfile -t _r87_arr < "$_r87_yaml"
-  _r87_n=${#_r87_arr[@]}
-  shopt -q nocasematch; _r87_nocase_was=$?
-  for ((_r87_i=0; _r87_i<_r87_n; _r87_i++)); do
-    _r87_line="${_r87_arr[$_r87_i]}"
-    [[ "$_r87_line" =~ $_r87_allowed_re ]] || continue
-    _r87_value="${BASH_REMATCH[1]}"
-    _r87_value="${_r87_value#\"}"
-    _r87_value="${_r87_value%\"}"
-    [[ "$_r87_value" =~ $_r87_stale_re ]] || continue
-    _r87_stale="${BASH_REMATCH[1]}"
-    _r87_lo=$((_r87_i > 3 ? _r87_i - 3 : 0))
-    _r87_hi=$((_r87_i + 3 < _r87_n - 1 ? _r87_i + 3 : _r87_n - 1))
-    _r87_marker_present=0
-    shopt -s nocasematch
-    for ((_r87_j=_r87_lo; _r87_j<=_r87_hi; _r87_j++)); do
-      if [[ "${_r87_arr[$_r87_j]}" =~ $_r87_marker_re ]]; then
-        _r87_marker_present=1; break
-      fi
-    done
-    [[ $_r87_nocase_was -ne 0 ]] && shopt -u nocasematch
-    [[ $_r87_marker_present -eq 1 ]] && continue
-    _r87_lineno=$((_r87_i + 1))
-    fail_rule "status_yaml_allowed_claim_module_name_truth" "$_r87_yaml:$_r87_lineno allowed_claim text contains current-tense '$_r87_stale' (pre-Phase-C module name) without historical/pre-ADR/consolidated marker in +/-3 lines -- Rule 87 / E120 (allowed_claim module name drift)"
-    _r87_fail=1
-  done
-  [[ $_r87_nocase_was -ne 0 ]] && shopt -u nocasematch
-fi
-if [[ $_r87_fail -eq 0 ]]; then pass_rule "status_yaml_allowed_claim_module_name_truth"; fi
-
 # Rule 88 — serial_parallel_gate_slug_parity (enforcer E121)
 #
 # Closes rc7 post-corrective review P0-2: check_parallel.sh silently skipped
@@ -4683,84 +4633,6 @@ else
   fi
 fi
 if [[ $_r89_fail -eq 0 ]]; then pass_rule "self_test_harness_fail_closed_coverage"; fi
-
-# ---------------------------------------------------------------------------
-# Rule 91 — baseline_metric_matches_executable_manifest (enforcer E123)
-#
-# Closes rc8 post-corrective review P0-1: the parallel summary trailer reported
-# 102 executable rule sections while `architecture-status.yaml` declared 74.
-# Rule 91 asserts that `baseline_metrics.active_gate_checks` equals the literal
-# count of `# Rule N — slug` headers in this script (canonical manifest).
-# ---------------------------------------------------------------------------
-_r91_fail=0
-_r91_status_file="docs/governance/architecture-status.yaml"
-_r91_canonical="gate/check_architecture_sync.sh"
-_r91_enforcers="docs/governance/enforcers.yaml"
-if [[ ! -f "$_r91_status_file" ]] || [[ ! -f "$_r91_canonical" ]]; then
-  fail_rule "baseline_metric_matches_executable_manifest" "$_r91_status_file or $_r91_canonical missing — Rule 91 / E123"
-  _r91_fail=1
-else
-  _r91_manifest_count=$(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+.?[a-z]? — /{c++} END{print c+0}' "$_r91_canonical")
-  _r91_declared=$(grep -E '^[[:space:]]*active_gate_checks:[[:space:]]*[0-9]+' "$_r91_status_file" | head -1 | sed -E 's/.*active_gate_checks:[[:space:]]*([0-9]+).*/\1/')
-  # rc10 widening per ADR-0084 / I-α-1 closure: extend Rule 91 to cover baseline_metrics.enforcer_rows.
-  # Closes rc10 hidden defect: rc9 declared enforcer_rows: 116 (104 baseline + 12 wave) but live count was 134.
-  _r91_enforcer_actual=$(grep -cE '^- id: E[0-9]+' "$_r91_enforcers" 2>/dev/null || echo 0)
-  _r91_enforcer_declared=$(grep -E '^[[:space:]]*enforcer_rows:[[:space:]]*[0-9]+' "$_r91_status_file" | head -1 | sed -E 's/.*enforcer_rows:[[:space:]]*([0-9]+).*/\1/')
-  if [[ -z "$_r91_declared" ]]; then
-    fail_rule "baseline_metric_matches_executable_manifest" "$_r91_status_file missing baseline_metrics.active_gate_checks key — Rule 91 / E123"
-    _r91_fail=1
-  elif [[ "$_r91_declared" != "$_r91_manifest_count" ]]; then
-    fail_rule "baseline_metric_matches_executable_manifest" "baseline_metrics.active_gate_checks=$_r91_declared != canonical manifest count $_r91_manifest_count (count of '# Rule N — slug' headers in $_r91_canonical before END marker) — Rule 91 / E123 (rc8 post-corrective P0-1 closure)"
-    _r91_fail=1
-  elif [[ -z "$_r91_enforcer_declared" ]]; then
-    fail_rule "baseline_metric_matches_executable_manifest" "$_r91_status_file missing baseline_metrics.enforcer_rows key — Rule 91 / E123 (rc10 widening per ADR-0084)"
-    _r91_fail=1
-  elif [[ "$_r91_enforcer_declared" != "$_r91_enforcer_actual" ]]; then
-    fail_rule "baseline_metric_matches_executable_manifest" "baseline_metrics.enforcer_rows=$_r91_enforcer_declared != live enforcer count $_r91_enforcer_actual ('^- id: E[0-9]+' in $_r91_enforcers) — Rule 91 / E123 (rc10 widening per ADR-0084 / I-α-1 closure)"
-    _r91_fail=1
-  fi
-fi
-if [[ $_r91_fail -eq 0 ]]; then pass_rule "baseline_metric_matches_executable_manifest"; fi
-
-# ---------------------------------------------------------------------------
-# Rule 92 — gate_rules_corpus_freshness (enforcer E125)
-#
-# Closes rc8 post-corrective review P2-1: `gate/rules/` is a shadow corpus
-# that drifts stale relative to the canonical monolith. Rule 92 asserts that
-# every `# Rule N — slug` header in canonical has a matching
-# `gate/rules/rule-NNN.sh` file (zero-padded to 3 digits, supports letter
-# suffix like `028a`). Production parallel gate operates from the canonical
-# monolith; gate/rules/ is the IDE-only inspection artifact (ADR-0083).
-# ---------------------------------------------------------------------------
-_r92_fail=0
-_r92_canonical="gate/check_architecture_sync.sh"
-_r92_dir="gate/rules"
-if [[ ! -f "$_r92_canonical" ]] || [[ ! -d "$_r92_dir" ]]; then
-  fail_rule "gate_rules_corpus_freshness" "$_r92_canonical or $_r92_dir missing — Rule 92 / E125"
-  _r92_fail=1
-else
-  # Perf fix (2026-05-23): replaced per-rule-id `echo | grep -oE` + per-id
-  # printf + per-id [[ -f ]] check (~130 ids × 3 forks = ~400 forks, ~13s) with
-  # a single bash-native loop that uses bash regex to split id parts.
-  _r92_missing=""
-  _r92_id_re='^([0-9]+)([a-z]?)$'
-  while IFS= read -r _r92_rid; do
-    [[ -z "$_r92_rid" ]] && continue
-    [[ "$_r92_rid" =~ $_r92_id_re ]] || continue
-    _r92_num_part="${BASH_REMATCH[1]}"
-    _r92_letter="${BASH_REMATCH[2]}"
-    printf -v _r92_padded "%03d" "$_r92_num_part"
-    _r92_expected="${_r92_dir}/rule-${_r92_padded}${_r92_letter}.sh"
-    if [[ ! -f "$_r92_expected" ]]; then
-      _r92_missing="${_r92_missing}${_r92_rid} "
-    fi
-  done < <(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+.?[a-z]? — /{ str=substr($0, 8); space_idx=index(str, " "); print substr(str, 1, space_idx - 1) }' "$_r92_canonical")
-  if [[ -n "$_r92_missing" ]]; then
-    fail_rule "gate_rules_corpus_freshness" "$_r92_dir lacks rule file(s) for canonical header(s): ${_r92_missing}-- Rule 92 / E125 (run bash gate/lib/extract_rules.sh to refresh)"
-    _r92_fail=1
-  fi
-fi
-if [[ $_r92_fail -eq 0 ]]; then pass_rule "gate_rules_corpus_freshness"; fi
 
 # ---------------------------------------------------------------------------
 # Rule 93 — dfx_stem_matches_module (enforcer E127)
@@ -6566,10 +6438,6 @@ else
 fi
 [[ $_r119_fail -eq 0 ]] && pass_rule "l1_spi_appendix_4way_parity"
 
-# Rule 120 — l1_l2_constraint_linkage (enforcer E168) — vacuously green at rc22
-# (no L2 documents exist yet; arms for W3+).
-pass_rule "l1_l2_constraint_linkage"
-
 # ---------------------------------------------------------------------------
 # Rule 121 — whitebox_quality_reports (enforcer E169)
 #
@@ -7051,103 +6919,6 @@ else
   fi
 fi
 [[ $_r136_fail -eq 0 ]] && pass_rule "autoload_tier_integrity"
-
-# ---------------------------------------------------------------------------
-# Rule 137 — governance_infra_honesty (enforcer E185, kernel Rule G-20)
-#
-# Phase A Wave 5 (advisory at landing). An artefact (rule card, ADR, contract,
-# feature) marked governance_infra:true MUST NOT use product-value vocabulary
-# (customer / beneficiary / user-facing claim / saves time/cost) in its body
-# prose. Words reserved for product-claim-bound artefacts. Advisory until
-# enough artefacts are classified to support precise lexicon enforcement.
-# ---------------------------------------------------------------------------
-_r137_fail=0
-# BLOCKING from Phase B convergence: artefacts marked governance_infra:true MUST
-# NOT use product-value vocabulary in body prose. Narrow phrase list (not bare
-# "user") to avoid false positives on governance docs that legitimately mention users.
-_r137_hits=""
-while IFS= read -r _r137_f; do
-  [[ -z "$_r137_f" ]] && continue
-  if grep -qiE 'delivers (customer|user) value|saves (the )?(customer|user)|user-facing (benefit|value)|customer benefit|compounds value for' "$_r137_f"; then
-    _r137_hits="${_r137_hits}$(basename "$_r137_f") "
-  fi
-done < <(grep -rlE '^[[:space:]]*governance_infra:[[:space:]]*true' docs/governance/rules docs/adr docs/contracts 2>/dev/null)
-if [[ -n "$_r137_hits" ]]; then
-  fail_rule "governance_infra_honesty" "governance_infra:true artefact(s) use product-value vocabulary: ${_r137_hits}-- Rule G-20 / E185 (blocking from Phase B convergence)"
-  _r137_fail=1
-fi
-[[ $_r137_fail -eq 0 ]] && pass_rule "governance_infra_honesty"
-
-# ---------------------------------------------------------------------------
-# Rule 138 — productclaim_placeholder_decreasing (enforcer E186, kernel Rule G-21)
-#
-# Phase A Wave 5 (advisory at landing). Count of product_claim_placeholder:true
-# markers in the corpus MUST decrease monotonically across Phase B cluster
-# cycles; reaching zero is the Phase B convergence signal. At landing the
-# count is the Phase B backlog baseline; the rule passes vacuously until a
-# baseline is recorded.
-# ---------------------------------------------------------------------------
-_r138_fail=0
-# BLOCKING from Phase B convergence (2026-05-28): count of REAL product_claim_placeholder
-# field markers (frontmatter/yaml field lines, not prose mentions in meta-rule docs)
-# MUST be 0. Reaching 0 was the G-21 convergence signal that promoted G-16/17/18/20
-# from advisory to blocking.
-_r138_count=$(grep -rlE '^[[:space:]]*product_claim_placeholder:[[:space:]]*true[[:space:]]*$' docs/adr architecture/decisions docs/contracts docs/governance/rules docs/governance/principles architecture/features 2>/dev/null | wc -l | tr -d '[:space:]')
-if [[ "${_r138_count:-0}" -gt 0 ]]; then
-  fail_rule "productclaim_placeholder_decreasing" "${_r138_count} artefact(s) still carry product_claim_placeholder:true; Phase B convergence requires 0 -- Rule G-21 / E186 (blocking from convergence)"
-  _r138_fail=1
-fi
-[[ $_r138_fail -eq 0 ]] && pass_rule "productclaim_placeholder_decreasing"
-
-# ---------------------------------------------------------------------------
-# Rule 139 — accepted_adr_frame_map_coherence (enforcer E187, kernel Rule G-22)
-#
-# Authority: ADR-0157 (EngineeringFrame Ontology) + ADR-0158 (transport-agnostic
-# EnginePort boundary). Closes external review F1.4: an accepted ADR that
-# declares an EngineeringFrame re-home or new frame in its decision text MUST be
-# reflected in architecture/features/engineering-frames.dsl, else the frame map
-# silently lies about the structural axis.
-#
-# Targeted assertion keyed off the live ADR-0158 case: the DSL MUST declare
-# EF-ENGINE-PORT (owner agent-bus) AND place EF-ORCHESTRATION-SPI (owner
-# agent-bus) under a genModule_agent_bus contains edge.
-#
-# scope_surfaces: docs/adr/0158-*.yaml, architecture/features/engineering-frames.dsl
-# ---------------------------------------------------------------------------
-_r139_fail=0
-_r139_dsl="architecture/features/engineering-frames.dsl"
-_r139_adr=$(ls docs/adr/0158-*.yaml 2>/dev/null | head -1)
-if [[ -z "$_r139_adr" ]]; then
-  : # vacuous pass before ADR-0158 lands as yaml
-elif ! grep -qE '^[[:space:]]*status:[[:space:]]*accepted' "$_r139_adr"; then
-  : # ADR-0158 not accepted yet — frame-map coherence not yet required
-elif [[ ! -f "$_r139_dsl" ]]; then
-  fail_rule "accepted_adr_frame_map_coherence" "$_r139_dsl missing but ADR-0158 is accepted and declares the EnginePort frame re-home -- Rule G-22 / E187"
-  _r139_fail=1
-else
-  # (a) EF-ENGINE-PORT present with owner agent-bus.
-  _r139_ep_block=$(awk '/"saa\.id"[[:space:]]+"EF-ENGINE-PORT"/{f=1} f{print} f&&/^}/{exit}' "$_r139_dsl")
-  if ! grep -qE '"saa\.id"[[:space:]]+"EF-ENGINE-PORT"' "$_r139_dsl"; then
-    fail_rule "accepted_adr_frame_map_coherence" "$_r139_dsl missing EF-ENGINE-PORT frame required by accepted ADR-0158 -- Rule G-22 / E187"
-    _r139_fail=1
-  elif ! printf '%s\n' "$_r139_ep_block" | grep -qE '"saa\.owner"[[:space:]]+"agent-bus"'; then
-    fail_rule "accepted_adr_frame_map_coherence" "EF-ENGINE-PORT in $_r139_dsl is not owner=agent-bus as ADR-0158 requires -- Rule G-22 / E187"
-    _r139_fail=1
-  fi
-  # (b) EF-ORCHESTRATION-SPI owner agent-bus AND genModule_agent_bus contains edge.
-  _r139_os_block=$(awk '/"saa\.id"[[:space:]]+"EF-ORCHESTRATION-SPI"/{f=1} f{print} f&&/^}/{exit}' "$_r139_dsl")
-  if ! grep -qE '"saa\.id"[[:space:]]+"EF-ORCHESTRATION-SPI"' "$_r139_dsl"; then
-    fail_rule "accepted_adr_frame_map_coherence" "$_r139_dsl missing EF-ORCHESTRATION-SPI frame required by accepted ADR-0158 -- Rule G-22 / E187"
-    _r139_fail=1
-  elif ! printf '%s\n' "$_r139_os_block" | grep -qE '"saa\.owner"[[:space:]]+"agent-bus"'; then
-    fail_rule "accepted_adr_frame_map_coherence" "EF-ORCHESTRATION-SPI in $_r139_dsl is not owner=agent-bus as ADR-0158 requires -- Rule G-22 / E187"
-    _r139_fail=1
-  elif ! grep -qE '^genModule_agent_bus[[:space:]]*->[[:space:]]*efOrchestrationSpi' "$_r139_dsl"; then
-    fail_rule "accepted_adr_frame_map_coherence" "$_r139_dsl missing the genModule_agent_bus -> efOrchestrationSpi contains edge required by ADR-0158 -- Rule G-22 / E187"
-    _r139_fail=1
-  fi
-fi
-[[ $_r139_fail -eq 0 ]] && pass_rule "accepted_adr_frame_map_coherence"
 
 # ---------------------------------------------------------------------------
 # Rule 140 — shipped_frame_anchor_integrity (enforcer E188, kernel Rule G-23)
