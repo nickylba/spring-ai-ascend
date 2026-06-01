@@ -30,9 +30,8 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
  * deferred-fire-points reason.
  *
  * <p>Authority: ADR-0075; CLAUDE.md Rule R-M.e.
- * Enforcer row: {@code docs/governance/enforcers.yaml#E87} (post-review fix
- * plan F / P1-2: prior Javadoc cited #E86 which is the evolution-scope gate-
- * script row, not this ArchUnit test).
+ * Enforcer row: {@code docs/governance/enforcers.yaml#E87} (this ArchUnit test;
+ * the evolution-scope gate-script row is a separate enforcer).
  */
 class EveryRunEventDeclaresEvolutionExportTest {
 

@@ -39,7 +39,7 @@ This table matches `README.md#Reading-path` step-for-step. Loading these in orde
 | 11 | `docs/governance/enforcers.yaml` | ALWAYS-LOAD (legacy; W6.a sunset target) | Rows mapping constraints to enforcers. Workspace mirror at `architecture/generated/enforcers.dsl` is the W5+ source. |
 | 12 | the ADR YAML referenced by the edge you are traversing | ON-DEMAND | rationale and `extends:` / `relates_to:`. Anchor ADRs (0068, 0119, 0147, 0148, 0149, 0150) are mirrored under `architecture/decisions/` for Structurizr `!adrs` import. |
 | 13 | `docs/CLAUDE-deferred.md` | (ON-DEMAND) | Rules deferred to W1/W2/W3/W4 with re-introduction triggers — load only when re-introducing a deferred rule. |
-| 14 | `docs/runbooks/debug-first-evidence.md` | ON-DEMAND (Rule 79) | Evidence-First Debug Sequence — open when a Run fails, a test regresses, or a self-audit finding is being drafted. |
+| 14 | `docs/harness/debug-first-evidence.md` | ON-DEMAND (Rule 79) | Evidence-First Debug Sequence — open when a Run fails, a test regresses, or a self-audit finding is being drafted. |
 
 The always-loaded budget per file is declared in [`gate/always-loaded-budget.txt`](../../gate/always-loaded-budget.txt) and policed by Gate Rule 70 (`always_loaded_budget_enforced`). To measure the current state: `bash gate/measure_always_loaded_tokens.sh`.
 

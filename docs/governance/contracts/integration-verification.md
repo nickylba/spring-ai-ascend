@@ -57,7 +57,7 @@ Markers: **P** = primary · **X** = cross-reference.
   D-3.b mandates evidence-FIRST.
 - Running gate on Git Bash for Windows instead of Linux/WSL (Rule G-7).
 - Marking a regression "investigated" without a runbook-style evidence
-  block under `docs/runbooks/debug-first-evidence.md` (Rule D-3.b sub-clause).
+  block under `docs/harness/debug-first-evidence.md` (Rule D-3.b sub-clause).
 - Skipping Failsafe integration tests because `mvn test` (Surefire-only)
   was green — `mvn verify` is the release-verify command.
 - Declaring victory when only some of D-4's three test layers are green.

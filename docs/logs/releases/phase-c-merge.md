@@ -8,6 +8,8 @@ authority: "ADR-0078 + ARCHITECTURE.md §2"
 
 ## §1 Status
 
+> Historical artifact frozen at SHA 10398b7 (Phase C merge, PR #5).
+
 - **Status:** DRAFT (transitions to ACCEPTED on first commit landing on `main`).
 - **Branch:** `phase-c-merge` — six sequential commits, one PR.
 - **Tracking ADR:** ADR-0078 — supersedes ADR-0055, extends ADR-0066, relates_to ADR-0026.

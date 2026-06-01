@@ -58,7 +58,7 @@ No new ADRs (Rule 79 is operationalised by the existing P-D principle, ADR-0067;
 ## Artefacts shipped
 
 - **Rule card** — [`docs/governance/rules/rule-79.md`](../../governance/rules/rule-79.md): kernel (byte-matches CLAUDE.md per Rule 68 / E98) + motivation + 6-step algorithm + enforcement spec + activation note + cross-references.
-- **Runbook** — [`docs/runbooks/debug-first-evidence.md`](../../runbooks/debug-first-evidence.md): copy-paste-ready commands for each of the 6 sequence steps; the literal string `Evidence-First Debug Sequence` is asserted by the gate (drift-by-replacement check).
+- **Runbook** — [`docs/harness/debug-first-evidence.md`](../../runbooks/debug-first-evidence.md): copy-paste-ready commands for each of the 6 sequence steps; the literal string `Evidence-First Debug Sequence` is asserted by the gate (drift-by-replacement check).
 - **Library-mode SPI test suite** — 4 pure-JUnit-Jupiter classes under `agent-runtime-core/src/test/java/`:
 
   | Class | Tests | Targets |

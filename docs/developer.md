@@ -69,7 +69,7 @@ Invoke `/commit-mode`. It loads the pre-commit checklist (Rule D-3.a) and walks 
 
 ## When something breaks
 
-Invoke `/verify-mode`. It loads the integration-verification contract and `docs/runbooks/debug-first-evidence.md` (Rule D-3.b — Evidence-First Debug). You capture failing test FQN + trace ID + MDC slice + raw error message BEFORE you read any architecture doc.
+Invoke `/verify-mode`. It loads the integration-verification contract and `docs/harness/debug-first-evidence.md` (Rule D-3.b — Evidence-First Debug). You capture failing test FQN + trace ID + MDC slice + raw error message BEFORE you read any architecture doc.
 
 ## What you'll need to know about for v1.0 financial-vertical
 

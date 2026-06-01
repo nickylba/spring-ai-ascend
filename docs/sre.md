@@ -59,7 +59,7 @@ Three operational concerns that microservices don't have:
 
 ## When you're operating: phase-contract skills you'll use
 
-- **`/verify-mode`** — when something is wrong. Loads `docs/governance/contracts/integration-verification.md` + `docs/runbooks/debug-first-evidence.md`. Rule D-3.b mandates evidence-first debug: failing test FQN + trace ID + MDC slice + raw error message BEFORE consulting ADRs.
+- **`/verify-mode`** — when something is wrong. Loads `docs/governance/contracts/integration-verification.md` + `docs/harness/debug-first-evidence.md`. Rule D-3.b mandates evidence-first debug: failing test FQN + trace ID + MDC slice + raw error message BEFORE consulting ADRs.
 - **`/commit-mode`** — when pushing operator-side config changes (capacity matrix, sandbox policies, deployment manifests). Loads the pre-commit checklist + lockstep-baseline discipline.
 
 ## v1.0 financial-vertical operational ship-blockers

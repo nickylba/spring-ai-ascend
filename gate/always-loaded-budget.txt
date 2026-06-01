@@ -128,10 +128,6 @@ product/journey.md=9500
 discovery/adr-index.md=30000
 discovery/rule-index.md=10000
 discovery/contract-index.md=8000
-docs/onboarding/developer.md=0
-docs/onboarding/sre.md=0
-docs/onboarding/architect.md=0
-docs/onboarding/compliance-reviewer.md=0
 architecture/docs/L0/ARCHITECTURE.md=98000
 # Fact-Layer W6 (ADR-0154 / Rule G-15): AGENTS.md grew ~310 bytes with the
 # 6-point AI consumption contract + the fact-layer-first reading-path entry

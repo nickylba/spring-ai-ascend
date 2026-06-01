@@ -16,7 +16,7 @@ This document is the architecture team's structured response to [`docs/reviews/s
 
 | # | Reviewer proposal | Verdict | Authority | Evidence |
 |---|---|---|---|---|
-| 1 | Telemetry-First Debugging (prohibit reading specs first; anchor on raw evidence) | **Accept (modified)** | New Rule 79 + new runbook | `docs/governance/rules/rule-79.md`, `docs/runbooks/debug-first-evidence.md`, `CLAUDE.md` Rule 79 row, gate Rule 79 (`gate/check_architecture_sync.sh#rule_79_runbook_present_and_cited`), enforcer E112 |
+| 1 | Telemetry-First Debugging (prohibit reading specs first; anchor on raw evidence) | **Accept (modified)** | New Rule 79 + new runbook | `docs/governance/rules/rule-79.md`, `docs/harness/debug-first-evidence.md`, `CLAUDE.md` Rule 79 row, gate Rule 79 (`gate/check_architecture_sync.sh#rule_79_runbook_present_and_cited`), enforcer E112 |
 | 2 | Library-Mode TDD (ultra-light memory stubs in `agent-runtime-core`; ms-scale pure-function TDD) | **Accept (modified)** | New library-mode tests in `agent-runtime-core/src/test/` | 4 new test classes, 64 assertions, **1.8 s wall-clock** for the full module (`./mvnw -pl agent-runtime-core test`) |
 | 3 | Immediate TCK Activation (scaffold `agent-runtime-tck` reactor module now; use `InMemoryCheckpointer` + `InMemoryRunRegistry` as RI) | **Reject (module); accept (intent)** | Rule 2 (Simplicity) + Rule 32.b (explicit W2 trigger) | TCK-promotion-candidate markers on 3 in-memory test classes + `docs/CLAUDE-deferred.md` Rule 32.b "Pre-promotion holding tank" |
 
@@ -37,11 +37,11 @@ Aggregate baseline delta: rules 34 → 35; active gate rules 63 → 64; enforcer
 5. RunStatus transition history (or analogue for test/gate failures)
 6. **THEN** consult `ARCHITECTURE.md` / ADRs / `docs/governance/rules/*.md`
 
-The full sequence with copy-paste-ready commands lives at [`docs/runbooks/debug-first-evidence.md`](../../runbooks/debug-first-evidence.md). The rule card is [`docs/governance/rules/rule-79.md`](../../governance/rules/rule-79.md).
+The full sequence with copy-paste-ready commands lives at [`docs/harness/debug-first-evidence.md`](../../runbooks/debug-first-evidence.md). The rule card is [`docs/governance/rules/rule-79.md`](../../governance/rules/rule-79.md).
 
 **Enforcement** (Gate Rule 79 / E112): three invariants are bash-checked on every gate run —
 
-1. `docs/runbooks/debug-first-evidence.md` exists.
+1. `docs/harness/debug-first-evidence.md` exists.
 2. It contains the literal string "Evidence-First Debug Sequence" (drift-by-replacement check).
 3. The rule card references the runbook path (card↔runbook link integrity).
 
@@ -99,7 +99,7 @@ The promotion path is documented in `docs/CLAUDE-deferred.md` under Rule 32.b "P
 
 ```
 docs/governance/rules/rule-79.md                                                                   # rule card (kernel + motivation + algorithm + enforcement)
-docs/runbooks/debug-first-evidence.md                                                              # 6-step playbook
+docs/harness/debug-first-evidence.md                                                              # 6-step playbook
 docs/reviews/spring-ai-ascend-beyond-sdd-response.en.md                                            # this file
 agent-runtime-core/src/test/java/ascend/springai/service/runtime/runs/RunStateMachineLibraryTest.java       # 36 tests
 agent-runtime-core/src/test/java/ascend/springai/service/runtime/runs/RunRecordTenantLibraryTest.java       # 7 tests

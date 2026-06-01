@@ -28,8 +28,10 @@ The platform optimises four pillars:
 - **Developer onboarding** — extend via `@Bean` SPI overrides, exactly like
   Spring Boot; a runnable quickstart reaches a first agent run with no
   platform-team hand-holding.
-- **Governance** — audit-grade evidence, posture-aware fail-closed defaults, and
-  a Code-as-Contract gate that keeps the docs and the code honest.
+- **Governance** — audit-grade evidence and posture-aware fail-closed defaults.
+  Governance (gates, ADRs, enforcers) constrains the engineering **main-path**;
+  the searchable **AI knowledge system** (`knowledge/`) sits outside it, kept
+  honest by advisory integrity scripts rather than blocking gates.
 
 Measured baselines: [`docs/governance/competitive-baselines.yaml`](docs/governance/competitive-baselines.yaml).
 
@@ -103,7 +105,7 @@ the narrative tour is [docs/overview.md](docs/overview.md).
 | `research` | Fail-closed — required config present or startup fails |
 | `prod` | Fail-closed — same, with stricter enforcement planned |
 
-Full matrix: [docs/cross-cutting/posture-model.md](docs/cross-cutting/posture-model.md).
+Full matrix: [docs/architecture/l0/cross-cutting/posture-model.md](docs/architecture/l0/cross-cutting/posture-model.md).
 
 ## Reading path
 
@@ -137,9 +139,9 @@ design contracts. Per-capability detail is the single source of truth in
 
 A Code-as-Contract gate keeps the documentation and the code in lockstep and
 fails closed on drift. Its current baseline:
-**65 §4 constraints · 139 ADRs · 157 active gate rules · 287 gate self-tests**,
-plus 13 Layer-0 governing principles, 55 active engineering rules, 190 enforcer
-rows, and a 674-node / 1301-edge architecture graph — all maintained in
+**65 §4 constraints · 139 ADRs · 36 active gate rules · 104 gate self-tests**,
+plus 13 Layer-0 governing principles, 55 active engineering rules, 89 enforcer
+rows, and a 550-node / 1099-edge architecture graph — all maintained in
 [`docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics`](docs/governance/architecture-status.yaml)
 (the canonical source for every count); see [gate/README.md](gate/README.md) for
 how it runs.

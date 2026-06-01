@@ -1,3 +1,6 @@
+level: L0
+view: scenarios
+governance_infra: true
 generated_from:
 - docs/adr/ADR-CLASSIFICATION.md
 - docs/adr/**/*.{md,yaml}
