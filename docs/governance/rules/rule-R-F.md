@@ -4,7 +4,7 @@ title: "Cursor Flow Mandate"
 level: L1
 view: logical
 principle_ref: P-F
-authority_refs: [ADR-0069, ADR-0070]
+authority_refs: [ADR-0069, "ADR-0070 (retired)"]
 enforcer_refs: [E65, E72]
 status: active
 product_claim: "PC-003"

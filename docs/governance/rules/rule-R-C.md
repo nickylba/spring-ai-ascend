@@ -4,7 +4,7 @@ title: "Code-as-Contract"
 level: L1
 view: development
 principle_ref: P-C
-authority_refs: [ADR-0064, ADR-0068, ADR-0094]
+authority_refs: [ADR-0064, ADR-0068, "ADR-0094 (retired)"]
 enforcer_refs: [E15, E16, E17, E18, E19, E27, E28, E29, E30]
 status: active
 product_claim: "PC-003"

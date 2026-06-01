@@ -4,7 +4,7 @@ title: "L1 Architecture Depth & Grounding"
 level: L0
 view: development
 principle_ref: P-C
-authority_refs: [ADR-0099]
+authority_refs: ["ADR-0099 (retired)"]
 enforcer_refs: [E166, E167, E168]
 status: active
 governance_infra: true

@@ -4,7 +4,7 @@ title: "Kernel-Card-Implementation Coherence"
 level: L0
 view: scenarios
 principle_ref: P-B
-authority_refs: [ADR-0078, ADR-0083, ADR-0085, ADR-0094]
+authority_refs: ["ADR-0078 (retired)", ADR-0083, ADR-0085, "ADR-0094 (retired)"]
 enforcer_refs: [E97, E98, E99, E133, E139, E140, E151]
 status: active
 governance_infra: true

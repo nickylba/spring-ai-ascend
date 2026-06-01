@@ -4,7 +4,7 @@ title: "Edge↔Compute Ingress Routing"
 level: L0
 view: physical
 principle_ref: P-I
-authority_refs: [ADR-0049, ADR-0089, ADR-0094]
+authority_refs: [ADR-0049, ADR-0089, "ADR-0094 (retired)"]
 enforcer_refs: [E143]
 status: design_only
 product_claim: "PC-002"

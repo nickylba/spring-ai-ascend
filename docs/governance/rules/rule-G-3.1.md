@@ -4,7 +4,7 @@ title: "Kernel-Implementation Disjunction Truth"
 level: L0
 view: scenarios
 principle_ref: P-B
-authority_refs: [ADR-0085, ADR-0094]
+authority_refs: [ADR-0085, "ADR-0094 (retired)"]
 enforcer_refs: [E141, E142]
 status: active
 governance_infra: true

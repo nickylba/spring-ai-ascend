@@ -4,7 +4,7 @@ title: "Recurring-Defect Family Truth"
 level: L0
 view: scenarios
 principle_ref: P-D
-authority_refs: [ADR-0094]
+authority_refs: ["ADR-0094 (retired)"]
 enforcer_refs: [E156, E157, E158]
 status: active
 governance_infra: true

@@ -4,7 +4,7 @@ title: "Deleted-Module Scope Prevention"
 level: L0
 view: scenarios
 principle_ref: P-D
-authority_refs: [ADR-0078, ADR-0083, ADR-0084, ADR-0094]
+authority_refs: ["ADR-0078 (retired)", ADR-0083, ADR-0084, "ADR-0094 (retired)"]
 enforcer_refs: [E120, E129, E130, E137, E138, E154]
 status: active
 governance_infra: true

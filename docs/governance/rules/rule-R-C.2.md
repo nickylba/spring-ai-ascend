@@ -4,7 +4,7 @@ title: "Run Contract Spine"
 level: L1
 view: logical
 principle_ref: P-C
-authority_refs: [ADR-0068, ADR-0078, ADR-0088, ADR-0094]
+authority_refs: [ADR-0068, "ADR-0078 (retired)", "ADR-0088 (retired)", "ADR-0094 (retired)"]
 enforcer_refs: [E2, E4, E9, E11]
 status: active
 scope_phase: impl

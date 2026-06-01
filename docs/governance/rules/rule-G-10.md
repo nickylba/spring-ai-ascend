@@ -4,7 +4,7 @@ title: "Parallel-Linux-Scripts Mandate"
 level: L0
 view: process
 principle_ref: P-B
-authority_refs: ["ADR-0098"]
+authority_refs: ["ADR-0098 (retired)"]
 enforcer_refs: [E164]
 status: active
 governance_infra: true

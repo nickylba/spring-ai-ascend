@@ -4,7 +4,7 @@ title: "Skeleton Module Has No Production Java"
 level: L1
 view: development
 principle_ref: P-C
-authority_refs: [ADR-0073, ADR-0079, "v2.0.0-rc4 cross-constraint review P0-2"]
+authority_refs: ["ADR-0073 (retired)", "ADR-0079 (retired)", "v2.0.0-rc4 cross-constraint review P0-2"]
 enforcer_refs: [E114]
 status: active
 governance_infra: true

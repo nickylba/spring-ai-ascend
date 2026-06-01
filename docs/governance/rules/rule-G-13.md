@@ -4,7 +4,7 @@ title: "Single-Source Rendering Coherence"
 level: L0
 view: scenarios
 principle_ref: P-C
-authority_refs: [ADR-0119]
+authority_refs: ["ADR-0119 (retired)"]
 enforcer_refs: [E174]
 status: active
 governance_infra: true

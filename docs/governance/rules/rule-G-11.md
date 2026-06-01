@@ -4,7 +4,7 @@ title: "Phase-Contract Rule-Allocation Coherence"
 level: L0
 view: process
 principle_ref: P-C
-authority_refs: ["ADR-0098"]
+authority_refs: ["ADR-0098 (retired)"]
 enforcer_refs: [E165]
 status: active
 governance_infra: true

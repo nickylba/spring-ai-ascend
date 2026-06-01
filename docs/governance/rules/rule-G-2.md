@@ -4,7 +4,7 @@ title: "Authority-Text Reality (doc / status / path / numeric truth)"
 level: L0
 view: scenarios
 principle_ref: P-D
-authority_refs: [ADR-0043, ADR-0047, ADR-0078, ADR-0082, ADR-0083, ADR-0085, ADR-0094]
+authority_refs: ["ADR-0043 (retired)", "ADR-0047 (retired)", "ADR-0078 (retired)", "ADR-0082 (retired)", ADR-0083, ADR-0085, "ADR-0094 (retired)"]
 enforcer_refs: [E16, E25, E115, E116, E119, E135, E136]
 status: active
 governance_infra: true

@@ -4,7 +4,7 @@ title: "Cross-Authority Parity (graph baseline / SPI path / module topology / cu
 level: L0
 view: process
 principle_ref: P-C
-authority_refs: [ADR-0086, ADR-0088, ADR-0090, ADR-0091]
+authority_refs: ["ADR-0086 (retired)", "ADR-0088 (retired)", "ADR-0090 (retired)", "ADR-0091 (retired)"]
 enforcer_refs: [E146, E147, E148, E149, E150]
 status: active
 governance_infra: true

@@ -4,7 +4,7 @@ title: "Independent Module Evolution"
 level: L1
 view: development
 principle_ref: P-C
-authority_refs: [ADR-0066, ADR-0068, ADR-0094]
+authority_refs: [ADR-0066, ADR-0068, "ADR-0094 (retired)"]
 enforcer_refs: [E31]
 status: active
 product_claim: "PC-003"

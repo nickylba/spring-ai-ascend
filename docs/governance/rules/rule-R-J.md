@@ -4,7 +4,7 @@ title: "Storage-Engine Tenant Isolation + Cancel Re-Authorization"
 level: L1
 view: physical
 principle_ref: P-J
-authority_refs: [ADR-0069, ADR-0020, ADR-0078]
+authority_refs: [ADR-0069, ADR-0020, "ADR-0078 (retired)"]
 enforcer_refs: [E69, E106]
 status: active
 product_claim: "PC-003"

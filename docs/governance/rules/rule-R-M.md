@@ -4,7 +4,7 @@ title: "Engine Contract (envelope / matching / hooks / S2C / scope / historical)
 level: L1
 view: process
 principle_ref: P-M
-authority_refs: [ADR-0071, ADR-0072, ADR-0073, ADR-0074, ADR-0075, ADR-0077]
+authority_refs: [ADR-0071, "ADR-0072 (retired)", "ADR-0073 (retired)", "ADR-0074 (retired)", ADR-0075, ADR-0077]
 enforcer_refs: [E73, E74, E75, E76, E78, E81, E82, E83, E84, E89, E90, E92, E113]
 status: active
 product_claim: "PC-004"

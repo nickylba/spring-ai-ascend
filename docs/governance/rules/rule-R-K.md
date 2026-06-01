@@ -4,7 +4,7 @@ title: "Skill Capacity Matrix"
 level: L1
 view: physical
 principle_ref: P-K
-authority_refs: [ADR-0069, ADR-0070, ADR-0085]
+authority_refs: [ADR-0069, "ADR-0070 (retired)", ADR-0085]
 enforcer_refs: [E70, E73]
 status: active
 product_claim: "PC-003"

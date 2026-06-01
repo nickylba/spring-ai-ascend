@@ -4,7 +4,7 @@ title: "Gate Self-Consistency (parity / coverage / manifest / freshness)"
 level: L0
 view: process
 principle_ref: P-D
-authority_refs: [ADR-0082, ADR-0083, ADR-0085]
+authority_refs: ["ADR-0082 (retired)", ADR-0083, ADR-0085]
 enforcer_refs: [E121, E122, E123, E124, E125, E126]
 status: active
 governance_infra: true
