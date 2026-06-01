@@ -723,15 +723,6 @@
 #            + docs/logs/reviews/2026-05-18-l0-rc4-cross-constraint-architecture-review-response.en.md
 # ---------------------------------------------------------------------------
 
-- id: E118
-  constraint_ref: "CLAUDE.md Rule R-D sub-clause .f (catalog_spi_row_matches_module_spi_metadata); rc5 post-response review P1-2; ADR-0030; ADR-0070; ADR-0080"
-  kind: gate-script
-  level: L1
-  view: development
-  artifact: gate/check_architecture_sync.sh#catalog_spi_row_matches_module_spi_metadata
-  asserts: "Every row in the docs/contracts/contract-catalog.md '**Active SPI interfaces (N total):**' table whose 'Status' column does NOT contain the literal substring '(internal)' MUST: (a) point at a module whose <module>/module-metadata.yaml contains a spi_packages: entry that exactly matches the row's Package column OR contains the package as a .spi-prefixed sub-package, AND (b) the same module's docs/dfx/<module>.yaml#spi_packages list MUST contain the same package. The header count (N total) MUST equal the number of non-(internal) rows. Closes rc5 post-response P1-2: catalog SPI commitments must be backed by SPI metadata declarations on both sides of the Rule R-D sub-clause .e set."
-  product_claim: "PC-001"
-
 - id: E121
   constraint_ref: "CLAUDE.md Rule G-5 sub-clause .a (serial_parallel_gate_slug_parity); rc7 post-corrective review P0-2; ADR-0082"
   kind: gate-script
@@ -748,42 +739,6 @@
   view: process
   artifact: gate/check_architecture_sync.sh#self_test_harness_fail_closed_coverage
   asserts: "gate/test_architecture_sync_gate.sh MUST (a) contain a `passed != TOTAL` fail-closed clause that exits non-zero, (b) NOT declare TOTAL via a bare literal `TOTAL=NNN` form (must derive from passed+failed or an explicit manifest), and (c) declare at least one `test_rule_<N>_*` function for every prevention-wave `# Rule N — slug` header (`N >= 80`) defined in gate/check_architecture_sync.sh. Pre-rc4 Rules 1-79 are grandfathered (covered by ArchUnit / integration tests at design time, not by inline self-test fixtures). rc9 narrows the wording from the original 'full coverage parity / every Rule' phrasing to the prevention-wave-only scope matching CLAUDE.md Rule G-5 sub-clause .b kernel and gate/check_architecture_sync.sh implementation (closes rc8 post-corrective P1-4: enforcers row + gate/README claim overclaimed broader coverage than the rule actually enforces). Original rc7 closure: harness hardcoded TOTAL=143 and exited 0 when only ~37 tests ran; inline Rule G-2 sub-clause .d/87 fixtures lost their results to the parallel orchestrator overwriting passed/failed counters."
-  governance_infra: true
-
-- id: E127
-  constraint_ref: "CLAUDE.md Rule M-2 sub-clause .c (dfx_stem_matches_module); rc8 post-corrective review P0-3; ADR-0082; ADR-0083"
-  kind: gate-script
-  level: L0
-  view: development
-  artifact: gate/check_architecture_sync.sh#dfx_stem_matches_module
-  asserts: "Every docs/dfx/*.yaml file (excluding docs/archive/) MUST have a basename stem matching a `<module>` entry in root pom.xml. Closes rc8 post-corrective P0-3: docs/dfx/agent-platform.yaml remained on disk after ADR-0078 deleted the agent-platform module; ADR-0082 mandated removal but the gate did not enforce orphan-detection until rc9."
-  governance_infra: true
-
-- id: E128
-  constraint_ref: "CLAUDE.md Rule M-2 sub-clause .c (dfx_stem_matches_module); ADR-0083"
-  kind: gate-script
-  level: L0
-  view: development
-  artifact: gate/test_architecture_sync_gate.sh#test_rule_93_dfx_stem_pos
-  asserts: "Positive + negative self-test fixtures for Rule M-2 sub-clause .c. Positive: all dfx/*.yaml stems match modules in pom.xml → pass. Negative: synthetic dfx/orphan-module.yaml with no matching pom.xml entry → fail."
-  governance_infra: true
-
-- id: E129
-  constraint_ref: "CLAUDE.md Rule G-2 sub-clause .f (active_corpus_deleted_module_name_truth); rc8 post-corrective review P1-3; ADR-0078; ADR-0083"
-  kind: gate-script
-  level: L0
-  view: development
-  artifact: gate/check_architecture_sync.sh#active_corpus_deleted_module_name_truth
-  asserts: "Active corpus (`.md`, `.yaml`, `*.java` files outside docs/archive/, docs/logs/reviews/, docs/logs/releases/2026-05-1[0-7]-*.md, fenced code blocks, yaml comment lines) MUST NOT contain word-boundary current-tense `agent-platform`, `agent-runtime`, or `agent-runtime-core` (all three deleted-module names post-rc13 / ADR-0088) without a historical marker (historical, pre-ADR-NNNN, pre-Phase-C, consolidated into, merged into, was rooted, formerly, superseded, deprecated, archived, moved, extracted per ADR-NNNN, post-ADR-NNNN, dissolution, dissolved, relocated, rc13) within ±3 lines. Widens Rule G-2 sub-clause .e (which only covered architecture-status.yaml#allowed_claim) to root constraints, rule cards, and test Javadocs. Closes rc8 post-corrective P1-3 + rc13 dissolution widening."
-  governance_infra: true
-
-- id: E130
-  constraint_ref: "CLAUDE.md Rule G-2 sub-clause .f (active_corpus_deleted_module_name_truth); ADR-0083"
-  kind: gate-script
-  level: L0
-  view: development
-  artifact: gate/test_architecture_sync_gate.sh#test_rule_94_corpus_bare_neg
-  asserts: "Positive + negative self-test fixtures for Rule G-2 sub-clause .f. Positive: synthetic file mentioning agent-platform with a `pre-Phase-C` marker on the line above → pass. Negative: synthetic file mentioning agent-platform on a bare line → fail. Also positive: fenced code-block content mentioning agent-platform → pass (excluded scope)."
   governance_infra: true
 
 - id: E131
@@ -803,42 +758,6 @@
   artifact: gate/test_architecture_sync_gate.sh#test_rule_95_spi_catalog_pos
   asserts: "Positive + negative self-test fixtures for Rule R-D sub-clause .g. Positive: every public interface under */spi/* appears in catalog → pass. Negative: a synthetic public interface under */spi/* not in catalog → fail."
   product_claim: "PC-001"
-
-- id: E135
-  constraint_ref: "CLAUDE.md Rule G-2 sub-clause .g (release_note_numeric_truth); rc10 category-sweep I-α-2; ADR-0084"
-  kind: gate-script
-  level: L0
-  view: process
-  artifact: gate/check_architecture_sync.sh#release_note_numeric_truth
-  asserts: "The LATEST release note under docs/logs/releases/*.md (lex-sort tail -1) MUST NOT contain an absolute `<N> nodes` or `<M> edges` prose claim disagreeing with the live values in docs/governance/architecture-graph.yaml#node_count + #edge_count, unless the line carries a historical/rc[N] snapshot/rc[N] correction/rc[N] first cut/superseded marker within ±3 lines. Delta-formatted claims (`+N nodes / +M edges`) are exempt. Closes rc10 I-α-2: rc9 first cut declared 360 nodes / 510 edges while live header was 369 / 520 — no rule caught the prose drift because Rule G-5 sub-clause .c only checked architecture-status.yaml#baseline_metrics.active_gate_checks."
-  governance_infra: true
-
-- id: E136
-  constraint_ref: "CLAUDE.md Rule G-2 sub-clause .g (release_note_numeric_truth); ADR-0084"
-  kind: gate-script
-  level: L0
-  view: process
-  artifact: gate/test_architecture_sync_gate.sh#test_rule_97_release_note_numeric_pos
-  asserts: "Positive + negative self-test fixtures for Rule G-2 sub-clause .g. Positive: synthetic latest release note with `369 nodes / 520 edges` matching live values → pass. Negative: synthetic latest release note with `360 nodes / 510 edges` and no historical/correction marker → fail. Also positive: same wrong values BUT with `rc10 correction` marker within ±3 lines → pass."
-  governance_infra: true
-
-- id: E137
-  constraint_ref: "CLAUDE.md Rule G-2 sub-clause .h (broad_corpus_deleted_module_name_truth); rc10 category-sweep I-ε family; ADR-0078; ADR-0084"
-  kind: gate-script
-  level: L0
-  view: development
-  artifact: gate/check_architecture_sync.sh#broad_corpus_deleted_module_name_truth
-  asserts: "Widens Rule G-2 sub-clause .f file-discovery scope to ops/**/*.{yaml,yml,tpl}, docs/contracts/*.yaml, **/module-metadata.yaml (excluding archive). Same word-boundary regex (`agent-platform` or `agent-runtime` not -core), same exemption-marker set (historical, pre-ADR-NNNN, pre-Phase-C, consolidated, formerly, superseded, ADR-NNNN, forbidden_dependencies, etc.) within ±3 lines. Closes rc10 I-ε family hidden defects: Helm chart files (values.yaml, deployment.yaml, Chart.yaml), live OpenAPI contract owner, BoM module-metadata.yaml description — all carried pre-Phase-C names but were outside Rule G-2 sub-clause .f's narrow ARCHITECTURE.md + rule-card + test-Javadoc scope."
-  governance_infra: true
-
-- id: E138
-  constraint_ref: "CLAUDE.md Rule G-2 sub-clause .h (broad_corpus_deleted_module_name_truth); ADR-0084"
-  kind: gate-script
-  level: L0
-  view: development
-  artifact: gate/test_architecture_sync_gate.sh#test_rule_98_broad_corpus_pos
-  asserts: "Positive + negative self-test fixtures for Rule G-2 sub-clause .h. Positive: synthetic ops/helm/test.yaml with `agent-service` reference → pass. Negative: synthetic ops/helm/test.yaml with bare `agent-platform` reference → fail. Also positive: same `agent-platform` reference but with `pre-Phase-C` marker on adjacent line → pass."
-  governance_infra: true
 
 - id: E143
   constraint_ref: "CLAUDE.md Rule R-I sub-clause .b (Edge↔Compute Ingress Routing); ADR-0089"
@@ -961,15 +880,6 @@
   asserts: "Rule D-9 / Rule 115 — production code files (*.java, *.py, *.sh, *.bash, *.kt, *.ts, *.tsx, application*.yml, Dockerfile, .github/workflows/*.yml) MUST NOT contain the regex `\\brc[0-9]+ Wave [0-9]+\\b|\\bper ADR-[0-9]{4}\\b|\\(F[0-9]+\\)|\\bFinding F[0-9]+\\b|\\b(closes|addresses) #[0-9]+\\b`. Exempt: docs/adr/, docs/logs/, docs/governance/rules/, docs/governance/rule-history.md, docs/governance/recurring-defect-families.{yaml,md}, docs/governance/architecture-status.yaml, CLAUDE.md, CHANGELOG.md, gate/lib/, gate/test_architecture_sync_gate.sh. Such metadata belongs in commit messages / ADRs / release notes / rule cards / rule-history.md — not in the implementation."
   governance_infra: true
 
-- id: E173
-  constraint_ref: "Rule R-A (Business/Platform Decoupling + Developer Self-Service); 2026-05-25 codegraph MCP integration"
-  kind: gate-script
-  level: L0
-  view: development
-  artifact: gate/check_architecture_sync.sh#codegraph_install_truth
-  asserts: "Rule 125 — project-local codegraph MCP install pinning truth (operationalises Rule R-A's developer-self-service clause): (a) tools/codegraph/package.json declares @colbymchenry/codegraph at an EXACT pin (X.Y.Z form; no ^/~/>=/<= prefix that would drift across npm installs); (b) tools/codegraph/package-lock.json exists with lockfileVersion >= 3 (older formats omit integrity hashes for optionalDependencies, so per-platform bundles drift silently between contributors); (c) .mcp.json registers an mcpServers.codegraph entry whose args reference a relative path under tools/codegraph/node_modules/@colbymchenry/codegraph/ (cross-platform, no PATH dependency). Guards pinning truth, not the local install state — CI without `npm ci` still passes."
-  product_claim: "PC-001"
-
 - id: E175
   constraint_ref: "Rule G-2 (Authority-Text Reality); 2026-05-25 rc48 agentic-contract-surface review P0-1"
   kind: gate-script
@@ -1013,24 +923,6 @@
   view: development
   artifact: gate/check_architecture_sync.sh#fact_layer_integrity
   asserts: "Rule 131 — architecture/facts/{README.md, schema/fact.schema.yaml, generated/} and architecture/profile/saa-property-authority.yaml MUST exist and the YAML surfaces MUST parse (sub-clause .a, advisory at W1, blocking from W2). Generated fact entries MUST carry the 8 required provenance fields fact_id/fact_kind/source_kind/source_path/extractor/extractor_version/repo_commit/observed_value (sub-clause .b, blocking from W2). Banner present (sub-clause .c.structural, blocking in bash gate); byte-identity to extractor re-emission (sub-clause .c.bytes, blocking in Maven Surefire test FactLayerByteIdentityIT per Round-4 redesign 2026-05-28). Shipped + http/spi function points MUST carry non-empty code_entrypoint_refs/test_refs/contract refs (sub-clause .d, advisory at W5, blocking at W6)."
-  governance_infra: true
-
-- id: E180
-  constraint_ref: "Rule G-13 sibling (Single-Source Rendering Coherence — feature-catalog surface); Round-4 second-correction R2 (2026-05-28)"
-  kind: gate-script
-  level: L0
-  view: development
-  artifact: gate/check_architecture_sync.sh#feature_catalog_render_idempotency
-  asserts: "Rule 132 — rendered L1 feature catalogs at architecture/docs/L1/<module>/features/README.md MUST be byte-identical to the output of `python3 gate/lib/render_features_catalog.py` against architecture/features/features.dsl. The renderer is a separate script from the Jinja2 template renderer policed by Rule 126; Rule 132 wires it into the canonical gate so feature-catalog drift fails closed (closes Round-4 fourth-correction R2 gate-coverage gap)."
-  governance_infra: true
-
-- id: E181
-  constraint_ref: "Rule G-16 (ProductClaim Referential Integrity); ADR-0156 Phase A Wave 5"
-  kind: gate-script
-  level: L1
-  view: logical
-  artifact: gate/check_architecture_sync.sh#productclaim_referential_integrity
-  asserts: "Rule 133 -- every product_claim: value in ADR YAML / rule card frontmatter / SAA feature saa.productClaim / contract YAML MUST resolve to a PC-NNN id declared in product/claims.yaml OR carry sentinel governance_infra:true OR product_claim_placeholder:true. Advisory at W5 landing; promotes to blocking when G-21 placeholder count reaches zero."
   governance_infra: true
 
 - id: E182
