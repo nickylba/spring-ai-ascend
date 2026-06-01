@@ -1426,14 +1426,16 @@ git commit -m "docs(engine): record phase1 implementation execution notes"
 
 ---
 
-## 执行笔记（执行时填写，记录实际偏差与决策）
+## 执行笔记（执行完成，记录实际偏差与决策）
 
-- Task 1（框架 install）：结果 = ____（成功/回退命令）
-- Task 2（依赖冲突）：Jackson/Boot4 冲突 = 有/无；处理 = ____
-- Task 8 Step 3a（FakeModel 离线替身）：可行 / 回退到纯函数映射测试 / 回退到真实端点
-- Task 10 Step 1（agent-service 可依赖性）：直接可依赖 / 配 classifier exec / 其他 ____
-- Task 11（真实 LLM 冒烟）：已实跑且通过 / 端点不可达已跳过（未验证）
-- 其他偏差：____
+- Task 1（框架 install）：成功，`mvn -DskipTests install`，jar 落入 `~/.m2/.../agent-core-java/0.1.12/`。
+- Task 2（依赖冲突）：Jackson/Boot4 冲突 = 无，框架依赖直接接入，agent-service 编译通过。
+- **关键偏差（贯穿全程）**：现有 `model/` 与 `api/` 类型是**不可变 Java record**（`EngineExecutionScope`/`EngineInput`/`EngineMessage`/`EnqueueEngine*Request`），不是计划假设的可变 POJO。所有测试与转换器改用 record 规范构造器与访问器（`scope.taskId()`、`input.messages()`、`m.content()`），不用 setter/getXxx。新建的 event/EngineOutput 等仍按可变 POJO（它们是新类型，无既有约束）。
+- Task 8 Step 3a（FakeModel 离线替身）：**回退到纯函数映射测试**。框架 `Model` 非 abstract 但 `invoke` 依赖由 `ModelClientConfig` 经真实 factory 构造的内部 client，离线替身脆弱。改为抽出 `OpenJiuwenResultMapper` 纯函数，离线单测覆盖 §10.4 的 answer/error/interrupt/null 四分支；真实框架路径由 Task 11 冒烟 IT 覆盖。
+- Task 10 Step 1（agent-service 可依赖性）：**直接可依赖**。agent-service 的 spring-boot-maven-plugin 配 `<classifier>boot</classifier>`，默认 artifact 仍是普通库 jar，sample 直接依赖即可，无需变通。
+- Task 11（真实 LLM 冒烟）：**已实跑且通过**。端点 `http://localhost:4000/v1`（HTTP 200），`gpt-5.4-mini` 返回 "pong"，链路 engine handler→ReActAgent→真实 LLM→Started+Completed 事件，日志见 ReAct iteration 1/3 + `[LLM] <<< response: content=pong`。注：surefire 默认不匹配 `*IT`，故按类名 `-Dtest=OpenJiuwenEchoAgentSmokeIT` 显式触发。
+- Task 12（全量回归）：`mvn -pl agent-service -am test` → **Tests run: 8, Failures: 0**。`*Arch*` 规则不存在（agent-service 无 ArchUnit 测试），surefire "No tests matching" 为假警报，非真失败。
+- 其他偏差：`EngineDispatcher` 对 `EngineAgentCallEvent` 抛 `UnsupportedOperationException`（Phase 3 才实现路由），符合 Phase 1 范围。
 
 ---
 
