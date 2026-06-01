@@ -235,15 +235,6 @@
   asserts: "Every public record under agent-service/src/main/java/com/huawei/ascend/service/{runtime,task,session}/ declares a String tenantId component (relocated from agent-runtime-core per ADR-0088 rc13 dissolution; scope widened to task + session per rc34 audit closure). Process-internal opt-out via 'scope: process-internal' reason comment."
   product_claim: "PC-001|PC-003"
 
-- id: E107
-  constraint_ref: "CLAUDE.md Rule R-A.c (quickstart_smoke_job_present); Wave 4 Track E"
-  kind: gate-script
-  level: L1
-  view: scenarios
-  artifact: gate/check_architecture_sync.sh#quickstart_smoke_job_present
-  asserts: ".github/workflows/ci.yml declares a job named 'quickstart-smoke' that boots agent-service and polls /v1/health."
-  product_claim: "PC-001"
-
 # ---------------------------------------------------------------------------
 # 2026-05-18 rc4 cross-constraint review response prevention wave — E116
 # Authority: docs/logs/reviews/2026-05-18-l0-rc4-cross-constraint-architecture-review.en.md
