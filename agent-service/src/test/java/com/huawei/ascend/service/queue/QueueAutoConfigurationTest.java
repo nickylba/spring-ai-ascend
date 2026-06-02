@@ -2,8 +2,10 @@ package com.huawei.ascend.service.queue;
 
 import com.huawei.ascend.service.access.config.AccessLayerConfiguration;
 import com.huawei.ascend.service.access.egress.EgressQueueRegistry;
+import com.huawei.ascend.service.bootstrap.AgentServiceBootstrapConfiguration;
+import com.huawei.ascend.service.engine.command.EngineCommandGateway;
+import com.huawei.ascend.service.engine.command.EngineCommandProcessor;
 import com.huawei.ascend.service.engine.config.EngineAutoConfiguration;
-import com.huawei.ascend.service.engine.queue.InMemoryEngineQueueGateway;
 import com.huawei.ascend.service.queue.config.QueueAutoConfiguration;
 import com.huawei.ascend.service.taskcontrol.TaskControlService;
 import com.huawei.ascend.service.taskcontrol.config.TaskControlAutoConfiguration;
@@ -19,6 +21,7 @@ class QueueAutoConfigurationTest {
                     QueueAutoConfiguration.class,
                     TaskControlAutoConfiguration.class,
                     AccessLayerConfiguration.class,
+                    AgentServiceBootstrapConfiguration.class,
                     EngineAutoConfiguration.class);
 
     @Test
@@ -27,7 +30,8 @@ class QueueAutoConfigurationTest {
             assertThat(context).hasSingleBean(QueueManager.class);
             assertThat(context).hasSingleBean(TaskControlService.class);
             assertThat(context).hasSingleBean(EgressQueueRegistry.class);
-            assertThat(context).hasSingleBean(InMemoryEngineQueueGateway.class);
+            assertThat(context).hasSingleBean(EngineCommandGateway.class);
+            assertThat(context).hasSingleBean(EngineCommandProcessor.class);
         });
     }
 }

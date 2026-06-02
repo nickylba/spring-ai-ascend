@@ -8,14 +8,14 @@ import com.huawei.ascend.service.engine.api.EnqueueEngineCancelRequest;
 import com.huawei.ascend.service.engine.api.EnqueueEngineExecutionRequest;
 import com.huawei.ascend.service.engine.api.EnqueueEngineResumeRequest;
 import com.huawei.ascend.service.engine.api.EnqueueEngineStatus;
+import com.huawei.ascend.service.engine.command.EngineCommandEventFactory;
+import com.huawei.ascend.service.engine.command.EngineCommandProcessor;
+import com.huawei.ascend.service.engine.command.InternalEngineCommandGateway;
 import com.huawei.ascend.service.engine.dispatch.AgentHandlerRegistry;
 import com.huawei.ascend.service.engine.dispatch.DefaultAgentHandlerRegistry;
 import com.huawei.ascend.service.engine.dispatch.EngineDispatcher;
 import com.huawei.ascend.service.engine.model.EngineExecutionScope;
 import com.huawei.ascend.service.engine.model.EngineInput;
-import com.huawei.ascend.service.engine.queue.EngineCommandEventFactory;
-import com.huawei.ascend.service.engine.queue.EngineCommandSubscriber;
-import com.huawei.ascend.service.engine.queue.InMemoryEngineQueueGateway;
 import com.huawei.ascend.service.engine.support.FakeInterruptingAgentHandler;
 import com.huawei.ascend.service.engine.support.RecordingAccessLayerClient;
 import com.huawei.ascend.service.engine.support.RecordingTaskControlClient;
@@ -35,7 +35,7 @@ class EngineClosedLoopIntegrationTest {
 
     private RecordingTaskControlClient taskControl;
     private RecordingAccessLayerClient accessLayer;
-    private InMemoryEngineQueueGateway gateway;
+    private InternalEngineCommandGateway gateway;
     private EngineDispatchApi api;
 
     @BeforeEach
@@ -45,9 +45,10 @@ class EngineClosedLoopIntegrationTest {
         AgentHandlerRegistry registry = new DefaultAgentHandlerRegistry();
         registry.register("echo-agent", new FakeInterruptingAgentHandler("echo-agent"));
 
-        gateway = new InMemoryEngineQueueGateway(new QueueManager());
+        gateway = new InternalEngineCommandGateway(new QueueManager());
         EngineDispatcher dispatcher = new EngineDispatcher(registry, taskControl, accessLayer);
-        new EngineCommandSubscriber(gateway, dispatcher).start();
+        EngineCommandProcessor processor = new EngineCommandProcessor(gateway, dispatcher, Runnable::run);
+        processor.start();
         api = new DefaultEngineDispatchApi(new EngineCommandEventFactory(), gateway);
     }
 

@@ -50,7 +50,7 @@ agent-service
 task-centric-control
   -> engine.api.EngineDispatchApi
   -> internal-event-queue
-  -> engine.queue.EngineCommandSubscriber
+  -> engine.command.EngineCommandProcessor
   -> engine.dispatch.EngineDispatcher
   -> engine.spi.AgentHandler
   -> engine.adapter.openjiuwen.OpenJiuwenAgentHandler
@@ -145,7 +145,7 @@ queue/ engine 内部队列协作端口与订阅器
 ```text
 入站入口 EngineDispatchApi 由 engine 实现、被 task-centric-control 调用，是 API，不是 SPI。
 插件扩展点 AgentHandler 由 engine 定义、被 openJiuwen 适配器实现，是 SPI。
-EngineQueueGateway / EngineCommandConsumer 属 engine 内部 queue 协作端口，放在 engine.queue。
+EngineCommandGateway 属 engine 内部 queue 协作端口，放在 engine.command。
 TaskControlClient / AccessLayerClient 属 engine 出站端口，放在 engine.port。
 数据载体（model / event / 请求载体 / 状态枚举）既非 API 也非 SPI，按 Rule R-D.d 放在功能包而非 spi/ 包。
 ```
@@ -182,11 +182,10 @@ agent-service/src/main/java/com/huawei/ascend/service/engine/
     EngineCompletedEvent.java
     EngineFailedEvent.java
     EngineCancelledEvent.java
-  queue/
-    EngineQueueGateway.java
-    EngineCommandConsumer.java
+  command/
+    EngineCommandGateway.java
     EngineCommandEventFactory.java
-    EngineCommandSubscriber.java
+    EngineCommandProcessor.java
   dispatch/
     EngineDispatcher.java
     AgentHandlerRegistry.java
@@ -205,7 +204,7 @@ agent-service/src/main/java/com/huawei/ascend/service/engine/
 > - `api/` 入站接口（engine 实现，外部调用）：`EngineDispatchApi` 及其请求/状态载体。
 > - `spi/` 只放 provider 扩展点：当前只有 `AgentHandler`。
 > - `port/` 放 engine 出站端口：`TaskControlClient` / `AccessLayerClient`。
-> - `queue/` 放 engine 内部队列协作端口与订阅器：`EngineQueueGateway` / `EngineCommandConsumer` / `EngineCommandEventFactory` / `EngineCommandSubscriber`。
+> - `command/` 放 engine 内部队列协作端口与订阅器：`EngineCommandGateway` / `EngineCommandEventFactory` / `EngineCommandProcessor`。
 > - `dispatch/`、`adapter/`、`config/` 为 engine 内部实现，既非 API 也非 SPI。`AgentHandlerRegistry` 由 engine 自身实现并自用，属内部接口，保留在 `dispatch/`。
 > - `model/`、`event/`、`handler/AgentExecutionContext` 为数据/上下文载体，按 Rule R-D.d 不放入 `spi/` 包。
 > - `TaskControlClient` / `AccessLayerClient` 的具体实现由 task-control / access 模块提供适配器。
@@ -224,8 +223,6 @@ agent-service/src/main/java/com/huawei/ascend/service/engine/
 | `EnqueueEngineCancelRequest` | API 载体 | `engine.api` | — | §4.4 |
 | `EnqueueEngineStatus` | API 载体 | `engine.api` | — | §4.5 |
 | `AgentHandler` | SPI（扩展点） | `engine.spi` | engine → openJiuwen 适配器 | §9.1 |
-| `EngineQueueGateway` | 内部队列端口 | `engine.queue` | engine → 队列实现 | §7.1 |
-| `EngineCommandConsumer` | 内部队列回调 | `engine.queue` | engine → engine（订阅回调载体） | §7.4 |
 | `TaskControlClient` | 出站端口 | `engine.port` | engine → task-centric-control 适配器 | §11.1 |
 | `AccessLayerClient` | 出站端口 | `engine.port` | engine → access-layer 适配器 | §11.2 |
 
@@ -233,7 +230,7 @@ agent-service/src/main/java/com/huawei/ascend/service/engine/
 > 入站入口由 engine 实现、被 task-centric-control 调用，本质是 **API**。
 > v1.2 已将其重命名为 `EngineDispatchApi` 并迁入 `api/`。
 > v1.3 进一步收敛 SPI 语义：`engine.spi` 只保留 provider 扩展点 `AgentHandler`；
-> engine 自己的队列协作放在 `engine.queue`，出站调用放在 `engine.port`。
+> engine 自己的队列协作放在 `engine.command`，出站调用放在 `engine.port`。
 
 ### 4.1 EngineDispatchApi
 
@@ -300,7 +297,7 @@ public final class EnqueueEngineExecutionRequest {
 task-centric-control 在 scope 中传入 agentId
   -> EngineDispatchApi.enqueueExecution
   -> EngineCommandEvent(scope.agentId)
-  -> EngineCommandSubscriber
+  -> EngineCommandProcessor
   -> EngineDispatcher
   -> AgentHandlerRegistry.findByAgentId(scope.agentId)
   -> AgentHandler.execute(context)
@@ -760,24 +757,24 @@ public final class EngineCancelledEvent extends EngineExecutionEvent {
 
 ## 7. Queue 集成
 
-### 7.1 EngineQueueGateway
+### 7.1 EngineCommandGateway
 
 路径：
 
 ```text
-agent-service/src/main/java/com/huawei/ascend/service/engine/queue/EngineQueueGateway.java
+agent-service/src/main/java/com/huawei/ascend/service/engine/command/EngineCommandGateway.java
 ```
 
 ```java
-package com.huawei.ascend.service.engine.queue;
+package com.huawei.ascend.service.engine.command;
 
 import com.huawei.ascend.service.engine.event.EngineCommandEvent;
 
-public interface EngineQueueGateway {
+public interface EngineCommandGateway {
 
     boolean publish(EngineCommandEvent event);
 
-    void subscribe(EngineCommandConsumer consumer);
+    reactor.core.publisher.Flux<EngineCommandEvent> commands();
 }
 ```
 
@@ -795,11 +792,11 @@ public interface EngineQueueGateway {
 路径：
 
 ```text
-agent-service/src/main/java/com/huawei/ascend/service/engine/queue/EngineCommandEventFactory.java
+agent-service/src/main/java/com/huawei/ascend/service/engine/command/EngineCommandEventFactory.java
 ```
 
 ```java
-package com.huawei.ascend.service.engine.queue;
+package com.huawei.ascend.service.engine.command;
 
 import com.huawei.ascend.service.engine.event.EngineCommandEvent;
 import com.huawei.ascend.service.engine.api.EnqueueEngineCancelRequest;
@@ -830,55 +827,36 @@ public final class EngineCommandEventFactory {
 不执行 Agent。
 ```
 
-### 7.3 EngineCommandSubscriber
+### 7.3 EngineCommandProcessor
 
 路径：
 
 ```text
-agent-service/src/main/java/com/huawei/ascend/service/engine/queue/EngineCommandSubscriber.java
+agent-service/src/main/java/com/huawei/ascend/service/engine/command/EngineCommandProcessor.java
 ```
 
 ```java
-package com.huawei.ascend.service.engine.queue;
+package com.huawei.ascend.service.engine.command;
 
 import com.huawei.ascend.service.engine.event.EngineCommandEvent;
 import com.huawei.ascend.service.engine.dispatch.EngineDispatcher;
 
-public final class EngineCommandSubscriber {
-    private final EngineQueueGateway queueGateway;
+public final class EngineCommandProcessor {
+    private final EngineCommandGateway queueGateway;
     private final EngineDispatcher dispatcher;
 
-    public EngineCommandSubscriber(EngineQueueGateway queueGateway, EngineDispatcher dispatcher) {
+    public EngineCommandProcessor(EngineCommandGateway queueGateway, EngineDispatcher dispatcher) {
         this.queueGateway = queueGateway;
         this.dispatcher = dispatcher;
     }
 
     public void start() {
-        queueGateway.subscribe(this::onCommand);
+        queueGateway.commands().subscribe(this::onCommand);
     }
 
     private void onCommand(EngineCommandEvent command) {
         dispatcher.dispatch(command);
     }
-}
-```
-
-### 7.4 EngineCommandConsumer
-
-路径：
-
-```text
-agent-service/src/main/java/com/huawei/ascend/service/engine/queue/EngineCommandConsumer.java
-```
-
-```java
-package com.huawei.ascend.service.engine.queue;
-
-import com.huawei.ascend.service.engine.event.EngineCommandEvent;
-
-@FunctionalInterface
-public interface EngineCommandConsumer {
-    void accept(EngineCommandEvent event);
 }
 ```
 
@@ -1453,7 +1431,7 @@ agent-service.jar
 agent-service:
   engine:
     enabled: true
-    command-topic: agent-service.engine.command
+    command-topic: engine:commands
     subscriber:
       auto-start: true
     openjiuwen:
@@ -1471,7 +1449,7 @@ agent-service:
 ```text
 internal-event-queue: in-memory
 OpenJiuwenAgentHandler: enabled
-EngineCommandSubscriber: auto-start
+EngineCommandProcessor: auto-start
 ```
 
 启动命令：
@@ -1486,8 +1464,8 @@ mvn spring-boot:run -Dspring-boot.run.profiles=local-engine
 ```text
 internal-event-queue: Kafka / RocketMQ / Redis Streams
 OpenJiuwenAgentHandler: enabled
-EngineCommandSubscriber: auto-start
-queue topic: agent-service.engine.command
+EngineCommandProcessor: auto-start
+queue topic: engine:commands
 ```
 
 生产要求：
@@ -1505,8 +1483,8 @@ AgentHandler 执行异常必须转换为 EngineFailedEvent
 健康检查项：
 
 ```text
-EngineQueueGateway 可用
-EngineCommandSubscriber running
+EngineCommandGateway 可用
+EngineCommandProcessor running
 AgentHandlerRegistry 至少存在一个注册 agentId
 OpenJiuwenAgentHandler.isHealthy=true
 TaskControlClient 可用
@@ -1525,7 +1503,7 @@ agent-service:
 
 ```text
 EngineDispatchApi 拒绝新 command 入队
-EngineCommandSubscriber 停止消费新 command event
+EngineCommandProcessor 停止消费新 command event
 未消费 command event 保留在 internal-event-queue
 已运行 task 按 task-centric-control 策略处理
 ```
@@ -1546,9 +1524,9 @@ event/EngineStartedEvent.java
 event/EngineOutputEvent.java
 event/EngineCompletedEvent.java
 event/EngineFailedEvent.java
-queue/EngineQueueGateway.java
-queue/EngineCommandEventFactory.java
-queue/EngineCommandSubscriber.java
+command/EngineCommandGateway.java
+command/EngineCommandEventFactory.java
+command/EngineCommandProcessor.java
 dispatch/EngineDispatcher.java
 dispatch/AgentHandlerRegistry.java
 spi/AgentHandler.java

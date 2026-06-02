@@ -6,6 +6,7 @@ import com.huawei.ascend.service.engine.event.EngineFailedEvent;
 import com.huawei.ascend.service.engine.event.EngineInterruptedEvent;
 import com.huawei.ascend.service.engine.model.EngineExecutionScope;
 import com.huawei.ascend.service.engine.port.TaskControlClient;
+import java.util.Collections;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -16,11 +17,11 @@ import java.util.List;
  */
 public class RecordingTaskControlClient implements TaskControlClient {
 
-    public final List<String> transitions = new ArrayList<>();
-    public final List<EngineCompletedEvent> succeeded = new ArrayList<>();
-    public final List<EngineFailedEvent> failed = new ArrayList<>();
-    public final List<EngineInterruptedEvent> waiting = new ArrayList<>();
-    public final List<EngineCancelledEvent> cancelled = new ArrayList<>();
+    public final List<String> transitions = Collections.synchronizedList(new ArrayList<>());
+    public final List<EngineCompletedEvent> succeeded = Collections.synchronizedList(new ArrayList<>());
+    public final List<EngineFailedEvent> failed = Collections.synchronizedList(new ArrayList<>());
+    public final List<EngineInterruptedEvent> waiting = Collections.synchronizedList(new ArrayList<>());
+    public final List<EngineCancelledEvent> cancelled = Collections.synchronizedList(new ArrayList<>());
 
     @Override
     public void markRunning(EngineExecutionScope scope) {

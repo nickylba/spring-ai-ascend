@@ -2,16 +2,16 @@ package com.huawei.ascend.service.engine.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.huawei.ascend.service.engine.command.EngineCommandEventFactory;
+import com.huawei.ascend.service.engine.command.EngineCommandGateway;
 import com.huawei.ascend.service.engine.event.EngineCommandEvent;
 import com.huawei.ascend.service.engine.model.EngineExecutionScope;
 import com.huawei.ascend.service.engine.model.EngineInput;
-import com.huawei.ascend.service.engine.queue.EngineCommandEventFactory;
-import com.huawei.ascend.service.engine.queue.EngineCommandConsumer;
-import com.huawei.ascend.service.engine.queue.EngineQueueGateway;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import reactor.core.publisher.Flux;
 
 class DefaultEngineDispatchApiTest {
 
@@ -23,7 +23,7 @@ class DefaultEngineDispatchApiTest {
         return new EngineInput("text", List.of(), Map.of());
     }
 
-    static class RecordingGateway implements EngineQueueGateway {
+    static class RecordingGateway implements EngineCommandGateway {
         final List<EngineCommandEvent> published = new ArrayList<>();
         boolean accept = true;
 
@@ -34,7 +34,8 @@ class DefaultEngineDispatchApiTest {
         }
 
         @Override
-        public void subscribe(EngineCommandConsumer consumer) {
+        public Flux<EngineCommandEvent> commands() {
+            return Flux.empty();
         }
     }
 

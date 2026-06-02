@@ -2,12 +2,12 @@ package com.huawei.ascend.service.taskcontrol.test;
 
 import com.huawei.ascend.service.engine.api.DefaultEngineDispatchApi;
 import com.huawei.ascend.service.engine.api.EngineDispatchApi;
+import com.huawei.ascend.service.engine.command.EngineCommandEventFactory;
+import com.huawei.ascend.service.engine.command.EngineCommandProcessor;
+import com.huawei.ascend.service.engine.command.InternalEngineCommandGateway;
 import com.huawei.ascend.service.engine.dispatch.AgentHandlerRegistry;
 import com.huawei.ascend.service.engine.dispatch.DefaultAgentHandlerRegistry;
 import com.huawei.ascend.service.engine.dispatch.EngineDispatcher;
-import com.huawei.ascend.service.engine.queue.EngineCommandEventFactory;
-import com.huawei.ascend.service.engine.queue.EngineCommandSubscriber;
-import com.huawei.ascend.service.engine.queue.InMemoryEngineQueueGateway;
 import com.huawei.ascend.service.engine.support.FakeInterruptingAgentHandler;
 import com.huawei.ascend.service.engine.support.RecordingAccessLayerClient;
 import com.huawei.ascend.service.schema.AgentRequest;
@@ -32,7 +32,7 @@ class TaskflowEngineBridgeWhiteboxTest {
     @Test
     void executeWaitingResumeCompletionLoopUpdatesTccStateWithoutEngineOwningQueue() {
         QueueManager manager = new QueueManager();
-        InMemoryEngineQueueGateway engineQueue = new InMemoryEngineQueueGateway(manager);
+        InternalEngineCommandGateway engineQueue = new InternalEngineCommandGateway(manager);
         EngineDispatchApi dispatchApi = new DefaultEngineDispatchApi(new EngineCommandEventFactory(), engineQueue);
         TaskControlService tcc = new TaskControlService(
                 manager,
@@ -42,7 +42,9 @@ class TaskflowEngineBridgeWhiteboxTest {
         RecordingAccessLayerClient access = new RecordingAccessLayerClient();
         AgentHandlerRegistry registry = new DefaultAgentHandlerRegistry();
         registry.register("echo-agent", new FakeInterruptingAgentHandler("echo-agent"));
-        new EngineCommandSubscriber(engineQueue, new EngineDispatcher(registry, adapter, access)).start();
+        EngineCommandProcessor processor =
+                new EngineCommandProcessor(engineQueue, new EngineDispatcher(registry, adapter, access), Runnable::run);
+        processor.start();
 
         TaskControlClient.TaskResult waiting = tcc.run(new TaskControlClient.RunCommand(request("hello")))
                 .toCompletableFuture().join();
