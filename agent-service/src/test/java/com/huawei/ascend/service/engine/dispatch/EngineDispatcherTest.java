@@ -1,5 +1,6 @@
 package com.huawei.ascend.service.engine.dispatch;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
@@ -66,6 +67,19 @@ class EngineDispatcherTest {
         verify(task).markRunning(scope());
         verify(access).appendOutput(org.mockito.ArgumentMatchers.eq(scope()), org.mockito.ArgumentMatchers.any(EngineOutputEvent.class));
         verify(task).markFailed(org.mockito.ArgumentMatchers.eq(scope()), org.mockito.ArgumentMatchers.any(EngineFailedEvent.class));
+    }
+
+    @Test
+    void registryRejectsDuplicateAndBlankAgentIds() {
+        DefaultAgentHandlerRegistry registry = new DefaultAgentHandlerRegistry();
+        registry.register("echo-agent", new FakeAgentHandler(List.of()));
+
+        assertThatThrownBy(() -> registry.register("echo-agent", new FakeAgentHandler(List.of())))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("already registered");
+        assertThatThrownBy(() -> registry.register(" ", new FakeAgentHandler(List.of())))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("agentId");
     }
 
     static class FakeAgentHandler implements AgentHandler {

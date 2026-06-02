@@ -1,21 +1,20 @@
-package com.huawei.ascend.service.engine.queue;
+package com.huawei.ascend.service.engine.command;
 
 import com.huawei.ascend.service.engine.event.EngineCommandEvent;
 import com.huawei.ascend.service.queue.InternalEventQueue;
 import com.huawei.ascend.service.queue.QueueManager;
-import reactor.core.Disposable;
+import reactor.core.publisher.Flux;
 
 /**
- * Engine-owned queue gateway backed by the shared internal queue mechanism.
+ * Engine-owned command gateway backed by the shared internal queue mechanism.
  */
-public class InMemoryEngineQueueGateway implements EngineQueueGateway {
+public class InternalEngineCommandGateway implements EngineCommandGateway {
 
     private static final String QUEUE_ID = "engine:commands";
 
     private final InternalEventQueue<EngineCommandEvent> queue;
-    private Disposable subscription;
 
-    public InMemoryEngineQueueGateway(QueueManager queueManager) {
+    public InternalEngineCommandGateway(QueueManager queueManager) {
         this.queue = queueManager.getOrCreate(QUEUE_ID, EngineCommandEvent.class);
     }
 
@@ -26,14 +25,11 @@ public class InMemoryEngineQueueGateway implements EngineQueueGateway {
     }
 
     @Override
-    public void subscribe(EngineCommandConsumer consumer) {
-        subscription = queue.stream().subscribe(consumer::accept);
+    public Flux<EngineCommandEvent> commands() {
+        return queue.stream();
     }
 
     public void close() {
-        if (subscription != null) {
-            subscription.dispose();
-        }
         queue.close();
     }
 }

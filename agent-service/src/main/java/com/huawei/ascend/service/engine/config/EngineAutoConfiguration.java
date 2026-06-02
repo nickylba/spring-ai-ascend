@@ -2,20 +2,24 @@ package com.huawei.ascend.service.engine.config;
 
 import com.huawei.ascend.service.engine.api.DefaultEngineDispatchApi;
 import com.huawei.ascend.service.engine.api.EngineDispatchApi;
+import com.huawei.ascend.service.engine.command.EngineCommandEventFactory;
+import com.huawei.ascend.service.engine.command.EngineCommandGateway;
+import com.huawei.ascend.service.engine.command.EngineCommandProcessor;
+import com.huawei.ascend.service.engine.command.InternalEngineCommandGateway;
 import com.huawei.ascend.service.engine.dispatch.AgentHandlerRegistry;
 import com.huawei.ascend.service.engine.dispatch.DefaultAgentHandlerRegistry;
 import com.huawei.ascend.service.engine.dispatch.EngineDispatcher;
-import com.huawei.ascend.service.engine.queue.EngineCommandEventFactory;
-import com.huawei.ascend.service.engine.queue.EngineCommandSubscriber;
-import com.huawei.ascend.service.engine.queue.InMemoryEngineQueueGateway;
 import com.huawei.ascend.service.engine.port.AccessLayerClient;
-import com.huawei.ascend.service.engine.queue.EngineQueueGateway;
 import com.huawei.ascend.service.engine.port.TaskControlClient;
 import com.huawei.ascend.service.queue.QueueManager;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -44,8 +48,8 @@ public class EngineAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public EngineQueueGateway engineQueueGateway(QueueManager queueManager) {
-        return new InMemoryEngineQueueGateway(queueManager);
+    public EngineCommandGateway engineCommandGateway(QueueManager queueManager) {
+        return new InternalEngineCommandGateway(queueManager);
     }
 
     @Bean
@@ -57,8 +61,14 @@ public class EngineAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public EngineDispatchApi engineDispatchApi(EngineCommandEventFactory commandEventFactory,
-                                               EngineQueueGateway engineQueueGateway) {
-        return new DefaultEngineDispatchApi(commandEventFactory, engineQueueGateway);
+                                               EngineCommandGateway engineCommandGateway) {
+        return new DefaultEngineDispatchApi(commandEventFactory, engineCommandGateway);
+    }
+
+    @Bean(destroyMethod = "shutdown")
+    @ConditionalOnMissingBean(name = "engineExecutionExecutor")
+    public ExecutorService engineExecutionExecutor() {
+        return Executors.newCachedThreadPool();
     }
 
     @Bean
@@ -70,12 +80,13 @@ public class EngineAutoConfiguration {
         return new EngineDispatcher(registry, taskControlClient, accessLayerClient);
     }
 
-    @Bean
+    @Bean(initMethod = "start", destroyMethod = "stop")
     @ConditionalOnMissingBean
     @ConditionalOnBean(EngineDispatcher.class)
-    public EngineCommandSubscriber engineCommandSubscriber(EngineQueueGateway gateway, EngineDispatcher dispatcher) {
-        EngineCommandSubscriber subscriber = new EngineCommandSubscriber(gateway, dispatcher);
-        subscriber.start();
-        return subscriber;
+    public EngineCommandProcessor engineCommandProcessor(
+            EngineCommandGateway gateway,
+            EngineDispatcher dispatcher,
+            @Qualifier("engineExecutionExecutor") Executor engineExecutionExecutor) {
+        return new EngineCommandProcessor(gateway, dispatcher, engineExecutionExecutor);
     }
 }

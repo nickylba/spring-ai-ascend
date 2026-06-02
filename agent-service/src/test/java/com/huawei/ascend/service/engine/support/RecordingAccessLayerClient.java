@@ -7,6 +7,7 @@ import com.huawei.ascend.service.engine.event.EngineOutputEvent;
 import com.huawei.ascend.service.engine.model.EngineExecutionScope;
 import com.huawei.ascend.service.engine.port.AccessLayerClient;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -16,11 +17,11 @@ import java.util.List;
  */
 public class RecordingAccessLayerClient implements AccessLayerClient {
 
-    public final List<String> signals = new ArrayList<>();
-    public final List<EngineOutputEvent> outputs = new ArrayList<>();
-    public final List<EngineCompletedEvent> completed = new ArrayList<>();
-    public final List<EngineFailedEvent> failed = new ArrayList<>();
-    public final List<EngineInterruptedEvent> userInputRequests = new ArrayList<>();
+    public final List<String> signals = Collections.synchronizedList(new ArrayList<>());
+    public final List<EngineOutputEvent> outputs = Collections.synchronizedList(new ArrayList<>());
+    public final List<EngineCompletedEvent> completed = Collections.synchronizedList(new ArrayList<>());
+    public final List<EngineFailedEvent> failed = Collections.synchronizedList(new ArrayList<>());
+    public final List<EngineInterruptedEvent> userInputRequests = Collections.synchronizedList(new ArrayList<>());
 
     @Override
     public void appendOutput(EngineExecutionScope scope, EngineOutputEvent event) {

@@ -90,7 +90,7 @@ Engine 侧接口按方向分为三类：
 
 1. `engine.api.EngineDispatchApi`：engine 提供的入站 API，TCC 调用它提交执行、恢复、取消请求。
 2. `engine.spi.AgentHandler`：唯一 provider SPI，外部 agent provider 实现它。
-3. `engine.port.*` / `engine.queue.*`：engine 内部端口和内部队列，不属于 SPI。
+3. `engine.port.*` / `engine.command.*`：engine 内部端口和内部队列，不属于 SPI。
 
 因此，示例应提供 `AgentHandler` 的示例实现，而不是再新增示例接口。
 

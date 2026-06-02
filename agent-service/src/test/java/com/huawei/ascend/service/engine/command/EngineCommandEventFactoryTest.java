@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.engine.queue;
+package com.huawei.ascend.service.engine.command;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

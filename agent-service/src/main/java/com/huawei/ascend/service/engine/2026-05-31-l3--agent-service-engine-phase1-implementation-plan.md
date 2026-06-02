@@ -31,13 +31,13 @@
 - `port/`: TaskControlClient, AccessLayerClient
 - `handler/`: AgentExecutionContext
 - `dispatch/`: AgentHandlerRegistry(interface), DefaultAgentHandlerRegistry, EngineDispatcher
-- `queue/`: EngineCommandEventFactory, EngineCommandSubscriber, InMemoryEngineQueueGateway
+- `command/`: EngineCommandEventFactory, EngineCommandProcessor, InternalEngineCommandGateway
 - `adapter/openjiuwen/`: OpenJiuwenAgentFactory(interface 接缝), OpenJiuwenMessageConverter, OpenJiuwenAgentHandler
 - `config/`: EngineProperties, EngineAutoConfiguration
 
 **engine 测试（agent-service/src/test/java/.../engine/）:**
 - `dispatch/EngineDispatcherTest.java`（FakeAgentHandler + mock clients，验证 §13 路由）
-- `queue/EngineCommandEventFactoryTest.java`
+- `command/EngineCommandEventFactoryTest.java`
 - `adapter/openjiuwen/OpenJiuwenMessageConverterTest.java`
 - `adapter/openjiuwen/OpenJiuwenAgentHandlerTest.java`（FakeModel 离线替身，验证 result_type→event）
 
@@ -377,7 +377,7 @@ git commit -m "feat(engine): add EngineCommandEvent and EngineExecutionEvent hie
 ### Task 5: provider SPI、engine port、queue 接口 + handler context
 
 **Files:**
-- Create: `handler/AgentExecutionContext.java`, `spi/AgentHandler.java`, `queue/EngineQueueGateway.java`, `queue/EngineCommandConsumer.java`, `port/TaskControlClient.java`, `port/AccessLayerClient.java`
+- Create: `handler/AgentExecutionContext.java`, `spi/AgentHandler.java`, `command/EngineCommandGateway.java`, `command/EngineCommandGateway.java`, `port/TaskControlClient.java`, `port/AccessLayerClient.java`
 
 - [ ] **Step 1: AgentExecutionContext.java**
 
@@ -419,26 +419,26 @@ public interface AgentHandler {
 }
 ```
 
-- [ ] **Step 3: EngineCommandConsumer.java + EngineQueueGateway.java**
+- [ ] **Step 3: EngineCommandGateway.java**
 
 ```java
-package com.huawei.ascend.service.engine.queue;
+package com.huawei.ascend.service.engine.command;
 
 import com.huawei.ascend.service.engine.event.EngineCommandEvent;
 
 @FunctionalInterface
-public interface EngineCommandConsumer {
+public interface EngineCommandGateway {
     void accept(EngineCommandEvent event);
 }
 ```
 ```java
-package com.huawei.ascend.service.engine.queue;
+package com.huawei.ascend.service.engine.command;
 
 import com.huawei.ascend.service.engine.event.EngineCommandEvent;
 
-public interface EngineQueueGateway {
+public interface EngineCommandGateway {
     boolean publish(EngineCommandEvent event);
-    void subscribe(EngineCommandConsumer consumer);
+    reactor.core.publisher.Flux<EngineCommandEvent> commands();
 }
 ```
 
@@ -678,13 +678,13 @@ git commit -m "feat(engine): dispatcher routes execution events to task/access c
 ### Task 7: queue（command 工厂 + 内存网关 + subscriber，TDD）
 
 **Files:**
-- Create: `queue/EngineCommandEventFactory.java`, `queue/InMemoryEngineQueueGateway.java`, `queue/EngineCommandSubscriber.java`
-- Test: `agent-service/src/test/java/com/huawei/ascend/service/engine/queue/EngineCommandEventFactoryTest.java`
+- Create: `command/EngineCommandEventFactory.java`, `command/InternalEngineCommandGateway.java`, `command/EngineCommandProcessor.java`
+- Test: `agent-service/src/test/java/com/huawei/ascend/service/engine/command/EngineCommandEventFactoryTest.java`
 
 - [ ] **Step 1: 写失败测试 EngineCommandEventFactoryTest**
 
 ```java
-package com.huawei.ascend.service.engine.queue;
+package com.huawei.ascend.service.engine.command;
 
 import com.huawei.ascend.service.engine.api.EnqueueEngineExecutionRequest;
 import com.huawei.ascend.service.engine.event.EngineCommandEvent;
@@ -723,7 +723,7 @@ Expected: 编译/测试失败（EngineCommandEventFactory 未实现）。
 - [ ] **Step 3: 实现 EngineCommandEventFactory**
 
 ```java
-package com.huawei.ascend.service.engine.queue;
+package com.huawei.ascend.service.engine.command;
 
 import com.huawei.ascend.service.engine.api.EnqueueEngineCancelRequest;
 import com.huawei.ascend.service.engine.api.EnqueueEngineExecutionRequest;
@@ -744,50 +744,45 @@ public class EngineCommandEventFactory {
 }
 ```
 
-- [ ] **Step 4: 实现 InMemoryEngineQueueGateway（§15.3，同步派发即可满足 Phase 1）**
+- [ ] **Step 4: 实现 InternalEngineCommandGateway（§15.3，同步派发即可满足 Phase 1）**
 
 ```java
-package com.huawei.ascend.service.engine.queue;
+package com.huawei.ascend.service.engine.command;
 
 import com.huawei.ascend.service.engine.event.EngineCommandEvent;
-import com.huawei.ascend.service.engine.queue.EngineCommandConsumer;
-import com.huawei.ascend.service.engine.queue.EngineQueueGateway;
+import com.huawei.ascend.service.engine.command.EngineCommandGateway;
 import java.util.ArrayList;
 import java.util.List;
 
-public class InMemoryEngineQueueGateway implements EngineQueueGateway {
-    private final List<EngineCommandConsumer> consumers = new ArrayList<>();
+public class InternalEngineCommandGateway implements EngineCommandGateway {
+    private final InternalEventQueue<EngineCommandEvent> queue;
 
     @Override public boolean publish(EngineCommandEvent event) {
-        for (EngineCommandConsumer c : consumers) {
-            c.accept(event);
-        }
+        queue.offer(event);
         return true;
     }
-    @Override public void subscribe(EngineCommandConsumer consumer) {
-        consumers.add(consumer);
-    }
+    @Override public Flux<EngineCommandEvent> commands() { return queue.stream(); }
 }
 ```
 
-- [ ] **Step 5: 实现 EngineCommandSubscriber（§7.3）**
+- [ ] **Step 5: 实现 EngineCommandProcessor（§7.3）**
 
 ```java
-package com.huawei.ascend.service.engine.queue;
+package com.huawei.ascend.service.engine.command;
 
 import com.huawei.ascend.service.engine.dispatch.EngineDispatcher;
 import com.huawei.ascend.service.engine.event.EngineCommandEvent;
-import com.huawei.ascend.service.engine.queue.EngineQueueGateway;
+import com.huawei.ascend.service.engine.command.EngineCommandGateway;
 
-public class EngineCommandSubscriber {
-    private final EngineQueueGateway queueGateway;
+public class EngineCommandProcessor {
+    private final EngineCommandGateway queueGateway;
     private final EngineDispatcher dispatcher;
 
-    public EngineCommandSubscriber(EngineQueueGateway queueGateway, EngineDispatcher dispatcher) {
+    public EngineCommandProcessor(EngineCommandGateway queueGateway, EngineDispatcher dispatcher) {
         this.queueGateway = queueGateway;
         this.dispatcher = dispatcher;
     }
-    public void start() { queueGateway.subscribe(this::onCommand); }
+    public void start() { queueGateway.commands().subscribe(this::onCommand); }
     private void onCommand(EngineCommandEvent command) { dispatcher.dispatch(command); }
 }
 ```
@@ -797,7 +792,7 @@ public class EngineCommandSubscriber {
 Run: `cd /home/x00550472/github.com/spring-ai-ascend && mvn -q -pl agent-service test -Dtest=EngineCommandEventFactoryTest 2>&1 | tail -10`
 Expected: Tests run: 1, Failures: 0。
 ```bash
-git add agent-service/src/main/java/com/huawei/ascend/service/engine/queue/ agent-service/src/test/java/com/huawei/ascend/service/engine/queue/
+git add agent-service/src/main/java/com/huawei/ascend/service/engine/command/ agent-service/src/test/java/com/huawei/ascend/service/engine/command/
 git commit -m "feat(engine): command factory, in-memory queue gateway, subscriber"
 ```
 
@@ -1126,10 +1121,10 @@ package com.huawei.ascend.service.engine.config;
 import com.huawei.ascend.service.engine.dispatch.AgentHandlerRegistry;
 import com.huawei.ascend.service.engine.dispatch.DefaultAgentHandlerRegistry;
 import com.huawei.ascend.service.engine.dispatch.EngineDispatcher;
-import com.huawei.ascend.service.engine.queue.EngineCommandSubscriber;
-import com.huawei.ascend.service.engine.queue.InMemoryEngineQueueGateway;
+import com.huawei.ascend.service.engine.command.EngineCommandProcessor;
+import com.huawei.ascend.service.engine.command.InternalEngineCommandGateway;
 import com.huawei.ascend.service.engine.port.AccessLayerClient;
-import com.huawei.ascend.service.engine.queue.EngineQueueGateway;
+import com.huawei.ascend.service.engine.command.EngineCommandGateway;
 import com.huawei.ascend.service.engine.port.TaskControlClient;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -1146,7 +1141,7 @@ public class EngineAutoConfiguration {
     public AgentHandlerRegistry agentHandlerRegistry() { return new DefaultAgentHandlerRegistry(); }
 
     @Bean @ConditionalOnMissingBean
-    public EngineQueueGateway engineQueueGateway() { return new InMemoryEngineQueueGateway(); }
+    public EngineCommandGateway engineQueueGateway() { return new InternalEngineCommandGateway(); }
 
     @Bean @ConditionalOnMissingBean
     public EngineDispatcher engineDispatcher(AgentHandlerRegistry registry, TaskControlClient taskControlClient, AccessLayerClient accessLayerClient) {
@@ -1154,8 +1149,8 @@ public class EngineAutoConfiguration {
     }
 
     @Bean @ConditionalOnMissingBean
-    public EngineCommandSubscriber engineCommandSubscriber(EngineQueueGateway gateway, EngineDispatcher dispatcher) {
-        EngineCommandSubscriber subscriber = new EngineCommandSubscriber(gateway, dispatcher);
+    public EngineCommandProcessor engineCommandProcessor(EngineCommandGateway gateway, EngineDispatcher dispatcher) {
+        EngineCommandProcessor subscriber = new EngineCommandProcessor(gateway, dispatcher);
         subscriber.start();
         return subscriber;
     }

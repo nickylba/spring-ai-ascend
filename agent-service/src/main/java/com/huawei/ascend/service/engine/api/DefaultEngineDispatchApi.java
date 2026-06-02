@@ -1,8 +1,8 @@
 package com.huawei.ascend.service.engine.api;
 
 import com.huawei.ascend.service.engine.event.EngineCommandEvent;
-import com.huawei.ascend.service.engine.queue.EngineCommandEventFactory;
-import com.huawei.ascend.service.engine.queue.EngineQueueGateway;
+import com.huawei.ascend.service.engine.command.EngineCommandEventFactory;
+import com.huawei.ascend.service.engine.command.EngineCommandGateway;
 
 /**
  * Default {@link EngineDispatchApi}: the inbound entry point for
@@ -13,11 +13,11 @@ import com.huawei.ascend.service.engine.queue.EngineQueueGateway;
 public class DefaultEngineDispatchApi implements EngineDispatchApi {
 
     private final EngineCommandEventFactory commandEventFactory;
-    private final EngineQueueGateway queueGateway;
+    private final EngineCommandGateway commandGateway;
 
-    public DefaultEngineDispatchApi(EngineCommandEventFactory commandEventFactory, EngineQueueGateway queueGateway) {
+    public DefaultEngineDispatchApi(EngineCommandEventFactory commandEventFactory, EngineCommandGateway commandGateway) {
         this.commandEventFactory = commandEventFactory;
-        this.queueGateway = queueGateway;
+        this.commandGateway = commandGateway;
     }
 
     @Override
@@ -36,7 +36,7 @@ public class DefaultEngineDispatchApi implements EngineDispatchApi {
     }
 
     private EnqueueEngineStatus publish(EngineCommandEvent event) {
-        boolean accepted = queueGateway.publish(event);
+        boolean accepted = commandGateway.publish(event);
         return accepted ? EnqueueEngineStatus.SUCCESS : EnqueueEngineStatus.FAILED;
     }
 }
