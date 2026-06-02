@@ -11,77 +11,53 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * In-memory {@link EgressQueueRegistry} backed by the shared internal-event-queue
- * module. One {@link InternalEventQueue} of {@link NotificationFrame} is created per active reply,
- * keyed by (tenant, session, reply).
+ * module. One {@link InternalEventQueue} of {@link NotificationFrame} is created
+ * per active session, keyed by (tenant, session).
  */
 public final class DefaultEgressQueueRegistry implements EgressQueueRegistry {
 
     private final ConcurrentHashMap<Key, InternalEventQueue<NotificationFrame>> queues = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Key, EgressBinding> bindings = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<SessionKey, String> activeReplies = new ConcurrentHashMap<>();
 
     @Override
     public InternalEventQueue<NotificationFrame> getOrCreate(EgressBinding binding) {
         Objects.requireNonNull(binding, "binding");
-        Key key = Key.from(binding.tenantId(), binding.sessionId(), binding.replyId());
-        bindings.putIfAbsent(key, binding);
-        activeReplies.put(new SessionKey(binding.tenantId(), binding.sessionId()), binding.replyId());
+        Key key = Key.from(binding.tenantId(), binding.sessionId());
+        bindings.put(key, binding);
         return queues.computeIfAbsent(key,
                 ignored -> QueueFactory.inMemoryQueue(queueIdValue(binding)));
     }
 
     @Override
-    public Optional<InternalEventQueue<NotificationFrame>> find(String tenantId, String sessionId, String replyId) {
-        return Optional.ofNullable(queues.get(Key.from(tenantId, sessionId, replyId)));
+    public Optional<InternalEventQueue<NotificationFrame>> find(String tenantId, String sessionId) {
+        return Optional.ofNullable(queues.get(Key.from(tenantId, sessionId)));
     }
 
     @Override
-    public Optional<InternalEventQueue<NotificationFrame>> findActive(String tenantId, String sessionId) {
-        return activeReplyId(tenantId, sessionId).flatMap(replyId -> find(tenantId, sessionId, replyId));
+    public Optional<EgressBinding> findBinding(String tenantId, String sessionId) {
+        return Optional.ofNullable(bindings.get(Key.from(tenantId, sessionId)));
     }
 
     @Override
-    public Optional<EgressBinding> findBinding(String tenantId, String sessionId, String replyId) {
-        return Optional.ofNullable(bindings.get(Key.from(tenantId, sessionId, replyId)));
-    }
-
-    @Override
-    public Optional<EgressBinding> findActiveBinding(String tenantId, String sessionId) {
-        return activeReplyId(tenantId, sessionId).flatMap(replyId -> findBinding(tenantId, sessionId, replyId));
-    }
-
-    @Override
-    public void remove(String tenantId, String sessionId, String replyId) {
-        Key key = Key.from(tenantId, sessionId, replyId);
+    public void remove(String tenantId, String sessionId) {
+        Key key = Key.from(tenantId, sessionId);
         queues.remove(key);
         bindings.remove(key);
-        activeReplies.remove(new SessionKey(tenantId, sessionId), replyId);
     }
 
     private static String queueIdValue(EgressBinding binding) {
-        return binding.tenantId() + ":" + binding.sessionId() + ":" + binding.replyId() + ":egress";
+        return binding.tenantId() + ":" + binding.sessionId() + ":egress";
     }
 
-    private Optional<String> activeReplyId(String tenantId, String sessionId) {
-        return Optional.ofNullable(activeReplies.get(new SessionKey(tenantId, sessionId)));
-    }
-
-    private record Key(String tenantId, String sessionId, String replyId) {
+    private record Key(String tenantId, String sessionId) {
         private Key {
             Objects.requireNonNull(tenantId, "tenantId");
             Objects.requireNonNull(sessionId, "sessionId");
-            Objects.requireNonNull(replyId, "replyId");
         }
 
-        static Key from(String tenantId, String sessionId, String replyId) {
-            return new Key(tenantId, sessionId, replyId);
+        static Key from(String tenantId, String sessionId) {
+            return new Key(tenantId, sessionId);
         }
     }
 
-    private record SessionKey(String tenantId, String sessionId) {
-        private SessionKey {
-            Objects.requireNonNull(tenantId, "tenantId");
-            Objects.requireNonNull(sessionId, "sessionId");
-        }
-    }
 }

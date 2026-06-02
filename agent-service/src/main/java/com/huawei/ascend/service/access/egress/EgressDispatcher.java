@@ -45,10 +45,9 @@ public final class EgressDispatcher {
                 .whenComplete((ignored, failure) -> {
                     if (failure != null) {
                         LOGGER.error(
-                                "Egress dispatcher stopped after delivery failure, tenantId={}, sessionId={}, replyId={}",
+                                "Egress dispatcher stopped after delivery failure, tenantId={}, sessionId={}",
                                 binding.tenantId(),
                                 binding.sessionId(),
-                                binding.replyId(),
                                 failure);
                     }
                 });
@@ -63,7 +62,7 @@ public final class EgressDispatcher {
         try {
             while (running.containsKey(key)) {
                 Optional<InternalEventQueue<NotificationFrame>> queue =
-                        registry.find(binding.tenantId(), binding.sessionId(), binding.replyId());
+                        registry.find(binding.tenantId(), binding.sessionId());
                 if (queue.isEmpty()) {
                     stop(binding);
                     return;
@@ -78,7 +77,7 @@ public final class EgressDispatcher {
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
         } catch (RuntimeException ex) {
-            registry.remove(binding.tenantId(), binding.sessionId(), binding.replyId());
+            registry.remove(binding.tenantId(), binding.sessionId());
             throw ex;
         } finally {
             running.remove(key);
@@ -93,13 +92,13 @@ public final class EgressDispatcher {
         adapter.deliver(binding, frame);
         if (frame.terminal()) {
             stop(binding);
-            registry.remove(binding.tenantId(), binding.sessionId(), binding.replyId());
+            registry.remove(binding.tenantId(), binding.sessionId());
         }
     }
 
-    private record Key(String tenantId, String sessionId, String replyId) {
+    private record Key(String tenantId, String sessionId) {
         static Key from(EgressBinding binding) {
-            return new Key(binding.tenantId(), binding.sessionId(), binding.replyId());
+            return new Key(binding.tenantId(), binding.sessionId());
         }
     }
 }
