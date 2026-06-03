@@ -1,8 +1,8 @@
 package com.huawei.ascend.service.bootstrap;
 
 import com.huawei.ascend.service.access.api.NotificationPort;
-import com.huawei.ascend.service.access.model.NotificationFrame;
-import com.huawei.ascend.service.access.model.NotificationFrame.RunError;
+import com.huawei.ascend.service.access.model.AgentNotification;
+import com.huawei.ascend.service.access.model.AgentNotification.RunError;
 import com.huawei.ascend.service.access.model.NotificationType;
 import com.huawei.ascend.service.engine.event.EngineCompletedEvent;
 import com.huawei.ascend.service.engine.event.EngineFailedEvent;
@@ -21,7 +21,7 @@ import java.util.Objects;
 /**
  * The real outbound glue: implements the engine's {@link AccessLayerClient} port
  * by translating engine execution events into access-layer
- * {@link NotificationFrame}s and publishing them through the
+ * {@link AgentNotification}s and publishing them through the
  * {@link NotificationPort}.
  *
  * <p>This is the second seam the human review found missing. Because the engine
@@ -77,7 +77,7 @@ public final class AccessNotificationClient implements AccessLayerClient {
                          RunError error, Map<String, Object> metadata, boolean terminal) {
         Objects.requireNonNull(scope, "scope");
         String sessionId = scope.sessionId() == null ? scope.taskId() : scope.sessionId();
-        notificationPort.notify(new NotificationFrame(
+        notificationPort.notify(new AgentNotification(
                 scope.tenantId(), sessionId, scope.taskId(), type, status, output, error, metadata, terminal));
     }
 
