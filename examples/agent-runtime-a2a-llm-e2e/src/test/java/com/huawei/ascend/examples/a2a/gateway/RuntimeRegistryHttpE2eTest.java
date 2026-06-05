@@ -1,8 +1,11 @@
 package com.huawei.ascend.examples.a2a.gateway;
 
 import com.huawei.ascend.examples.a2a.gateway.config.RuntimeRegistryConfiguration;
+import com.huawei.ascend.examples.a2a.gateway.http.RouteGrantController.ResolveGrantRequest;
 import com.huawei.ascend.examples.a2a.gateway.http.RuntimeRegistryController.RuntimeLeaseRenewalRequest;
 import com.huawei.ascend.examples.a2a.gateway.http.RuntimeRegistryController.RuntimeRegistrationRequest;
+import com.huawei.ascend.examples.a2a.gateway.model.AgentInteractionEvent;
+import com.huawei.ascend.examples.a2a.gateway.model.InboundA2aContext;
 import com.huawei.ascend.examples.a2a.gateway.model.RoutingContext;
 import com.huawei.ascend.examples.a2a.gateway.model.RuntimeState;
 import com.sun.net.httpserver.HttpServer;
@@ -13,6 +16,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -132,6 +136,78 @@ class RuntimeRegistryHttpE2eTest {
         } finally {
             runtime.stop(0);
         }
+    }
+
+    @Test
+    void httpFacadeIssuesValidRouteGrantAndRecordsA2aTelemetry() {
+        String tenant = "tenant-http-grant";
+        register(tenant, "runtime-target-1", "target-agent", "http://runtime-target-1.local/a2a");
+
+        HttpJsonResponse grantResponse = post(
+                "/v1/route-grants/resolve",
+                new ResolveGrantRequest(
+                        tenant,
+                        "source-agent",
+                        "target-agent",
+                        "message/stream",
+                        new RoutingContext("session-grant", "corr-grant", Map.of("reason", "east-west")),
+                        30,
+                        Map.of("client", "runtime-a")));
+
+        assertThat(grantResponse.status()).isEqualTo(HttpStatus.OK.value());
+        assertThat(grantResponse.body().path("grantId").asText()).isNotBlank();
+        assertThat(grantResponse.body().path("tenantId").asText()).isEqualTo(tenant);
+        assertThat(grantResponse.body().path("targetRuntimeId").path("value").asText()).isEqualTo("runtime-target-1");
+        assertThat(grantResponse.body().path("signature").asText()).isNotBlank();
+
+        HttpJsonResponse validationResponse = post(
+                "/v1/route-grants/validate",
+                Map.of(
+                        "grant", grantResponse.body(),
+                        "context", new InboundA2aContext(
+                                tenant,
+                                "source-agent",
+                                "target-agent",
+                                "message/stream")));
+
+        assertThat(validationResponse.status()).isEqualTo(HttpStatus.OK.value());
+        assertThat(validationResponse.body().path("accepted").asBoolean()).isTrue();
+
+        HttpJsonResponse recordResponse = post(
+                "/v1/a2a-interactions",
+                new AgentInteractionEvent(
+                        "event-grant-1",
+                        "A2A_CALL_FINISHED",
+                        Instant.parse("2026-06-05T00:00:00Z"),
+                        tenant,
+                        "runtime-source-1",
+                        "source-agent",
+                        "runtime-target-1",
+                        "target-agent",
+                        "session-grant",
+                        "task-grant",
+                        "corr-grant",
+                        "trace-grant",
+                        grantResponse.body().path("grantId").asText(),
+                        "message/stream",
+                        "OK",
+                        3,
+                        24,
+                        81,
+                        128,
+                        256,
+                        null,
+                        "sha256:sample",
+                        null,
+                        Map.of("sample", true)));
+        HttpJsonResponse queryResponse = get("/v1/a2a-interactions?tenantId=" + tenant + "&correlationId=corr-grant");
+
+        assertThat(recordResponse.status()).isEqualTo(HttpStatus.OK.value());
+        assertThat(recordResponse.body().path("grantId").asText())
+                .isEqualTo(grantResponse.body().path("grantId").asText());
+        assertThat(queryResponse.status()).isEqualTo(HttpStatus.OK.value());
+        assertThat(queryResponse.body()).hasSize(1);
+        assertThat(queryResponse.body().get(0).path("eventType").asText()).isEqualTo("A2A_CALL_FINISHED");
     }
 
     private void register(String tenant, String runtimeId, String agentId, String endpoint) {

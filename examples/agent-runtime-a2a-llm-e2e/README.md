@@ -33,10 +33,35 @@ small HTTP facade for:
 - tenant-scoped agent listing and AgentCard lookup
 - route resolution by `tenantId` and `agentId`
 - a minimal A2A JSON-RPC forwarding endpoint for customer reference
+- tenant-scoped `RouteGrant` issuing and validation for runtime-to-runtime A2A calls
+- asynchronous A2A interaction telemetry record/query APIs
 
 The facade sample is intentionally local and in-memory. It is a customer-facing
 example for pluggable gateway integration, not the production `agent-service`
 implementation.
+
+### Runtime-to-Runtime Discovery and Telemetry
+
+For east-west runtime calls, the sample keeps the examples layer as the
+discovery, route-policy, and observability authority without forcing every
+runtime-to-runtime payload through the examples data plane:
+
+1. source runtime asks the facade for a short-lived `RouteGrant`
+2. facade resolves a healthy target runtime and signs the grant
+3. source runtime can call the target runtime A2A endpoint directly
+4. target runtime can validate the grant before accepting the call
+5. source and target runtimes can asynchronously report interaction telemetry
+
+The sample exposes these minimum HTTP endpoints:
+
+- `POST /v1/route-grants/resolve`
+- `POST /v1/route-grants/validate`
+- `POST /v1/a2a-interactions`
+- `GET /v1/a2a-interactions?tenantId=...&correlationId=...`
+
+This keeps runtime caches small: runtimes cache scoped grants with TTL and
+policy version, not a full `tenantId x sourceAgentId x targetAgentId x replica`
+authorization table.
 
 ### Gateway DFX Reference Shape
 
@@ -51,6 +76,9 @@ shows the minimum DFX shape expected from a customer-facing platform facade:
   `READY` replicas can receive new traffic
 - the A2A forwarding endpoint returns trace headers for route resolution,
   response start, total forwarding time, and selected runtime instance
+- route grants are short-lived, tenant-scoped, method-scoped, and signed
+- A2A interaction telemetry carries correlation, route latency, first-byte
+  latency, total latency, status, and selected runtime identity
 
 Production deployments must still add persistent or reconstructable registry
 state, runtime identity authentication, tenant-agent authorization, rate
