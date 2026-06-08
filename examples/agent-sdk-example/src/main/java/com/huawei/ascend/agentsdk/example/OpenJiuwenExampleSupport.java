@@ -5,7 +5,7 @@ import com.huawei.ascend.runtime.engine.model.EngineExecutionScope;
 import com.huawei.ascend.runtime.engine.model.EngineInput;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
-import com.huawei.ascend.runtime.schema.Message;
+import com.huawei.ascend.runtime.common.Message;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
