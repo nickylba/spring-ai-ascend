@@ -479,7 +479,7 @@ YAML
 | `framework.options.maxIterations` | `DeepAgentConfig.maxIterations`。 |
 | `framework.options.executeMode` | `sdk-proof` 时走本地 proof 辅助逻辑，否则真实调用 OpenJiuwen。 |
 | `skills.sources` | `DeepAgentConfig.skillDirectories` + `SkillUseRail`。 |
-| `tools` | `DeepAgentConfig.tools`。 |
+| `tools` | `DeepAgentConfig.tools`；当前 OpenJiuwen 公开 0.1.12 未发布 DeepAgent API，代码中真实装配临时注释，先用占位 handler 保证编译和 proof 链路。 |
 
 DeepAgent handler 调用 `deepAgent.run(input)`，不直接操作 DeepAgent 内部的 ReActAgent。
 

@@ -2,7 +2,6 @@ package com.huawei.ascend.agentsdk.example;
 
 import com.huawei.ascend.agentsdk.factory.AgentHandlerFactory;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
-import com.openjiuwen.harness.deep_agent.DeepAgent;
 import java.nio.file.Path;
 
 public final class OpenJiuwenDeepAgentSdkExample {
@@ -17,7 +16,7 @@ public final class OpenJiuwenDeepAgentSdkExample {
         Path effectiveYaml = proofMode ? OpenJiuwenExampleSupport.proofYaml(yamlPath) : yamlPath;
         String userInput = OpenJiuwenExampleSupport.userInput(args);
 
-        DeepAgent deepAgent = AgentHandlerFactory.toDeepAgent(effectiveYaml);
+        Object deepAgent = AgentHandlerFactory.toDeepAgent(effectiveYaml);
         AgentRuntimeHandler handler = AgentHandlerFactory.toHandler(AGENT_ID, deepAgent);
         System.out.println("deepAgent: " + deepAgent.getClass().getName());
         OpenJiuwenExampleSupport.printExecution(
