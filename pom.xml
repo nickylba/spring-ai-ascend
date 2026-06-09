@@ -32,6 +32,7 @@
   </parent>
 
   <modules>
+        
     <module>spring-ai-ascend-dependencies</module>
     <module>agent-bus</module>
     <module>agent-runtime</module>

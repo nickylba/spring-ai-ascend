@@ -5,6 +5,7 @@ import com.huawei.ascend.runtime.engine.spi.AbstractAgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
 import java.util.stream.Stream;
 
+
 abstract class AbstractAgentScopeRuntimeHandler extends AbstractAgentRuntimeHandler {
 
     private final AgentScopeMessageAdapter messageAdapter;
