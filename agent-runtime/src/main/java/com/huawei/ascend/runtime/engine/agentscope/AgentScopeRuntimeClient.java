@@ -2,18 +2,14 @@ package com.huawei.ascend.runtime.engine.agentscope;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.MappingIterator;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.huawei.ascend.runtime.engine.a2a.Messages;
 import org.a2aproject.sdk.spec.Message;
+import org.a2aproject.sdk.spec.TextPart;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -80,42 +76,30 @@ public final class AgentScopeRuntimeClient {
         Spliterator<Map<String, Object>> spliterator =
                 new Spliterators.AbstractSpliterator<>(Long.MAX_VALUE, Spliterator.ORDERED | Spliterator.NONNULL) {
                     private final StringBuilder data = new StringBuilder();
-                    private final Deque<Map<String, Object>> pending = new ArrayDeque<>();
                     private boolean hasData;
-                    private boolean terminated;
 
                     @Override
                     public boolean tryAdvance(Consumer<? super Map<String, Object>> action) {
-                        while (true) {
-                            Map<String, Object> event = pending.poll();
-                            if (event != null) {
-                                action.accept(event);
-                                return true;
-                            }
-                            if (terminated) {
-                                return false;
-                            }
-                            String line;
-                            try {
-                                if (!iterator.hasNext()) {
-                                    terminated = true;
-                                    flush();
-                                    continue;
-                                }
-                                line = iterator.next();
-                            } catch (RuntimeException ex) {
-                                // A connection dropped mid-stream must surface as a structured
-                                // failure event, matching the connect-time AGENTSCOPE_RUNTIME_IO path.
-                                terminated = true;
-                                action.accept(ioFailure(ex));
-                                return true;
-                            }
+                        while (iterator.hasNext()) {
+                            String line = iterator.next();
                             if (line.isBlank()) {
-                                flush();
-                            } else if (line.startsWith("data:")) {
+                                Map<String, Object> event = nextEvent();
+                                if (event != null) {
+                                    action.accept(event);
+                                    return true;
+                                }
+                                continue;
+                            }
+                            if (line.startsWith("data:")) {
                                 appendData(line.substring("data:".length()));
                             }
                         }
+                        Map<String, Object> event = nextEvent();
+                        if (event != null) {
+                            action.accept(event);
+                            return true;
+                        }
+                        return false;
                     }
 
                     private void appendData(String value) {
@@ -129,18 +113,17 @@ public final class AgentScopeRuntimeClient {
                         hasData = true;
                     }
 
-                    private void flush() {
+                    private Map<String, Object> nextEvent() {
                         if (!hasData) {
-                            return;
+                            return null;
                         }
                         String eventData = data.toString();
                         data.setLength(0);
                         hasData = false;
-                        String sentinel = eventData.trim();
-                        if (sentinel.isEmpty() || "[DONE]".equals(sentinel) || "null".equals(sentinel)) {
-                            return;
+                        if (eventData.isBlank() || "[DONE]".equals(eventData.trim())) {
+                            return null;
                         }
-                        pending.addAll(readEventBlock(eventData));
+                        return readEvent(eventData);
                     }
                 };
         return StreamSupport.stream(spliterator, false).onClose(lines::close);
@@ -158,11 +141,7 @@ public final class AgentScopeRuntimeClient {
     }
 
     private static String failureMessage(RuntimeException ex) {
-        Throwable failure = ex;
-        while ((failure instanceof CompletionException || failure instanceof UncheckedIOException)
-                && failure.getCause() != null) {
-            failure = failure.getCause();
-        }
+        Throwable failure = ex instanceof CompletionException && ex.getCause() != null ? ex.getCause() : ex;
         return failure.getMessage() == null ? failure.getClass().getSimpleName() : failure.getMessage();
     }
 
@@ -189,14 +168,33 @@ public final class AgentScopeRuntimeClient {
         List<Map<String, Object>> result = new ArrayList<>();
         for (Message message : messages) {
             result.add(Map.of(
-                    "role", toAgentScopeRole(message.role()),
-                    "content", List.of(Map.of("type", "text", "text", Messages.text(message)))));
+                    "role", toAgentScopeRole(message),
+                    "content", List.of(Map.of("type", "text", "text", text(message)))));
         }
         return result;
     }
 
-    private static String toAgentScopeRole(Message.Role role) {
-        return role == Message.Role.ROLE_AGENT ? "assistant" : "user";
+    private static String toAgentScopeRole(Message message) {
+        if (message == null || message.role() == null) {
+            return "user";
+        }
+        return switch (message.role()) {
+            case ROLE_AGENT -> "assistant";
+            case ROLE_USER, ROLE_UNSPECIFIED -> "user";
+        };
+    }
+
+    private static String text(Message message) {
+        if (message == null || message.parts() == null) {
+            return "";
+        }
+        StringBuilder text = new StringBuilder();
+        for (var part : message.parts()) {
+            if (part instanceof TextPart textPart) {
+                text.append(textPart.text());
+            }
+        }
+        return text.toString();
     }
 
     private String toJson(Map<String, Object> body) {
@@ -207,26 +205,11 @@ public final class AgentScopeRuntimeClient {
         }
     }
 
-    /**
-     * Parses one SSE data block. A spec-compliant block holds a single JSON
-     * document (possibly pretty-printed across lines), but upstreams that frame
-     * events with bare newlines instead of blank lines arrive here merged, so
-     * every JSON document in the block is decoded as its own event.
-     */
-    private List<Map<String, Object>> readEventBlock(String data) {
-        List<Map<String, Object>> events = new ArrayList<>();
-        try (MappingIterator<Map<String, Object>> values = objectMapper.readerFor(MAP_TYPE).readValues(data)) {
-            while (values.hasNext()) {
-                Map<String, Object> event = values.next();
-                if (event != null) {
-                    events.add(event);
-                }
-            }
-        } catch (IOException | RuntimeException ex) {
-            if (events.isEmpty()) {
-                return List.of(Map.of("status", "output", "text", data));
-            }
+    private Map<String, Object> readEvent(String data) {
+        try {
+            return objectMapper.readValue(data, MAP_TYPE);
+        } catch (IOException ex) {
+            return Map.of("status", "output", "text", data);
         }
-        return events;
     }
 }
