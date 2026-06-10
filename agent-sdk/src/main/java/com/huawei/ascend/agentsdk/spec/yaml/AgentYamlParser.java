@@ -6,6 +6,7 @@ import com.huawei.ascend.agentsdk.spec.prompt.PromptSpec;
 import com.huawei.ascend.agentsdk.spec.skill.SkillSourceLoader;
 import com.huawei.ascend.agentsdk.spec.skill.SkillSourceSpec;
 import com.huawei.ascend.agentsdk.spec.skill.SkillSpec;
+import com.huawei.ascend.agentsdk.spec.tool.McpServerSpec;
 import com.huawei.ascend.agentsdk.spec.tool.ToolRef;
 import com.huawei.ascend.agentsdk.spec.tool.ToolSpec;
 import com.huawei.ascend.agentsdk.support.ValidationException;
@@ -37,6 +38,7 @@ public final class AgentYamlParser {
         List<SkillSourceSpec> skillSources = skillSources(mapOrEmpty(root.get("skills")), yamlDir);
         List<SkillSpec> skillSpecs = new SkillSourceLoader().load(skillSources);
         List<ToolSpec> toolSpecs = toolSpecs(listOrEmpty(root.get("tools")), yamlDir);
+        Map<String, McpServerSpec> mcpServers = mcpServers(mapOrEmpty(root.get("mcpServers")));
         return new AgentSpec(
                 schema,
                 name,
@@ -51,7 +53,8 @@ public final class AgentYamlParser {
                 promptSpec,
                 skillSources,
                 skillSpecs,
-                toolSpecs);
+                toolSpecs,
+                mcpServers);
     }
 
     private ModelSpec model(Map<String, Object> model) {
@@ -110,6 +113,44 @@ public final class AgentYamlParser {
                     booleanValue(toolMap.get("localCache"), false, "tools[].localCache")));
         }
         return List.copyOf(result);
+    }
+
+    /**
+     * A server entry must be unambiguous about its transport: exactly one of
+     * command (stdio) or url (HTTP/SSE), and no leftover keys from the other
+     * transport — a stray headers/env block on the wrong kind almost always
+     * means the author picked the wrong transport, not that the key is spare.
+     */
+    private Map<String, McpServerSpec> mcpServers(Map<String, Object> servers) {
+        Map<String, McpServerSpec> result = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : servers.entrySet()) {
+            String name = entry.getKey();
+            Map<String, Object> server = map(entry.getValue());
+            String command = string(server.get("command"));
+            String url = string(server.get("url"));
+            boolean stdio = command != null && !command.isBlank();
+            boolean http = url != null && !url.isBlank();
+            if (stdio == http) {
+                throw new ValidationException("MCP server '" + name
+                        + "' must declare exactly one of command (stdio) or url (HTTP/SSE)");
+            }
+            if (stdio && server.containsKey("headers")) {
+                throw new ValidationException("MCP server '" + name
+                        + "' is stdio (command); headers only applies to url servers");
+            }
+            if (http && (server.containsKey("args") || server.containsKey("env"))) {
+                throw new ValidationException("MCP server '" + name
+                        + "' is HTTP/SSE (url); args/env only apply to command servers");
+            }
+            result.put(name, new McpServerSpec(
+                    name,
+                    stdio ? command : null,
+                    stringList(listOrEmpty(server.get("args"))),
+                    stringMap(mapOrEmpty(server.get("env"))),
+                    http ? url : null,
+                    stringMap(mapOrEmpty(server.get("headers")))));
+        }
+        return result;
     }
 
     private ToolRef toolRef(Object ref, Path yamlDir) {
@@ -256,6 +297,14 @@ public final class AgentYamlParser {
         }
         // Boolean.parseBoolean would map 'yes'/'enabled'/typos to false silently.
         throw new ValidationException("Field '" + label + "' must be true or false, got: " + value);
+    }
+
+    static List<String> stringList(List<Object> values) {
+        List<String> result = new ArrayList<>();
+        for (Object value : values) {
+            result.add(String.valueOf(value));
+        }
+        return List.copyOf(result);
     }
 
     static Map<String, String> stringMap(Map<String, Object> values) {

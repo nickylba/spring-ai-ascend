@@ -98,6 +98,116 @@ class AgentYamlLoaderTest {
     }
 
     @Test
+    void mcpServersParseIntoSpecsKeyedByName() throws Exception {
+        Path tempDir = testDirectory("mcp-servers");
+        Path yaml = tempDir.resolve("agent.yaml");
+        Files.writeString(yaml, """
+                schema: ascend-agent/v1
+                name: mcp-agent
+                description: MCP agent
+                framework:
+                  type: openjiuwen
+                  agent: react
+                model:
+                  name: deepseek-chat
+                  baseUrl: http://localhost
+                  apiKey: secret
+                mcpServers:
+                  inventory:
+                    command: npx
+                    args: ["-y", "@example/inventory-mcp"]
+                    env:
+                      API_KEY: secret
+                  market:
+                    url: https://mcp.example.com
+                    headers:
+                      Authorization: Bearer token
+                tools:
+                  - name: lookup
+                    description: Inventory lookup
+                    ref: "mcp:inventory/lookup"
+                """);
+
+        AgentSpec spec = new AgentYamlLoader().load(yaml);
+
+        assertThat(spec.mcpServers()).containsOnlyKeys("inventory", "market");
+        assertThat(spec.mcpServers().get("inventory").stdio()).isTrue();
+        assertThat(spec.mcpServers().get("inventory").command()).isEqualTo("npx");
+        assertThat(spec.mcpServers().get("inventory").args())
+                .containsExactly("-y", "@example/inventory-mcp");
+        assertThat(spec.mcpServers().get("inventory").env()).containsEntry("API_KEY", "secret");
+        assertThat(spec.mcpServers().get("market").stdio()).isFalse();
+        assertThat(spec.mcpServers().get("market").url()).isEqualTo("https://mcp.example.com");
+        assertThat(spec.mcpServers().get("market").headers())
+                .containsEntry("Authorization", "Bearer token");
+    }
+
+    @Test
+    void mcpServerWithBothCommandAndUrlIsRejectedByName() throws Exception {
+        assertThatThrownBy(() -> loadWithMcpServer("mcp-both", """
+                  ambiguous:
+                    command: npx
+                    url: https://mcp.example.com
+                """))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("ambiguous")
+                .hasMessageContaining("exactly one of command");
+    }
+
+    @Test
+    void mcpServerWithNeitherCommandNorUrlIsRejectedByName() throws Exception {
+        assertThatThrownBy(() -> loadWithMcpServer("mcp-neither", """
+                  empty:
+                    env:
+                      API_KEY: secret
+                """))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("empty")
+                .hasMessageContaining("exactly one of command");
+    }
+
+    @Test
+    void mcpServerWithKeysOfTheOtherTransportIsRejectedByName() throws Exception {
+        assertThatThrownBy(() -> loadWithMcpServer("mcp-cross-stdio", """
+                  local:
+                    command: npx
+                    headers:
+                      Authorization: Bearer token
+                """))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("local")
+                .hasMessageContaining("headers");
+        assertThatThrownBy(() -> loadWithMcpServer("mcp-cross-http", """
+                  remote:
+                    url: https://mcp.example.com
+                    env:
+                      API_KEY: secret
+                """))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("remote")
+                .hasMessageContaining("env");
+    }
+
+    private static AgentSpec loadWithMcpServer(String directory, String serverYaml) throws Exception {
+        Path tempDir = testDirectory(directory);
+        Path yaml = tempDir.resolve("agent.yaml");
+        Files.writeString(yaml, """
+                schema: ascend-agent/v1
+                name: mcp-agent
+                description: MCP agent
+                framework:
+                  type: openjiuwen
+                  agent: react
+                model:
+                  name: deepseek-chat
+                  baseUrl: http://localhost
+                  apiKey: secret
+                mcpServers:
+                """ + serverYaml);
+        return new AgentYamlLoader().load(yaml);
+    }
+
+    @Test
     void malformedStringShorthandFailsAtLoadWithSyntaxHint() throws Exception {
         Path tempDir = testDirectory("shorthand-bad");
         Path yaml = tempDir.resolve("agent.yaml");

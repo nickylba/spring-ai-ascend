@@ -12,7 +12,6 @@ import java.util.List;
 
 public final class OpenJiuwenDeepAgentBuilder {
     private final List<ToolResolver> toolResolvers;
-    private final OpenJiuwenToolMapper toolMapper = new OpenJiuwenToolMapper();
 
     public OpenJiuwenDeepAgentBuilder(List<ToolResolver> toolResolvers) {
         this.toolResolvers = List.copyOf(toolResolvers);
@@ -24,6 +23,9 @@ public final class OpenJiuwenDeepAgentBuilder {
 
     public Object buildAgent(AgentSpec spec) {
         OpenJiuwenDeepAgentOptions options = OpenJiuwenDeepAgentOptions.from(spec.frameworkOptions());
+        // One mapper (and thus one MCP executor) per agent: every tool closure of
+        // this agent shares the same per-server client connections.
+        OpenJiuwenToolMapper toolMapper = new OpenJiuwenToolMapper(spec.mcpServers());
         List<Tool> tools = spec.toolSpecs().stream()
                 .map(this::resolve)
                 .map(toolMapper::toTool)

@@ -4,11 +4,11 @@ import com.huawei.ascend.agentsdk.spec.tool.ExecutionHandle;
 import com.huawei.ascend.agentsdk.spec.tool.HttpExecutionHandle;
 import com.huawei.ascend.agentsdk.spec.tool.JavaExecutionHandle;
 import com.huawei.ascend.agentsdk.spec.tool.McpExecutionHandle;
+import com.huawei.ascend.agentsdk.spec.tool.McpServerSpec;
 import com.huawei.ascend.agentsdk.spec.tool.NativeTool;
 import com.huawei.ascend.agentsdk.spec.tool.ResolvedTool;
 import com.huawei.ascend.agentsdk.spec.tool.ToolDescriptor;
 import com.huawei.ascend.agentsdk.spec.tool.WrappableTool;
-import com.huawei.ascend.agentsdk.support.ToolExecutionException;
 import com.huawei.ascend.agentsdk.support.ValidationException;
 import com.openjiuwen.core.foundation.tool.Tool;
 import com.openjiuwen.core.foundation.tool.ToolCard;
@@ -22,13 +22,19 @@ import java.util.Map;
 public final class OpenJiuwenToolMapper {
 
     private final HttpToolExecutor httpExecutor;
+    private final McpToolExecutor mcpExecutor;
 
     public OpenJiuwenToolMapper() {
-        this(new HttpToolExecutor());
+        this(Map.of());
     }
 
-    OpenJiuwenToolMapper(HttpToolExecutor httpExecutor) {
+    public OpenJiuwenToolMapper(Map<String, McpServerSpec> mcpServers) {
+        this(new HttpToolExecutor(), new McpToolExecutor(mcpServers));
+    }
+
+    OpenJiuwenToolMapper(HttpToolExecutor httpExecutor, McpToolExecutor mcpExecutor) {
         this.httpExecutor = httpExecutor;
+        this.mcpExecutor = mcpExecutor;
     }
 
     public Tool toTool(ResolvedTool resolvedTool) {
@@ -40,6 +46,12 @@ public final class OpenJiuwenToolMapper {
                     + (nativeTool.tool() == null ? "null" : nativeTool.tool().getClass().getName()));
         }
         WrappableTool wrappable = (WrappableTool) resolvedTool;
+        if (wrappable.executionHandle() instanceof McpExecutionHandle mcp && !mcpExecutor.hasServer(mcp.server())) {
+            // Failing at agent build beats failing on the first invocation —
+            // the model would otherwise discover the misconfiguration mid-run.
+            throw new ValidationException("Tool '" + wrappable.descriptor().name()
+                    + "' references unknown MCP server '" + mcp.server() + "'; declare it under mcpServers");
+        }
         ToolCard card = card(wrappable.descriptor());
         return new LocalFunction(card, inputs -> invoke(wrappable.executionHandle(), inputs));
     }
@@ -64,10 +76,7 @@ public final class OpenJiuwenToolMapper {
             return invokeJava(java, inputs);
         }
         if (handle instanceof McpExecutionHandle mcp) {
-            // Failing loudly beats echoing the request back as a fake success —
-            // the agent would otherwise hallucinate around the echo payload.
-            throw new ToolExecutionException("MCP tool execution is not implemented yet: tool '"
-                    + mcp.tool() + "' on server '" + mcp.server() + "' cannot run");
+            return mcpExecutor.execute(mcp, inputs);
         }
         throw new ValidationException("Unsupported execution handle: " + handle);
     }
