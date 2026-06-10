@@ -69,6 +69,65 @@ class A2aAgentExecutorTest {
         assertThat(captor.getValue().getAgentStateKey()).isEqualTo("ctx-1");
     }
 
+    /** A tracked execution drives its Run along the DFA: PENDING→RUNNING→SUCCEEDED. */
+    @Test
+    void runRecordFollowsHappyPathLifecycle() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        when(handler.execute(any())).thenAnswer(inv -> Stream.of(new Object()));
+        StreamAdapter adapter = raw -> raw.map(o -> AgentExecutionResult.completed("ok"));
+        when(handler.resultAdapter()).thenReturn(adapter);
+        com.huawei.ascend.runtime.run.InMemoryRunRepository runs =
+                new com.huawei.ascend.runtime.run.InMemoryRunRepository();
+
+        new A2aAgentExecutor(handler, runs).execute(requestContext(), newEmitter());
+
+        java.util.List<com.huawei.ascend.runtime.run.Run> tracked =
+                runs.findByTenantAndTask("default", "task-1");
+        assertThat(tracked).hasSize(1);
+        assertThat(tracked.get(0).status()).isEqualTo(com.huawei.ascend.runtime.run.RunStatus.SUCCEEDED);
+        assertThat(tracked.get(0).sessionId()).isEqualTo("ctx-1");
+    }
+
+    /** A handler failure lands the Run in FAILED, mirroring the wire-facing outcome. */
+    @Test
+    void runRecordFailsWhenExecutionFails() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        when(handler.execute(any())).thenThrow(new IllegalStateException("boom"));
+        com.huawei.ascend.runtime.run.InMemoryRunRepository runs =
+                new com.huawei.ascend.runtime.run.InMemoryRunRepository();
+
+        new A2aAgentExecutor(handler, runs).execute(requestContext(), newEmitter());
+
+        assertThat(runs.findByTenantAndTask("default", "task-1"))
+                .singleElement()
+                .extracting(com.huawei.ascend.runtime.run.Run::status)
+                .isEqualTo(com.huawei.ascend.runtime.run.RunStatus.FAILED);
+    }
+
+    /** cancel() marks the task's non-terminal Runs CANCELLED. */
+    @Test
+    void cancelMarksTrackedRunCancelled() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        when(handler.execute(any())).thenAnswer(inv -> Stream.of(new Object()));
+        // INTERRUPTED leaves the Run SUSPENDED (non-terminal) — cancellable.
+        StreamAdapter adapter = raw -> raw.map(o -> AgentExecutionResult.interrupted("need input"));
+        when(handler.resultAdapter()).thenReturn(adapter);
+        com.huawei.ascend.runtime.run.InMemoryRunRepository runs =
+                new com.huawei.ascend.runtime.run.InMemoryRunRepository();
+        A2aAgentExecutor executor = new A2aAgentExecutor(handler, runs);
+        executor.execute(requestContext(), newEmitter());
+
+        executor.cancel(requestContext(), newEmitter());
+
+        assertThat(runs.findByTenantAndTask("default", "task-1"))
+                .singleElement()
+                .extracting(com.huawei.ascend.runtime.run.Run::status)
+                .isEqualTo(com.huawei.ascend.runtime.run.RunStatus.CANCELLED);
+    }
+
     /** The transport-authenticated tenant must outrank the client-self-declared params.tenant. */
     @Test
     void transportTenantOutranksClientDeclaredTenant() {

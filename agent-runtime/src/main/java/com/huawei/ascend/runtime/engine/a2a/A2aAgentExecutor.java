@@ -5,10 +5,14 @@ import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
+import com.huawei.ascend.runtime.run.Run;
+import com.huawei.ascend.runtime.run.RunRepository;
+import com.huawei.ascend.runtime.run.RunStatus;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 import org.a2aproject.sdk.server.agentexecution.AgentExecutor;
 import org.a2aproject.sdk.server.agentexecution.RequestContext;
@@ -18,6 +22,7 @@ import org.a2aproject.sdk.spec.Part;
 import org.a2aproject.sdk.spec.TextPart;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 public final class A2aAgentExecutor implements AgentExecutor {
 
@@ -34,9 +39,20 @@ public final class A2aAgentExecutor implements AgentExecutor {
     private static final String ERROR_SCHEMA_VERSION = "1";
 
     private final AgentRuntimeHandler handler;
+    private final RunRepository runRepository;
 
     public A2aAgentExecutor(AgentRuntimeHandler handler) {
+        this(handler, null);
+    }
+
+    /**
+     * @param runRepository when non-null, every execution is tracked as a
+     *                      {@link Run} whose status follows the DFA alongside
+     *                      the A2A task lifecycle
+     */
+    public A2aAgentExecutor(AgentRuntimeHandler handler, RunRepository runRepository) {
         this.handler = handler;
+        this.runRepository = runRepository;
     }
 
     @Override
@@ -67,10 +83,12 @@ public final class A2aAgentExecutor implements AgentExecutor {
         // Everything after startWork must fail the task on error — context
         // construction throws on wire-controllable input (blank/null ids), and
         // an escape here would strand the task in WORKING forever.
+        AtomicReference<Run> run = new AtomicReference<>();
         try {
             String inputText = extractText(ctx);
             LOG.info("[A2A] input parsed taskId={} textChars={}", taskId, inputText.length());
             AgentExecutionContext context = toExecutionContext(ctx, inputText);
+            run.set(startRun(context));
 
             try (Stream<?> raw = executeAgent(context);
                  Stream<AgentExecutionResult> results = handler.resultAdapter().adapt(raw)) {
@@ -83,6 +101,7 @@ public final class A2aAgentExecutor implements AgentExecutor {
                                     ? result.outputContent().length() : 0);
                     if (route(result, emitter, taskId, artifactId, firstArtifact)) {
                         terminalRouted.set(true);
+                        transitionRun(run, runStatusOf(result.type()));
                     }
                 });
                 if (!terminalRouted.get()) {
@@ -92,6 +111,7 @@ public final class A2aAgentExecutor implements AgentExecutor {
                     // stays WORKING forever and polling clients hang.
                     LOG.warn("[A2A] result stream ended without terminal result taskId={} — completing", taskId);
                     emitter.complete();
+                    transitionRun(run, RunStatus.SUCCEEDED);
                 }
             }
             LOG.info("[A2A] execute finish taskId={} durationMs={}",
@@ -104,7 +124,49 @@ public final class A2aAgentExecutor implements AgentExecutor {
                     taskId, code, e.getClass().getSimpleName(), e.getMessage(), e);
             emitter.fail(failureMessage(emitter, code.name(), detail, code.retryable()));
             LOG.info("[A2A] task state=FAILED taskId={}", taskId);
+            transitionRun(run, RunStatus.FAILED);
+        } finally {
+            MDC.remove("runId");
         }
+    }
+
+    /** Creates and persists the Run record tracking this execution: PENDING → RUNNING. */
+    private Run startRun(AgentExecutionContext context) {
+        if (runRepository == null) {
+            return null;
+        }
+        RuntimeIdentity scope = context.getScope();
+        Run created = runRepository.save(
+                Run.create(scope.tenantId(), scope.sessionId(), scope.taskId(), scope.agentId()));
+        MDC.put("runId", created.id().toString());
+        Run running = runRepository.save(created.withStatus(RunStatus.RUNNING));
+        LOG.info("[A2A] run state=RUNNING runId={} tenantId={} taskId={}",
+                running.id(), running.tenantId(), running.taskId());
+        return running;
+    }
+
+    /** Best-effort Run transition — Run tracking must never mask the wire-facing outcome. */
+    private void transitionRun(AtomicReference<Run> run, RunStatus to) {
+        Run current = run.get();
+        if (runRepository == null || current == null || current.isTerminal()) {
+            return;
+        }
+        try {
+            run.set(runRepository.save(current.withStatus(to)));
+            LOG.info("[A2A] run state={} runId={}", to, current.id());
+        } catch (RuntimeException e) {
+            LOG.error("[A2A] run transition failed runId={} to={} message={}",
+                    current.id(), to, e.getMessage(), e);
+        }
+    }
+
+    private static RunStatus runStatusOf(AgentExecutionResult.Type type) {
+        return switch (type) {
+            case COMPLETED -> RunStatus.SUCCEEDED;
+            case FAILED -> RunStatus.FAILED;
+            case INTERRUPTED -> RunStatus.SUSPENDED;
+            case OUTPUT -> RunStatus.RUNNING; // not terminal — never reaches transitionRun
+        };
     }
 
     private Stream<?> executeAgent(AgentExecutionContext context) {
@@ -118,8 +180,28 @@ public final class A2aAgentExecutor implements AgentExecutor {
         try {
             emitter.cancel();
             LOG.info("[A2A] task state=CANCELED taskId={}", taskId);
+            cancelRuns(ctx, taskId);
         } catch (Exception e) {
             LOG.error("[A2A] cancel failed taskId={} message={}", taskId, e.getMessage(), e);
+        }
+    }
+
+    /** Marks every non-terminal Run of this task CANCELLED — best-effort, never masks the wire outcome. */
+    private void cancelRuns(RequestContext ctx, String taskId) {
+        if (runRepository == null) {
+            return;
+        }
+        String tenantId = metadata(ctx, TENANT_STATE_KEY, "default");
+        for (Run run : runRepository.findByTenantAndTask(tenantId, taskId)) {
+            if (!run.isTerminal()) {
+                try {
+                    runRepository.save(run.withStatus(RunStatus.CANCELLED));
+                    LOG.info("[A2A] run state=CANCELLED runId={}", run.id());
+                } catch (RuntimeException e) {
+                    LOG.error("[A2A] run cancel transition failed runId={} message={}",
+                            run.id(), e.getMessage(), e);
+                }
+            }
         }
     }
 

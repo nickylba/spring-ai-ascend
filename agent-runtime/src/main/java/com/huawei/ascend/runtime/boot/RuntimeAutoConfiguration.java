@@ -4,6 +4,8 @@ import com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor;
 import com.huawei.ascend.runtime.engine.spi.AgentCardProvider;
 import com.huawei.ascend.runtime.engine.spi.AgentCards;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
+import com.huawei.ascend.runtime.run.InMemoryRunRepository;
+import com.huawei.ascend.runtime.run.RunRepository;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -82,21 +84,25 @@ public class RuntimeAutoConfiguration {
     @Bean @ConditionalOnMissingBean
     public A2aServerExecutor a2aServerExecutor() { return new A2aServerExecutor(); }
 
+    @Bean @ConditionalOnMissingBean(RunRepository.class)
+    public InMemoryRunRepository runRepository() { return new InMemoryRunRepository(); }
+
     @Bean @ConditionalOnMissingBean
-    public AgentExecutor a2aAgentExecutor(ObjectProvider<AgentRuntimeHandler> handlers) {
+    public AgentExecutor a2aAgentExecutor(ObjectProvider<AgentRuntimeHandler> handlers,
+                                           RunRepository runRepository) {
         var registered = handlers.orderedStream().toList();
         if (registered.isEmpty()) {
             // Tolerated so the A2A surface can boot for card discovery; every
             // execution will be rejected until a handler bean is registered.
             log.warn("No AgentRuntimeHandler registered — A2A executions will be rejected");
-            return new A2aAgentExecutor(null);
+            return new A2aAgentExecutor(null, runRepository);
         }
         if (registered.size() > 1) {
             log.warn("Multiple AgentRuntimeHandlers registered; using '{}', ignoring {}",
                     registered.get(0).agentId(),
                     registered.stream().skip(1).map(AgentRuntimeHandler::agentId).toList());
         }
-        return new A2aAgentExecutor(registered.get(0));
+        return new A2aAgentExecutor(registered.get(0), runRepository);
     }
 
     @Bean @ConditionalOnMissingBean
