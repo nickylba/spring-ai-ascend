@@ -45,6 +45,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
 import reactor.core.publisher.Flux;
 
 @RestController
@@ -199,10 +201,24 @@ public class A2aJsonRpcController {
     /**
      * Transport-level tenant identity travels through the call-context state and
      * takes precedence downstream over the client-self-declared params.tenant.
+     * Precedence: JWT-authenticated tenant (when the W1 auth filter ran) >
+     * X-Tenant-Id header > configured default.
      */
     private ServerCallContext serverContext(String tenantHeader) {
-        String tenant = tenantHeader == null || tenantHeader.isBlank()
-                ? access.getDefaultTenantId() : tenantHeader.trim();
+        String authenticated = authenticatedTenant();
+        String tenant = authenticated != null ? authenticated
+                : tenantHeader == null || tenantHeader.isBlank()
+                        ? access.getDefaultTenantId() : tenantHeader.trim();
         return new ServerCallContext(null, Map.of(A2aAgentExecutor.TENANT_STATE_KEY, tenant), Set.of());
+    }
+
+    private static String authenticatedTenant() {
+        RequestAttributes attributes = RequestContextHolder.getRequestAttributes();
+        if (attributes == null) {
+            return null;
+        }
+        Object tenant = attributes.getAttribute(
+                A2aTenantAuthFilter.AUTHENTICATED_TENANT_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST);
+        return tenant instanceof String value && !value.isBlank() ? value : null;
     }
 }

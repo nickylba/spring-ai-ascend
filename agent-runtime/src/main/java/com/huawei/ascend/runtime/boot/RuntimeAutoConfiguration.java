@@ -30,7 +30,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -86,6 +88,16 @@ public class RuntimeAutoConfiguration {
 
     @Bean @ConditionalOnMissingBean(RunRepository.class)
     public InMemoryRunRepository runRepository() { return new InMemoryRunRepository(); }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "agent-runtime.access.a2a.jwt", name = "enabled", havingValue = "true")
+    public FilterRegistrationBean<A2aTenantAuthFilter> a2aTenantAuthFilter(RuntimeAccessProperties access) {
+        FilterRegistrationBean<A2aTenantAuthFilter> registration =
+                new FilterRegistrationBean<>(new A2aTenantAuthFilter(access));
+        registration.addUrlPatterns("/a2a", "/a2a/*");
+        registration.setOrder(10);
+        return registration;
+    }
 
     @Bean @ConditionalOnMissingBean
     public AgentExecutor a2aAgentExecutor(ObjectProvider<AgentRuntimeHandler> handlers,
