@@ -1,0 +1,60 @@
+id: ADR-0162
+title: "W3 client SDK un-deferred — springai-ascend-client module, Java-first A2A facade slice"
+status: accepted
+date: 2026-06-11
+level: L1
+view: development
+affects_level: L1
+affects_view: [logical, development]
+authors:
+  - owner (decision)
+  - claude (proposal + drafting)
+relates_to:
+  - ADR-0161    # serviceization facade — the service edge the client may front
+context: |
+  The status ledger entry client_sdk_observability_contract has carried the
+  Audience B client SDK as "W3 deferred" since L1.x: the server-side
+  prerequisites (W3C traceparent parse/originate at the HTTP edge,
+  traceresponse correlation header, MDC expansion, JWT tenant cross-check at
+  both ingress edges) were built first so vanilla OTel clients could integrate
+  without a platform SDK. Those prerequisites are now shipped and
+  test-verified, and external Spring developers integrating against the A2A
+  surface currently hand-roll JSON-RPC + SSE handling — including the
+  non-obvious terminal-event/cancellation semantics the e2e example's
+  SampleA2aClient had to encode.
+
+  W3 kickoff assessment with the full candidate inventory:
+  docs/logs/plans/2026-06-11-w3-kickoff-assessment.md
+  (status: approved; owner answers recorded in its frontmatter).
+decision: |
+  1. Owner decision Q1: the client SDK is UN-DEFERRED now, as the W3 lead
+     item. The ledger entry's W3 trigger is met; this ADR is its L0 decision
+     pointer for the first slice.
+  2. Owner decision Q2: a NEW reactor module springai-ascend-client
+     (kind: sdk). The retired agent-client module name is not reused. The
+     module does not join agent-sdk: a client application must not inherit
+     the agent-definition SDK's framework adapter dependencies.
+  3. Owner decision Q3: Java-only API in the first slice; Kotlin idioms are a
+     follow-up slice, JS/Python stay W3+ per the ledger.
+  4. Owner decision Q4: Apache Tika document ingestion is OUT of v1.0 scope;
+     it requires its own design proposal before any code (no ingestion SPI
+     exists). Recorded here so v1.0 planning has one authority.
+  5. First-slice scope (this change): an A2A client facade over the
+     a2a-java-sdk client (OSS-first — the protocol client is not re-written):
+     typed send/stream/card with the platform's terminal-event and
+     post-terminal-cancellation semantics built in; outbound W3C traceparent
+     propagation + traceresponse correlation surfaced to the caller; auth
+     helpers for the two ingress edges (JWT bearer + X-Tenant-Id cross-check
+     headers). OTLP batching and posture-aware PII redaction are the second
+     slice (they carry the OTel dependency decision and follow the gateway
+     bridge's optional-dependency pattern).
+consequences: |
+  - The reactor grows to 7 modules; module-metadata, the status ledger entry,
+    and repository_counts move in lockstep with this change.
+  - Audience B integrates through a supported facade instead of copying
+    SampleA2aClient; the example's client knowledge is promoted, not
+    duplicated (the example rewires onto the SDK where it exercised its own
+    copy).
+  - The observability half of the ledger contract (business spans, OTLP
+    batching, PII redaction) remains design_accepted until the second slice;
+    the allowed claim must not say the SDK fulfils it yet.

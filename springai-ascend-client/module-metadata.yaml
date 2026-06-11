@@ -1,0 +1,20 @@
+# Module metadata for springai-ascend-client.
+# Required by CLAUDE.md Rule R-C sub-clause .b (Independent Module Evolution).
+# Authority: ADR-0162. Enforced by gate rule module_metadata_present_and_complete.
+
+module: springai-ascend-client
+kind: sdk                # platform | domain | starter | bom | sample | sdk
+version: 0.1.0-SNAPSHOT
+semver_compatibility: 0.x
+description: "A2A client SDK for external Spring developers (Audience B): a Spring-free facade over the OSS a2a-java-sdk JSON-RPC client with the platform's terminal-event/post-terminal-cancellation semantics built in, per-call W3C traceparent propagation + traceresponse correlation, and JWT bearer + X-Tenant-Id auth headers matching both platform ingress edges."
+architecture_doc: architecture/docs/L1/springai-ascend-client/README.md
+dfx_doc: docs/dfx/springai-ascend-client.yaml
+spi_packages: []          # the SDK is a consumable facade; it declares no extension seam
+allowed_dependencies: []  # no reactor sibling deps — must embed in customer apps without platform server modules
+forbidden_dependencies:
+  - agent-runtime
+  - agent-bus
+  - agent-sdk
+  - agent-service
+  - agent-service-starter
+deployment_plane: none    # runs inside the customer application process, outside platform deployment planes

@@ -38,6 +38,7 @@
     <module>agent-sdk</module>
     <module>agent-service</module>
     <module>agent-service-starter</module>
+    <module>springai-ascend-client</module>
   </modules>
 
   <properties>
@@ -53,6 +54,7 @@
     <temporal.version>1.35.0</temporal.version>
     <mcp.version>1.0.0</mcp.version>
     <a2a-sdk.version>1.0.0.CR1</a2a-sdk.version>
+    <protobuf.version>4.33.2</protobuf.version>
     <langchain4j.version>1.14.1</langchain4j.version>
     <resilience4j.version>2.4.0</resilience4j.version>
     <caffeine.version>3.2.4</caffeine.version>
@@ -134,6 +136,40 @@
             <artifactId>quarkus-arc</artifactId>
           </exclusion>
         </exclusions>
+      </dependency>
+      <!-- A2A Java SDK client side (springai-ascend-client facade base). -->
+      <dependency>
+        <groupId>org.a2aproject.sdk</groupId>
+        <artifactId>a2a-java-sdk-client-transport-jsonrpc</artifactId>
+        <version>${a2a-sdk.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.a2aproject.sdk</groupId>
+        <artifactId>a2a-java-sdk-client-transport-spi</artifactId>
+        <version>${a2a-sdk.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.a2aproject.sdk</groupId>
+        <artifactId>a2a-java-sdk-http-client</artifactId>
+        <version>${a2a-sdk.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.a2aproject.sdk</groupId>
+        <artifactId>a2a-java-sdk-spec</artifactId>
+        <version>${a2a-sdk.version}</version>
+      </dependency>
+      <!-- protobuf: the a2a client serializes JSON-RPC payloads through the
+           proto JsonFormat bridge but declares protobuf as provided, so the
+           consuming module must pin the runtime artifacts itself. -->
+      <dependency>
+        <groupId>com.google.protobuf</groupId>
+        <artifactId>protobuf-java</artifactId>
+        <version>${protobuf.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.protobuf</groupId>
+        <artifactId>protobuf-java-util</artifactId>
+        <version>${protobuf.version}</version>
       </dependency>
 
       <!-- langchain4j (alternate RAG profile + document-loader catalog). -->
@@ -279,6 +315,11 @@
       <dependency>
         <groupId>com.huawei.ascend</groupId>
         <artifactId>agent-service-starter</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.huawei.ascend</groupId>
+        <artifactId>springai-ascend-client</artifactId>
         <version>${project.version}</version>
       </dependency>
     </dependencies>

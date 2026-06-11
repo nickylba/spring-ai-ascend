@@ -1,0 +1,47 @@
+# DFX (Design-for-X) declaration for the springai-ascend-client module.
+#
+# Published voluntarily for the SDK surface (Rule 32 mandates DFX yamls for
+# kind: domain; this module is kind: sdk and adopts the same five-dimension
+# shape so the client surface has one DFX authority).
+#
+# Authority: ADR-0162 (client SDK un-deferred — first slice).
+# Enforced by gate rule dfx_yaml_present_and_wellformed.
+
+module: springai-ascend-client
+kind: sdk
+version: 1
+generated_at: 2026-06-11
+
+spi_packages: []   # consumable facade; no extension seam in the first slice
+
+releasability:
+  artifact_coords: "com.huawei.ascend:springai-ascend-client"
+  semver_policy: "0.x — public facade (AscendA2aClient/SendSpec/ClientAuth/TracePropagation/A2aResponse/A2aEvents) may change without major bump until 1.0; OSS a2a spec types appear on the API surface and follow the pinned a2a-sdk version"
+  deprecation_window: "one minor version on the public facade"
+  packaging: "plain jar; Spring-free main scope; consumes the a2a-java-sdk client artifacts pinned by the parent BoM; embeds in customer apps without platform server modules"
+
+resilience:
+  fallback_paths: []
+  posture_aware_defaults: "not applicable — the SDK runs in the customer process and holds no platform posture; fail-closed behaviors live at the server ingress"
+  cancellation_contract: "streamText blocks until a terminal event; the A2A SDK's post-terminal SSE cancellation is classified as normal completion, any pre-terminal cancellation or transport error fails the call (IllegalStateException with cause); timeout -> IllegalStateException"
+  reference_rule: "terminal-event + cancellation semantics ported verbatim from the proven e2e SampleA2aClient and unit-locked in A2aEventsTest"
+
+availability:
+  health_endpoints: []   # client library; no served endpoints
+  readiness_signal: "agentCard() doubles as the connectivity probe (fetches /.well-known/agent-card.json with auth + trace headers)"
+  startup_failure_modes:
+    - "blank/null baseUrl -> IllegalArgumentException at build()"
+    - "unreachable server or non-2xx card fetch -> A2AClientError from agentCard()"
+
+vulnerability:
+  scan_tooling: "manual review at L1; rides the reactor's dependency pinning (parent BoM)"
+  auth_surface: "outbound only — Authorization: Bearer <jwt> via caller-supplied Supplier (re-evaluated per call; supports rotating credentials) + optional X-Tenant-Id cross-check header (ADR-0040)"
+  tenant_isolation: "client emits the tenant claim/header pair; isolation is enforced server-side (A2aTenantAuthFilter / ServiceTenantAuthFilter)"
+  secret_handling: "tokens never logged; debug logging surfaces only event counts and trace ids"
+  spi_purity: "not applicable — no SPI packages"
+
+observability:
+  metric_namespace: "none in slice 1 — OTLP batching is the second ADR-0162 slice"
+  trace_propagation: "per-call W3C version-00 traceparent origination (JDK-only hex, all-zero ids excluded, sampled flag configurable); server traceresponse captured off the wire and surfaced as TraceCorrelation on every A2aResponse"
+  log_field_shape: "slf4j-api only; single debug line per call with event count + traceparent + traceresponse"
+  pii_redaction: "deferred to the second slice with the OTel dependency decision (ADR-0162)"

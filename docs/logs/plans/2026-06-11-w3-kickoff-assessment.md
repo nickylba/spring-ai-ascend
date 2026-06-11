@@ -1,6 +1,12 @@
 ---
 date: 2026-06-11
-status: awaiting owner decisions
+status: approved
+owner_answers:
+  q1_undefer_client_sdk: "yes — client SDK un-deferred as the W3 lead item"
+  q2_module_coordinates: "new reactor module springai-ascend-client (kind: sdk); agent-client name not reused; not folded into agent-sdk"
+  q3_kotlin_surface: "Java-only first slice; Kotlin idioms follow-up"
+  q4_tika_v1_scope: "out of v1.0; needs its own design proposal first"
+decision_record: docs/adr/0162-w3-client-sdk-first-slice.yaml
 scope: W3 kickoff — candidate inventory, local-feasibility split, open questions
 predecessors:
   - 2026-06-11-llm-gateway-w2-proposal.md (approved; PR-1..PR-5 landed locally)
