@@ -31,14 +31,31 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Maven verify (compile + unit + integration tests)
+      - name: Maven install (compile + unit + integration tests)
         # NOTE: no -T 1C here. Spring Boot 4.0.5 is not thread-safe at
         # SpringApplication.run() init; -T 1C boots module ITs concurrently in
         # parallel reactor JVMs and intermittently deadlocks (observed: 5h+ hangs
         # on main and PR CI). Running the reactor single-threaded means only one
         # context boots at a time globally, removing the race. Failsafe also has a
         # 15-min forkedProcessTimeoutInSeconds safety net (see parent pom).
-        run: ./mvnw -B -ntp --strict-checksums -Pquality verify
+        # `install` (not `verify`): the scenario suite below lives outside the
+        # reactor and resolves the platform snapshots from the local repository.
+        run: ./mvnw -B -ntp --strict-checksums -Pquality install
+
+      - name: Scenario suite (behavior anchor)
+        # The e2e example carries the platform's reference scenarios and the
+        # dynamic-plan consistency invariants (I1–I5). Its pom skips tests by
+        # default (legacy real-LLM tests are env-gated skips), so CI must opt
+        # in explicitly — otherwise the behavior anchor is unguarded.
+        run: ./mvnw -B -ntp -f examples/agent-runtime-a2a-llm-e2e/pom.xml test -DskipTests=false
+
+      - name: Architecture facts consistency
+        # Regenerate the facts projection and require a clean diff. Facts embed
+        # the HEAD commit hash in provenance lines; -I filters hash-bearing
+        # lines so only REAL content drift fails the check.
+        run: |
+          ./mvnw -B -ntp -q -f tools/architecture-workspace exec:java@extract-facts
+          git diff -I'[0-9a-f]\{40\}' --exit-code -- architecture/facts/generated
 
       - name: Install Python deps for architecture-graph generation
         # Required by Rule 34 (architecture_graph_well_formed) — the gate

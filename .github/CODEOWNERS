@@ -60,3 +60,44 @@
 
 # CODEOWNERS itself — meta-protected
 /.github/CODEOWNERS                                    @chaosxingxc-orion/chief-architect
+
+# ════════════════════════════════════════════════════════════════════════
+# Plane ownership — contract-owner routing per the four conceptual planes
+# (operating model: docs/logs/plans/2026-06-11-ai-era-engineering-operating-model.cn.md §5).
+# Owners review EVIDENCE PACKAGES (invariant coverage, adversarial
+# verification, empirical probes) — not line-by-line diffs — except in the
+# high-risk paths below, which require implementation-level review by
+# primary AND backup. Replace placeholders with real handles at handover:
+#   @owner-a Hosting primary (agent-runtime + agent-bus)   backup: @owner-b
+#   @owner-b LLM gateway primary (runtime.llm.gateway)     backup: @owner-a
+#   @owner-c Fleet primary (agent-service + starter)       backup: @owner-d
+#   @owner-d Authoring primary (agent-sdk)                 backup: @owner-e
+#   @owner-e Caller primary (clients)                      backup: @owner-c
+# ════════════════════════════════════════════════════════════════════════
+
+# ── Plane ownership (primary routes the review) ──
+/agent-runtime/                                        @owner-a
+/agent-bus/                                            @owner-a
+/agent-runtime/src/main/java/com/huawei/ascend/runtime/llm/   @owner-b
+/agent-service/                                        @owner-c
+/agent-service-starter/                                @owner-c
+/agent-sdk/                                            @owner-d
+/springai-ascend-client/                               @owner-e
+/springai-ascend-client-kotlin/                        @owner-e
+/examples/                                             @owner-d @owner-e
+
+# ── Shared build surfaces: rotating integrator (two primaries co-sign) ──
+/pom.xml                                               @owner-a @owner-c
+/spring-ai-ascend-dependencies/                        @owner-a @owner-c
+/docs/contracts/                                       @owner-a @owner-c
+
+# ── High-risk paths (docs/governance/risk-register.md): primary AND backup
+#    both sign; the PR must carry the deep-review checklist from the template ──
+/agent-runtime/src/main/java/com/huawei/ascend/runtime/boot/JwtTenantValidator.java        @owner-a @owner-b
+/agent-runtime/src/main/java/com/huawei/ascend/runtime/boot/A2aTenantAuthFilter.java       @owner-a @owner-b
+/agent-service-starter/src/main/java/com/huawei/ascend/service/starter/ServiceTenantAuthFilter.java  @owner-c @owner-d
+/agent-service/src/main/java/com/huawei/ascend/service/core/HmacRouteGrantService.java     @owner-c @owner-d
+/agent-runtime/src/main/java/com/huawei/ascend/runtime/run/                                @owner-a @owner-b
+/agent-runtime/src/main/java/com/huawei/ascend/runtime/idempotency/                        @owner-a @owner-b
+/agent-runtime/src/main/java/com/huawei/ascend/runtime/engine/a2a/                         @owner-a @owner-b
+/agent-runtime/src/main/java/com/huawei/ascend/runtime/llm/gateway/MintedTokenAuthenticator.java     @owner-b @owner-a

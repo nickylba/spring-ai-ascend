@@ -117,3 +117,4 @@ gate/log/latest
 # pins the exact codegraph version).
 .codegraph/
 tools/codegraph/node_modules/
+.gate-venv/
