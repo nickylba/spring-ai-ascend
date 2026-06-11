@@ -123,7 +123,14 @@
       <optional>true</optional>
     </dependency>
 
-    <!-- Observability: Micrometer + Prometheus. -->
+    <!-- Observability: micrometer-core is a hard dependency — boot wiring and the
+         LLM gateway reference MeterRegistry in bean signatures, so a consumer
+         classpath without it fails bean creation with TypeNotPresentException.
+         The Prometheus registry stays optional (consumers pick their backend). -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-core</artifactId>
+    </dependency>
     <dependency>
       <groupId>io.micrometer</groupId>
       <artifactId>micrometer-registry-prometheus</artifactId>
