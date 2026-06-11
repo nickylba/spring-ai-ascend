@@ -172,6 +172,16 @@ Whether you are a new human contributor or an AI assistant, follow this order fo
 
 These 7 surfaces present **distinct slices**: workspace (structure) → constraints (declarative) → rules (enforceable) → L1 (module design) → contracts (runtime) → quickstart (boot) → overview (narrative). Loading all 7 in order produces a complete, unbiased architecture understanding. Loading any one in isolation produces a partial view.
 
+## What lives where (three kinds of content in one repo)
+
+| Kind | Where | Nature |
+|---|---|---|
+| **Product** — what you ship and depend on | the 8 reactor modules + `examples/` + `docs/quickstart.md` + `docs/developer-handbook.md` | code + customer-facing docs |
+| **Law** — machine-executable boundaries | `gate/`, ArchUnit tests inside modules, `module-metadata.yaml` per module, `docs/contracts/`, `docs/governance/` (incl. `risk-register.md`), `architecture/facts/` | runs on every commit; the registry is a projection of the code |
+| **History & intent** — decisions and records | `docs/adr/`, `architecture/` L0/L1 docs, `docs/logs/` (plans/reviews/releases), `docs/deep-dives/` | slow-changing; ADRs immutable |
+
+One command runs what CI runs: `bash verify.sh` (inner loop: `bash verify.sh fast`).
+
 ## Where to go next (cross-links beyond the Reading path)
 
 - [docs/developer-handbook.md](docs/developer-handbook.md) — the single front-door manual for industry developers building agents and multi-agent systems on the platform.
