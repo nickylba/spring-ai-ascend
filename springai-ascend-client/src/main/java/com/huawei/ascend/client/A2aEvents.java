@@ -82,9 +82,13 @@ public final class A2aEvents {
     /**
      * True when this event suspends the run waiting on the caller — an A2A
      * {@code input-required} or {@code auth-required} task state (on a status
-     * update or a {@code Task} snapshot). The turn is over but the run is NOT
-     * terminal: the caller is expected to answer the agent's prompt in a
-     * follow-up send.
+     * update or a {@code Task} snapshot), or the platform's prompt-message
+     * convention: a {@code Message} carrying {@code runStatus=input-required}
+     * metadata. The message form exists because the server SDK never marks
+     * input-required status updates final, so they are held off the streaming
+     * wire — the runtime stamps the prompt message instead, mirroring the
+     * terminal {@code runStatus} convention. The turn is over but the run is
+     * NOT terminal: the caller answers the prompt in a follow-up send.
      */
     public static boolean isAwaitingInput(StreamingEventKind event) {
         if (event instanceof TaskStatusUpdateEvent statusEvent
@@ -93,6 +97,9 @@ public final class A2aEvents {
         }
         if (event instanceof Task task && task.status() != null) {
             return isAwaitingInputState(task.status().state());
+        }
+        if (event instanceof Message message && message.metadata() != null) {
+            return "input-required".equals(String.valueOf(message.metadata().get("runStatus")));
         }
         return false;
     }

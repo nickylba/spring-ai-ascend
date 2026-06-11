@@ -20,10 +20,12 @@ import org.a2aproject.sdk.client.http.A2ACardResolver;
 import org.a2aproject.sdk.client.transport.jsonrpc.JSONRPCTransport;
 import org.a2aproject.sdk.client.transport.spi.interceptors.ClientCallContext;
 import org.a2aproject.sdk.spec.AgentCard;
+import org.a2aproject.sdk.spec.CancelTaskParams;
 import org.a2aproject.sdk.spec.EventKind;
 import org.a2aproject.sdk.spec.Message;
 import org.a2aproject.sdk.spec.MessageSendParams;
 import org.a2aproject.sdk.spec.StreamingEventKind;
+import org.a2aproject.sdk.spec.Task;
 import org.a2aproject.sdk.spec.TextPart;
 import org.a2aproject.sdk.util.Utils;
 import org.slf4j.Logger;
@@ -118,6 +120,51 @@ public final class AscendA2aClient implements AutoCloseable {
             throw e;
         } finally {
             transport.close();
+        }
+    }
+
+    /**
+     * Blocking JSON-RPC {@code tasks/cancel} for a task this client created
+     * — e.g. one suspended on {@link A2aResponse#awaitingInput()} the caller
+     * decides not to answer. Returns the server's task snapshot after the
+     * cancellation; the runtime also marks the task's non-terminal runs
+     * cancelled.
+     */
+    public Task cancelTask(String taskId) {
+        Objects.requireNonNull(taskId, "taskId");
+        // Deliberately NOT the OSS transport's cancelTask: the server wraps the
+        // result in the proto-JSON oneof shape ({"result":{"task":{...}}}),
+        // which the OSS client-side parser rejects expecting a bare Task. Both
+        // ends of THIS path use the SDK's JsonUtil, so the round trip is
+        // symmetric by construction.
+        String traceparent = trace.newTraceparent();
+        try {
+            String requestJson = org.a2aproject.sdk.jsonrpc.common.json.JsonUtil.toJson(
+                    new org.a2aproject.sdk.jsonrpc.common.wrappers.CancelTaskRequest(
+                            "cancel-" + java.util.UUID.randomUUID(), new CancelTaskParams(taskId)));
+            java.net.http.HttpRequest.Builder request = java.net.http.HttpRequest.newBuilder(
+                            URI.create(baseUrl + "/a2a"))
+                    .header("Content-Type", "application/json")
+                    .timeout(timeout)
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(requestJson));
+            callHeaders(traceparent).forEach(request::header);
+            java.net.http.HttpResponse<String> response = http.send(
+                    request.build(), java.net.http.HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() != 200) {
+                throw new IllegalStateException("tasks/cancel failed with HTTP " + response.statusCode());
+            }
+            org.a2aproject.sdk.jsonrpc.common.wrappers.CancelTaskResponse parsed =
+                    org.a2aproject.sdk.jsonrpc.common.json.JsonUtil.fromJson(
+                            response.body(), org.a2aproject.sdk.jsonrpc.common.wrappers.CancelTaskResponse.class);
+            if (parsed.getResult() == null) {
+                throw new IllegalStateException("tasks/cancel returned no task: " + response.body());
+            }
+            return parsed.getResult();
+        } catch (org.a2aproject.sdk.jsonrpc.common.json.JsonProcessingException | java.io.IOException e) {
+            throw new IllegalStateException("tasks/cancel failed", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("tasks/cancel interrupted", e);
         }
     }
 
