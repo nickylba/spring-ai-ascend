@@ -16,9 +16,15 @@ import javax.crypto.spec.SecretKeySpec;
  * expired tokens, and extracts the {@code tenant_id} claim. Reused by every
  * tenant-attributing edge — the runtime's A2A filter here in boot and the
  * serviceization (agent-service) ingress edges — so the cross-check semantics
- * stay pinned by one validator and one set of security tests. Deliberately
- * JDK+Jackson only — asymmetric algorithms arrive with the platform key
- * infrastructure.
+ * stay pinned by one validator and one set of security tests.
+ *
+ * <p>HS256 shared-secret validation is the recorded TRANSITION path
+ * (Authority: ADR-0164): dev/local and single-operator deployments, no key
+ * infrastructure required. The production trajectory is OIDC/JWKS through
+ * Spring Security's {@code JwtDecoder} with the platform keeping only the
+ * tenant cross-check; it slots in behind the same two-method surface when the
+ * key-infrastructure wave lands. Deliberately JDK+Jackson only until then —
+ * a hard Nimbus dependency would ride into every facade deployment.
  */
 public final class JwtTenantValidator {
 

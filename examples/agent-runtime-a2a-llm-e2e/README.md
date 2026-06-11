@@ -480,7 +480,7 @@ Gateway-path overrides:
 This example is outside the root Maven reactor, so install the runtime dependency into your local Maven repository first:
 
 ```bash
-./mvnw -pl agent-runtime -am -DskipTests install
+./mvnw -DskipTests install
 ```
 
 That makes the current `agent-runtime` snapshot available to `examples/agent-runtime-a2a-llm-e2e`.
@@ -601,7 +601,7 @@ Expected happy path:
 ## Troubleshooting
 
 - `Could not resolve com.huawei.ascend:agent-runtime:<version>`
-  - Run `./mvnw -pl agent-runtime -am -DskipTests install` first.
+  - Run `./mvnw -DskipTests install` first.
 
 - The server starts but the model call fails.
   - Verify `SAA_SAMPLE_LLM_API_KEY`, `SAA_SAMPLE_OPENJIUWEN_API_BASE`, and `SAA_SAMPLE_LLM_MODEL`.

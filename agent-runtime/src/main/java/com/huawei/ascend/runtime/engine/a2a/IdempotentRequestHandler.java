@@ -83,6 +83,9 @@ public final class IdempotentRequestHandler implements RequestHandler {
             return result;
         } catch (RuntimeException e) {
             // A failed send must stay retryable (ADR-0027 claim/replay semantics).
+            // This covers protocol-level A2AError too: the SDK declares it in
+            // throws clauses but it extends RuntimeException, so it cannot slip
+            // past this release (pinned by a2aErrorFailureStaysRetryable).
             store.release(tenantId, messageId);
             throw e;
         }

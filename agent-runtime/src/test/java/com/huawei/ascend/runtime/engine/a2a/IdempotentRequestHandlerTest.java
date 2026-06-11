@@ -91,6 +91,21 @@ class IdempotentRequestHandlerTest {
         verify(delegate, times(2)).onMessageSend(any(), any());
     }
 
+    /** A protocol-level A2AError must release the claim too — not only RuntimeException. */
+    @Test
+    void a2aErrorFailureStaysRetryable() throws A2AError {
+        when(delegate.onMessageSend(any(), any()))
+                .thenThrow(new A2AError(-32603, "upstream agent unavailable", null))
+                .thenReturn(task("task-1", TaskState.TASK_STATE_COMPLETED));
+
+        assertThatThrownBy(() -> handler.onMessageSend(params("msg-1"), context("bank-7")))
+                .isInstanceOf(A2AError.class);
+        EventKind retried = handler.onMessageSend(params("msg-1"), context("bank-7"));
+
+        assertThat(((Task) retried).id()).isEqualTo("task-1");
+        verify(delegate, times(2)).onMessageSend(any(), any());
+    }
+
     /** A send without a messageId cannot be deduplicated and passes straight through. */
     @Test
     void sendWithoutMessageIdIsNotDeduplicated() throws A2AError {

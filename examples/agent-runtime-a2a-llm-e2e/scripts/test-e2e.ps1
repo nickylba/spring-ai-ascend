@@ -1,4 +1,4 @@
-# Load an env file, install agent-runtime into the local Maven repo, then run the
+# Load an env file, install the reactor modules into the local Maven repo, then run the
 # example A2A + openJiuwen E2E suite (incl. the real-LLM OpenJiuwenReactAgentA2aE2eTest
 # when SAA_SAMPLE_LLM_API_KEY is set).
 #
@@ -20,5 +20,5 @@ if ([string]::IsNullOrWhiteSpace($env:SAA_SAMPLE_LLM_API_KEY)) {
     Write-Host "WARNING: SAA_SAMPLE_LLM_API_KEY is blank - the real-LLM e2e branch will be SKIPPED (assumeTrue)."
 }
 Set-Location $repo
-& ./mvnw -pl agent-runtime -am install -DskipTests -Dmaven.test.skip=true
+& ./mvnw install -DskipTests -Dmaven.test.skip=true
 & ./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml test

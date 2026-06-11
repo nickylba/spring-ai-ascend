@@ -12,6 +12,11 @@ import org.springframework.boot.test.context.ConfigDataApplicationContextInitial
  * every framework's model settings, and arms the local LLM egress gateway in
  * the same motion. This test resolves the real application.yaml both ways so
  * a broken placeholder chain fails here, not at first boot with the flag on.
+ *
+ * <p>Assertions follow the placeholder RELATIONSHIPS, never literal default
+ * URLs: the helper scripts export {@code SAA_SAMPLE_*} overrides (e.g. the
+ * ollama env file points the upstream at localhost:11434), and this test must
+ * stay green under any ambient values.
  */
 class SampleLlmGatewayFlipTest {
 
@@ -23,8 +28,13 @@ class SampleLlmGatewayFlipTest {
         contextRunner.run(context -> {
             var env = context.getEnvironment();
             assertThat(env.getProperty("sample.llm.path")).isEqualTo("raw");
-            assertThat(env.getProperty("sample.openjiuwen.api-base")).isEqualTo("http://localhost:4000/v1");
-            assertThat(env.getProperty("sample.openjiuwen.model-name")).isEqualTo("gpt-5.4-mini");
+            // Framework settings resolve to the raw block, whatever its values are.
+            assertThat(env.getProperty("sample.openjiuwen.api-base"))
+                    .isEqualTo(env.getProperty("sample.llm.raw.openjiuwen-api-base"));
+            assertThat(env.getProperty("sample.openjiuwen.model-name"))
+                    .isEqualTo(env.getProperty("sample.llm.raw.model-name"));
+            assertThat(env.getProperty("sample.agentscope.api-base"))
+                    .isEqualTo(env.getProperty("sample.llm.raw.agentscope-api-base"));
             assertThat(env.getProperty("agent-runtime.llm.gateway.enabled")).isEqualTo("false");
         });
     }
@@ -34,16 +44,22 @@ class SampleLlmGatewayFlipTest {
         contextRunner.withPropertyValues("SAA_SAMPLE_LLM_VIA_GATEWAY=true").run(context -> {
             var env = context.getEnvironment();
             assertThat(env.getProperty("sample.llm.path")).isEqualTo("gateway");
-            // Both framework configs point at the gateway /v1 surface …
-            assertThat(env.getProperty("sample.openjiuwen.api-base")).isEqualTo("http://localhost:8080/v1");
-            assertThat(env.getProperty("sample.agentscope.api-base")).isEqualTo("http://localhost:8080/v1");
+            // Both framework configs point at the gateway block's /v1 surface …
+            String gatewayBase = env.getProperty("sample.llm.gateway.base-url");
+            assertThat(gatewayBase).isNotBlank();
+            assertThat(env.getProperty("sample.openjiuwen.api-base")).isEqualTo(gatewayBase);
+            assertThat(env.getProperty("sample.agentscope.api-base")).isEqualTo(gatewayBase);
             // … with the model alias as the model name and the minted token as the credential.
-            assertThat(env.getProperty("sample.openjiuwen.model-name")).isEqualTo("sample-llm");
-            assertThat(env.getProperty("sample.openjiuwen.api-key")).isEqualTo("saa-sample-minted-token");
-            // The same flag arms the local gateway with the alias routing table.
+            assertThat(env.getProperty("sample.openjiuwen.model-name"))
+                    .isEqualTo(env.getProperty("sample.llm.gateway.model-alias"));
+            assertThat(env.getProperty("sample.openjiuwen.api-key"))
+                    .isEqualTo(env.getProperty("sample.llm.gateway.token"));
+            // The same flag arms the local gateway, whose alias table keeps pointing
+            // at the raw upstream — wherever the ambient env put it.
             assertThat(env.getProperty("agent-runtime.llm.gateway.enabled")).isEqualTo("true");
-            assertThat(env.getProperty("agent-runtime.llm.gateway.aliases.sample-llm.base-url"))
-                    .isEqualTo("http://localhost:4000/v1");
+            String alias = env.getProperty("sample.llm.gateway.model-alias");
+            assertThat(env.getProperty("agent-runtime.llm.gateway.aliases." + alias + ".base-url"))
+                    .isEqualTo(env.getProperty("sample.llm.raw.openjiuwen-api-base"));
         });
     }
 }

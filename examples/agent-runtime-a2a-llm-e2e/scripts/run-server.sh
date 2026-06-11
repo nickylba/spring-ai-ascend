@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Load an env file, install agent-runtime, then start the example A2A + openJiuwen server.
+# Load an env file, install the reactor modules, then start the example A2A + openJiuwen server.
 # Usage: bash scripts/run-server.sh [env-file]   (default: .env)
 #   bash scripts/run-server.sh .env.ollama.example
 set -euo pipefail
@@ -13,5 +13,5 @@ else
   echo "env file not found: $ENV_FILE — using application.yaml defaults"
 fi
 cd "$REPO"
-./mvnw -pl agent-runtime -am install -DskipTests -Dmaven.test.skip=true
+./mvnw install -DskipTests -Dmaven.test.skip=true
 ./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml spring-boot:run

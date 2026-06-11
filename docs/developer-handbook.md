@@ -636,6 +636,12 @@ Both share `JwtTenantValidator` (`runtime.boot`) — one validator, one set of
 semantics, both edges. `ClientAuth.jwtBearer` on the client SDK produces
 exactly the headers these filters expect.
 
+> **Transition status (ADR-0164):** the HS256 shared-secret scheme is the
+> recorded transition path for dev/local and single-operator deployments.
+> The production trajectory is OIDC/JWKS through Spring Security's
+> `JwtDecoder`, with the platform keeping only the tenant cross-check; it
+> slots in behind the same filter surface when key infrastructure lands.
+
 Tenant attribution precedence at the runtime ingress: JWT-authenticated tenant
 (when enabled) > `X-Tenant-Id` header >
 `agent-runtime.access.a2a.default-tenant-id` (default `default`).

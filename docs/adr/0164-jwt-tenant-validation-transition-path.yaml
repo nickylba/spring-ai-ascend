@@ -1,0 +1,52 @@
+id: ADR-0164
+title: "Tenant cross-check JWT validation — hand-rolled HS256 is the recorded transition path; OIDC/JWKS via Spring Security JwtDecoder is the production trajectory"
+status: accepted
+date: 2026-06-11
+level: L1
+view: development
+affects_level: L1
+affects_view: [development]
+authors:
+  - owner (decision via PR-179 review disposition)
+  - reviewer chaosxingxc-orion (finding)
+  - claude (drafting)
+relates_to:
+  - ADR-0161    # serviceization Q2 — one shared tenant cross-check primitive for both ingress edges
+context: |
+  PR-179 review (2026-06-11) flagged that JwtTenantValidator implements
+  JWS/JWT validation by hand (JDK + Jackson + HMAC) while agent-runtime
+  already carries spring-boot-starter-oauth2-resource-server (optional) and
+  the platform identity baseline points at OIDC/JWKS with a customer-supplied
+  IdP. ADR-0161 mandated ONE cross-check primitive for both ingress edges but
+  did not record why the primitive bypasses Spring Security / Nimbus
+  JwtDecoder. The reviewer offered two dispositions: migrate validation to
+  JwtDecoder now, or record HS256 as an explicit transition path.
+decision: |
+  1. HS256 shared-secret validation in JwtTenantValidator is the RECORDED
+     TRANSITION PATH for dev/local and single-operator deployments: a
+     symmetric secret provisioned out-of-band, no key infrastructure
+     required, identical semantics on both ingress edges, fully testable
+     without an IdP. Its scope is deliberately minimal — alg pinned to HS256
+     (alg-confusion rejected before verification), constant-time signature
+     compare, exp + clock skew, tenant_id claim extraction.
+  2. The PRODUCTION trajectory is OIDC/JWKS through Spring Security's
+     JwtDecoder (Nimbus), with the platform keeping only the tenant_id
+     cross-check on the decoded claims. The seam is already shaped for it:
+     both filters depend on the validator's two-method surface
+     (validate -> ValidatedToken | InvalidTokenException), so a
+     JwtDecoder-backed implementation slots in behind the same filters and
+     properties without touching either edge. This lands with the platform
+     key-infrastructure wave (Vault/IdP), which this dev host cannot verify.
+  3. Why not migrate now: spring-security-oauth2-resource-server is an
+     OPTIONAL dependency of agent-runtime, and the validator is consumed by
+     agent-service-starter — making Nimbus a hard transitive of every facade
+     deployment solely to re-implement HS256 inverts the blast-radius goal;
+     and an OIDC path shipped without a verifiable IdP/JWKS endpoint would be
+     untested code presented as a security boundary, which the testing rules
+     forbid.
+consequences: |
+  - JwtTenantValidator's javadoc and the developer handbook name the
+    transition status and the production trajectory explicitly, so no
+    deployment mistakes the shared-secret path for the end-state IdP story.
+  - The OIDC/JwtDecoder implementation is an extension point recorded in the
+    deferred ledger alongside the other infrastructure-gated work.

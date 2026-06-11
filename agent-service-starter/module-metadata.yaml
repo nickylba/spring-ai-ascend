@@ -7,7 +7,7 @@ kind: starter            # platform | domain | starter | bom | sample
 version: 0.1.0-SNAPSHOT
 semver_compatibility: 0.x
 description: "Spring Boot edge for the agent-service serviceization facade: auto-configured registration/discovery/route-grant HTTP controllers over the Spring-free service SPI, plus the JWT tenant cross-check filter (agent-service.access.jwt.*) at the service ingress. agent-service itself stays Spring-free; this starter is the only Spring-aware layer."
-architecture_doc: architecture/docs/L1/agent-service/README.md   # the starter is agent-service's Spring edge; no separate L1 surface
+architecture_doc: architecture/docs/L1/agent-service-starter/README.md
 dfx_doc: docs/dfx/agent-service.yaml
 spi_packages: []         # starter exposes auto-configuration, not an SPI; the SPI lives in agent-service
 allowed_dependencies:
