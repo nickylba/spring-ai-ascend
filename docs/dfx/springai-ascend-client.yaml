@@ -41,7 +41,7 @@ vulnerability:
   spi_purity: "not applicable — no SPI packages"
 
 observability:
-  metric_namespace: "none in slice 1 — OTLP batching is the second ADR-0162 slice"
-  trace_propagation: "per-call W3C version-00 traceparent origination (JDK-only hex, all-zero ids excluded, sampled flag configurable); server traceresponse captured off the wire and surfaced as TraceCorrelation on every A2aResponse"
+  metric_namespace: "none — telemetry is spans-only; the ClientTelemetry seam emits business CLIENT spans (noop default, consumer-supplied OpenTelemetry, or the SDK-owned OTLP/HTTP pipeline with BatchSpanProcessor behind ClientTelemetry.otlpHttp); no metrics"
+  trace_propagation: "outbound W3C version-00 traceparent derived from the active client span when telemetry is enabled (JDK-only random mint as the no-telemetry fallback; all-zero ids excluded, sampled flag configurable); server traceresponse captured off the wire and surfaced as TraceCorrelation on every A2aResponse and as a span attribute"
   log_field_shape: "slf4j-api only; single debug line per call with event count + traceparent + traceresponse"
-  pii_redaction: "deferred to the second slice with the OTel dependency decision (ADR-0162)"
+  pii_redaction: "structural in posture=prod — Posture.PROD never sets message-text span attributes (redaction by omission, not filtering) and head-samples at 0.01; dev=1.0 and research=0.10 may attach text; the OpenTelemetry dependencies are optional and confined to the telemetry package (ADR-0162)"

@@ -1,0 +1,43 @@
+# DFX (Design-for-X) declaration for the agent-sdk module.
+#
+# Required by CLAUDE.md Rule R-D — every module declared `kind: domain` MUST
+# publish a DFX yaml covering all five dimensions.
+
+module: agent-sdk
+kind: domain
+version: 1
+generated_at: 2026-06-11
+
+spi_packages:
+  - com.huawei.ascend.agentsdk.spec.tool   # ToolResolver extension seam: custom resolvers register on the AgentHandlerFactory builder for new ref schemes
+
+releasability:
+  artifact_coords: "com.huawei.ascend:agent-sdk"
+  semver_policy: "0.x — public surface is AgentHandlerFactory, the ascend-agent/v1 YAML schema, and the spec.tool resolver seam; the YAML schema is versioned by its schema field"
+  deprecation_window: "one minor version on the factory + resolver seam"
+  packaging: "library jar consumed by runtime applications; depends on agent-runtime for the handler base"
+
+resilience:
+  fallback_paths: []   # spec validation fails the factory call — no partial agent construction
+  posture_aware_defaults: "not applicable — the SDK runs at application assembly time and holds no platform posture"
+  cancellation_contract: "not applicable — built handlers inherit the agent-runtime execution and cancellation contract"
+  reference_rule: "model.alias delegates all routing to the LLM egress gateway and is mutually exclusive with explicit provider/name/baseUrl/apiKey (a leftover explicit key is rejected by name)"
+
+availability:
+  health_endpoints: []   # library; no served endpoints
+  readiness_signal: "AgentHandlerFactory.fromYaml returns a ready AgentRuntimeHandler or throws — there is no degraded state"
+  startup_failure_modes:
+    - "invalid or unresolvable ascend-agent/v1 spec (unknown framework, unresolved ${ENV_VAR}, bad tool ref) — factory throws at assembly time"
+    - "model.alias used without gateway settings on the builder or SAA_GATEWAY_BASE_URL / SAA_GATEWAY_TOKEN env vars — alias resolution fails at assembly time"
+
+vulnerability:
+  scan_tooling: "manual review at L1; rides the reactor's dependency pinning (parent BoM)"
+  auth_surface: "outbound only — http/mcp tool refs and the gateway minted token; ${ENV_VAR} resolution keeps credentials out of spec files"
+  tenant_isolation: "not applicable at assembly time — tenant attribution happens at the runtime A2A ingress"
+  secret_handling: "gateway tokens and tool credentials ride env-var references, never YAML literals in committed specs"
+
+observability:
+  metric_namespace: "none — the SDK emits no metrics; built handlers are observed by agent-runtime"
+  trace_propagation: "not applicable — tracing is owned by the runtime host around handler execution"
+  log_field_shape: "slf4j-api only"
+  pii_redaction: "not applicable — the SDK processes agent definitions, not end-user messages"

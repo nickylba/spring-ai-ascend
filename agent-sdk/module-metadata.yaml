@@ -3,10 +3,12 @@
 # Enforced by gate rule module_metadata_present_and_complete.
 
 module: agent-sdk
-kind: domain             # platform | domain | starter | bom | sample
+kind: domain             # platform | domain | starter | bom | sample | sdk
 version: 0.1.0-SNAPSHOT
 semver_compatibility: experimental
 description: "Agent definition SDK: loads declarative agent specs (ascend-agent/v1 YAML — framework, model, prompt, skills, tools with file/http/mcp refs), resolves tools, and adapts the spec into runnable openJiuwen agents exposed as agent-runtime AgentRuntimeHandlers."
+architecture_doc: null   # no dedicated L1 doc yet; the design surface is docs/quickstart.md ("Declaring agents in YAML") + package javadoc
+dfx_doc: docs/dfx/agent-sdk.yaml
 spi_packages:
   # ToolResolver is the extension seam: register custom resolvers (and NativeTool
   # pass-through) on the AgentHandlerFactory builder for new ref schemes.

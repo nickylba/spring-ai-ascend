@@ -4,17 +4,19 @@
 # Enforced by gate rule module_metadata_present_and_complete.
 
 module: agent-runtime
-kind: domain             # platform | domain | starter | bom | sample
-version: 0.0.1-SNAPSHOT
+kind: domain             # platform | domain | starter | bom | sample | sdk
+version: 0.1.0-SNAPSHOT
 semver_compatibility: experimental
-description: "Run-owning runtime SDK that drives Agent instances built on heterogeneous agent frameworks through a single framework-neutral SPI (engine.spi.AgentRuntimeHandler + optional AgentCardProvider + MessageAdapter + StreamAdapter + narrow MemoryProvider SPI; openJiuwen adapter first). Owns engine dispatch + Run lifecycle + session + task-centric control + internal event queue + access (A2A) + the bootable runtime application."
+description: "Run-owning runtime SDK that drives Agent instances built on heterogeneous agent frameworks through a single framework-neutral SPI (engine.spi.AgentRuntimeHandler + optional AgentCardProvider + StreamAdapter + narrow MemoryProvider SPI; openJiuwen, AgentScope and LangGraph adapters). Owns engine dispatch + Run lifecycle + access (A2A, with (tenant, messageId) idempotent message/send) + the OpenAI-compatible LLM egress gateway (llm.gateway: minted-token auth, model-alias routing, listener-seam GENERATION span/spend emission) + the bootable runtime application."
 architecture_doc: architecture/docs/L1/agent-runtime/README.md
 dfx_doc: docs/dfx/agent-runtime.yaml
 spi_packages:
   # Framework-neutral runtime SPI: AgentRuntimeHandler, optional AgentCardProvider,
-  # MessageAdapter, StreamAdapter, and MemoryProvider - the
-  # per-framework plug-in surface (openJiuwen first).
+  # StreamAdapter, and MemoryProvider - the per-framework plug-in surface.
   - com.huawei.ascend.runtime.engine.spi
+  # LLM egress gateway observer SPI: LlmCallListener + GenerationSpanSink +
+  # SpendLog - the sole emission seam for GENERATION spans and spend records.
+  - com.huawei.ascend.runtime.llm.gateway.spi
 allowed_dependencies:
   - agent-bus              # consumes the neutral bus.spi.engine RunContext/SuspendSignal types
 forbidden_dependencies:

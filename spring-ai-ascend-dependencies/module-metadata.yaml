@@ -3,10 +3,10 @@
 # Authority: ADR-0066. Enforced by gate rule module_metadata_present_and_complete.
 
 module: spring-ai-ascend-dependencies
-kind: bom                # platform | domain | starter | bom | sample
+kind: bom                # platform | domain | starter | bom | sample | sdk
 version: 0.1.0-SNAPSHOT
 semver_compatibility: 0.x
-description: "Bill of Materials — pins the reactor modules (agent-service, agent-runtime, agent-bus) and OSS transitive dependency versions."
+description: "Bill of Materials — pins all consumable reactor modules (agent-bus, agent-runtime, agent-sdk, agent-service, agent-service-starter, springai-ascend-client, springai-ascend-client-kotlin) and OSS transitive dependency versions."
 architecture_doc: null   # BoM has no architecture surface; pom.xml is authoritative
 dfx_doc: null            # DFX is optional for kind:bom per Rule R-D sub-clause .a
 spi_packages: []

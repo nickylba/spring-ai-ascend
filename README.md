@@ -44,7 +44,8 @@ Measured baselines: [`docs/governance/competitive-baselines.yaml`](docs/governan
   tool authorization, and resilience are SPI surfaces you implement and wire by
   dependency injection; in-memory reference implementations ship for local dev.
 - **Multi-tenant + audit-grade.** Every run carries a tenant id; storage-engine
-  isolation, durable idempotency, and structured audit logging are first-class.
+  isolation, tenant-scoped idempotency, and structured audit logging are
+  first-class design concerns (the shipped idempotency tier is in-memory).
 - **Posture-aware.** `dev` is permissive for fast iteration; `research`/`prod`
   fail closed at startup when required configuration is missing.
 
@@ -67,19 +68,24 @@ with two `curl` calls against the A2A surface — no database, no LLM key.
 
 ## Architecture at a glance
 
-The runtime ships as **4 Maven modules**, each pinned to a deployment plane so
+The reactor ships **8 Maven modules**, each pinned to a deployment plane so
 workloads with different runtime characteristics (latency-sensitive HTTP,
 throughput-heavy ML, untrusted sandbox code) never share infrastructure:
 
 | Module | Plane | What it does |
 |--------|-------|--------------|
-| `agent-runtime` | Compute & Control | Run-owning runtime SDK — framework-neutral engine (`engine.spi.AgentRuntimeHandler` + `StreamAdapter`, openJiuwen adapter), `Run` lifecycle, engine dispatch, session, task-centric control, internal event queue, access (A2A), and the bootable runtime app (`app.RuntimeApp` / `LocalA2aRuntimeHost`) |
-| `agent-service` | Compute & Control | Enterprise serviceization façade (skeleton) — registration/discovery driving runtime-built Agent instances via agent-runtime (ADR-0159) |
-| `agent-bus` | Bus & State Hub | Cross-plane control surfaces (client→server ingress, server→client callback) + the neutral `bus.spi.engine` boundary |
-| `spring-ai-ascend-dependencies` | (build-time) | Bill of Materials |
+| `agent-runtime` | Compute & Control | Run-owning runtime SDK — framework-neutral engine SPI (`engine.spi.AgentRuntimeHandler` + `StreamAdapter`; openJiuwen, AgentScope, LangGraph adapters), `Run` lifecycle, A2A access, the OpenAI-compatible LLM egress gateway (`POST /v1/chat/completions`), and the bootable runtime app (`app.RuntimeApp` / `LocalA2aRuntimeHost`) |
+| `agent-service` | Compute & Control | Spring-free serviceization façade — registration/discovery/route-grant SPIs with in-memory references, a byte-level A2A pass-through forwarder, and the runtime self-registration client |
+| `agent-service-starter` | Compute & Control | Spring Boot edge for `agent-service` — auto-configured registration, discovery, route-grant, and A2A-forwarding HTTP controllers behind `@ConditionalOnMissingBean` seams |
+| `agent-sdk` | Compute & Control | Declarative agent definition SDK — builds runnable `AgentRuntimeHandler`s from `ascend-agent/v1` YAML specs (model, prompt, tools, skills) |
+| `agent-bus` | Bus & State Hub | Server→client callback surface (`bus.spi.s2c`) + the neutral `bus.spi.engine` execution contract |
+| `springai-ascend-client` | (customer process) | Java A2A client SDK — `AscendA2aClient` facade with terminal-event semantics, auth helpers, trace propagation, and optional OTLP span telemetry |
+| `springai-ascend-client-kotlin` | (customer process) | Kotlin idiom layer over the Java client SDK — coroutine `suspend` send/stream and the `ascendA2aClient {}` builder DSL |
+| `spring-ai-ascend-dependencies` | (build-time) | Bill of Materials pinning all consumable reactor modules |
 
-Each module declares its identity in `module-metadata.yaml`, its L1 design in
-`architecture/docs/L0/ARCHITECTURE.md`, and its five DFX dimensions in `docs/dfx/<module>.yaml`.
+Each module declares its identity in `module-metadata.yaml` and its L1 design
+under `architecture/docs/L1/<module>/`; platform modules additionally declare
+five DFX dimensions in `docs/dfx/<module>.yaml`.
 Cross-service traffic on the Bus & State Hub plane is sliced into three
 physically isolated channels — `control` (PAUSE/KILL intents, never blocked),
 `data` (run payloads), `rhythm` (heartbeats). The full system boundary, the
@@ -90,7 +96,9 @@ the narrative tour is [docs/overview.md](docs/overview.md).
 
 | You want to… | Do this | Entry point |
 |---|---|---|
-| Plug in a graph-memory backend | Implement `GraphMemoryRepository`; the starter auto-wires it | `spring-ai-ascend-graphmemory-starter` |
+| Call a hosted agent from your application | Use `AscendA2aClient` (Java) or the `ascendA2aClient {}` DSL (Kotlin) — see [docs/quickstart.md §5b](docs/quickstart.md) | `springai-ascend-client`, `springai-ascend-client-kotlin` |
+| Front a fleet of runtimes with a service edge | Add the starter; registration/discovery/route-grant controllers auto-configure | `agent-service-starter` |
+| Declare an agent in YAML instead of code | Write an `ascend-agent/v1` spec; `AgentHandlerFactory.fromYaml(Path)` builds the handler | `agent-sdk` |
 | Use Spring AI primitives directly | Use `ChatMemory` / `VectorStore` / `CrudRepository` without a starter | (no starter needed) |
 | Pin versions and wire it yourself | Import the BoM only | `spring-ai-ascend-dependencies` |
 
@@ -173,11 +181,12 @@ These 7 surfaces present **distinct slices**: workspace (structure) → constrai
 
 ## Project status & governance
 
-**L1 module-level architecture shipped.** The W0 runtime kernel and L1 platform
-composition (JWT validation, tenant cross-check, durable idempotency, posture
-boot guard, the W1 run HTTP API, Code-as-Contract governance) are shipped; W2–W4
-capabilities — including the Ascend/Kunpeng-optimised deployment path — remain
-design contracts. Per-capability detail is the single source of truth in
+**L1 module-level architecture shipped.** The runtime kernel and L1 platform
+composition (the A2A runtime surface with JWT validation + tenant cross-check,
+idempotent `message/send` (in-memory tier), the LLM egress gateway, the
+serviceization edge, the client SDKs, Code-as-Contract governance) are shipped;
+later-wave capabilities — including durable Postgres-backed state and the
+Ascend/Kunpeng-optimised deployment path — remain design contracts. Per-capability detail is the single source of truth in
 [`docs/governance/architecture-status.yaml`](docs/governance/architecture-status.yaml).
 
 A Code-as-Contract gate keeps the documentation and the code in lockstep and

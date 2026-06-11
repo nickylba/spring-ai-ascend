@@ -176,6 +176,65 @@ curl -N http://localhost:8080/a2a \
 Each SSE frame is a JSON-RPC response event; a mid-stream agent failure ends
 the stream with a JSON-RPC error frame rather than a bare transport drop.
 
+## 5b. Call it from Java or Kotlin
+
+The hand-rolled curl/JSON-RPC flow above is what the client SDK wraps. From a
+Java application, depend on the Spring-free facade:
+
+```xml
+<dependency>
+  <groupId>com.huawei.ascend</groupId>
+  <artifactId>springai-ascend-client</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+</dependency>
+```
+
+`AscendA2aClient` carries the platform semantics for you — terminal-event
+detection, post-terminal-cancellation handling, `traceparent`/`traceresponse`
+correlation, and optional JWT/tenant auth headers (`ClientAuth.jwtBearer`):
+
+```java
+import com.huawei.ascend.client.A2aResponse;
+import com.huawei.ascend.client.AscendA2aClient;
+import com.huawei.ascend.client.SendSpec;
+
+try (AscendA2aClient client = AscendA2aClient.builder()
+        .baseUrl("http://localhost:8080")
+        .build()) {
+    A2aResponse reply = client.sendText(
+            SendSpec.of("echo-agent", "session-1", "user-1", "ping"));
+    System.out.println(reply.text());   // "echo: ping"
+}
+```
+
+`streamText(spec, listener)` is the SSE equivalent (blocks until the terminal
+event, surfacing each streaming event to the listener), and
+`AscendA2aClient.Builder#telemetry` plugs in client-side OTLP spans.
+
+Kotlin/coroutine codebases add the idiom layer instead (it pulls the Java
+facade transitively):
+
+```xml
+<dependency>
+  <groupId>com.huawei.ascend</groupId>
+  <artifactId>springai-ascend-client-kotlin</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+</dependency>
+```
+
+```kotlin
+val client = ascendA2aClient {
+    baseUrl = "http://localhost:8080"
+}
+val reply = client.sendTextSuspending(
+    sendSpec(agentId = "echo-agent", sessionId = "session-1",
+             userId = "user-1", text = "ping"))
+println(reply.text())   // "echo: ping"
+```
+
+`sendTextSuspending` / `streamTextSuspending` run the blocking call on
+`Dispatchers.IO` and translate coroutine cancellation into a thread interrupt.
+
 ## 6. Multi-tenant knobs
 
 Every request is attributed to a tenant. Precedence: JWT-authenticated tenant

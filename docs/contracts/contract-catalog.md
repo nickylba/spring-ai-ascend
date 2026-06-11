@@ -1,7 +1,7 @@
 # Contract Catalog
 
 > Single source of truth for all public contracts in the spring-ai-ascend platform.
-> Version: 0.1.0-SNAPSHOT | Last refreshed: 2026-05-28 (PR 92 absorption — added 14 design_only YAML schemas + 5 design_only SPI interfaces per ADR-0155)
+> Version: 0.1.0-SNAPSHOT | Last refreshed: 2026-06-11 (registered the shipped LLM egress gateway + serviceization surfaces per ADR-0160/ADR-0161; retired dangling ADR-0121 rows)
 
 ## Rhetorical stance
 
@@ -18,9 +18,21 @@ Each contract in this catalog has at least one **authority ADR** (the decision t
 
 ## 1. HTTP API contracts
 
-Stable W0 routes: `GET /v1/health`, `GET /actuator/health`, `GET /actuator/prometheus` (no auth headers). Shipped W1 routes: `POST /v1/runs` (202 + TaskCursor per Rule R-F Cursor Flow), `GET /v1/runs/{id}`, `POST /v1/runs/{id}/cancel` (200/404/409 for run-owner semantics; 403 only for JWT/header tenant mismatch today) — all require `X-Tenant-Id`; POST routes also require `Idempotency-Key`; W1 adds JWT `tenant_id` claim cross-check against `X-Tenant-Id` (ADR-0040). Implementation: `agent-service/src/main/java/.../web/runs/RunController.java`. Full per-route spec: [http-api-contracts.md](http-api-contracts.md) + `docs/contracts/openapi-v1.yaml`. (rc12 K-ζ updated these rows from prior `Planned W1` per rc11 review P2-1; Rule 104 `openapi_implemented_route_catalog_truth` prevents recurrence.)
+Shipped HTTP surfaces — every row below is served by a live controller in the named module:
 
-**API conventions** (absorbed from `api-conventions.md`): URL major-versioned (`/v1/`); plural nouns; RFC 7807 `application/problem+json` errors with stable `code`; cursor pagination (`?limit=20&cursor=`); `GET`=200, POST-create=201, async=202, DELETE=204; `Idempotency-Key` required on POST/PUT/PATCH in research/prod; `OpenApiContractIT` snapshot-tests spec; SSE streaming reserved W3+.
+| Route(s) | Module / controller | Status | Authority |
+|---|---|---|---|
+| `POST /a2a` — JSON-RPC `SendMessage` / `SendStreamingMessage` (SSE) / task get + cancel | `agent-runtime` `A2aJsonRpcController` | `runtime_enforced` | ADR-0159; tenant attribution precedence JWT claim > `X-Tenant-Id` header > configured default (ADR-0040); `message/send` idempotent per (tenant, messageId) (ADR-0027) |
+| `GET /.well-known/agent-card.json` (legacy alias `/.well-known/agent.json`) | `agent-runtime` `AgentCardController` | `runtime_enforced` | ADR-0159 |
+| `POST /v1/chat/completions` — OpenAI-compatible LLM egress gateway (minted bearer token + model alias; enabled via `agent-runtime.llm.gateway.enabled`) | `agent-runtime` `ChatCompletionsController` | `runtime_enforced` | ADR-0160 |
+| `POST /v1/runtime-registrations` · `PUT /v1/runtime-registrations/{runtimeInstanceId}/lease` · `DELETE /v1/runtime-registrations/{runtimeInstanceId}` — runtime self-registration + lease | `agent-service-starter` `RuntimeRegistryController` | `runtime_enforced` | ADR-0161 |
+| `GET /v1/agents` · `GET /v1/agents/{agentId}/card` · `POST /v1/agents/{agentId}/routes/resolve` — tenant-scoped discovery + route resolution | `agent-service-starter` `RuntimeRegistryController` | `runtime_enforced` | ADR-0161 |
+| `POST /v1/route-grants/resolve` · `POST /v1/route-grants/validate` — signed east-west route grants | `agent-service-starter` `RouteGrantController` | `runtime_enforced` | ADR-0161 |
+| `POST /v1/agents/{agentId}/a2a` — northbound A2A forwarding (JSON or SSE per the forwarded method) | `agent-service-starter` `A2aGatewayController` | `runtime_enforced` | ADR-0161 |
+
+The earlier W1 run-management API (`POST /v1/runs`, `GET /v1/runs/{id}`, `POST /v1/runs/{id}/cancel`) was retired with the agent-runtime pure rebuild and is NOT served by any module; run cancellation is A2A-level (see `architecture-status.yaml#run_lifecycle_spi`). [http-api-contracts.md](http-api-contracts.md) + `docs/contracts/openapi-v1.yaml` describe that retired surface and are historical references until rewritten.
+
+**API conventions** (absorbed from `api-conventions.md`): URL major-versioned (`/v1/`); plural nouns; RFC 7807 `application/problem+json` errors with stable `code`; cursor pagination (`?limit=20&cursor=`); `GET`=200, POST-create=201, async=202, DELETE=204; SSE streaming shipped on the A2A surface (`SendStreamingMessage`) and the A2A forwarding edge.
 
 ---
 
@@ -30,11 +42,9 @@ Stable W0 routes: `GET /v1/health`, `GET /actuator/health`, `GET /actuator/prome
 
 SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime data MUST carry tenant scope (via explicit `tenantId` argument or `RunContext.tenantId()`). SPI packages import only `java.*` plus same-package sibling carriers; broader historical cross-package SPI residuals are documented in root `architecture/docs/L0/ARCHITECTURE.md §3.7` and must not be used as precedent for new SPI design. japicmp binary-compat from W1.
 
-**Active SPI interfaces (12 total):**
+**Active SPI interfaces (15 total):**
 
-(rc43 baseline: 19 pre-rc43 + 14 rc43 agentic-contract-surface SPI surfaces (Agent + AgentRegistry + ModelGateway + Skill + SkillRegistry + MemoryStore + MemoryReader + MemoryWriter + SemanticMemoryStore + KnowledgeMemoryStore + VectorStore + Retriever + EmbeddingModel + Planner) per ADR-0120 / ADR-0121 / ADR-0122 / ADR-0123 / ADR-0124 / ADR-0125 / ADR-0126 / ADR-0127 / ADR-0128. rc51 + 5 agentic-completeness SPI surfaces (StructuredOutputConverter + PromptTemplate + ChatAdvisor + AdvisorChain + ConversationMemory) per ADR-0129 / ADR-0130 / ADR-0131 / ADR-0132 / ADR-0133. rc51 also adds the `stream(...)` default method to the existing `ModelGateway` per ADR-0129 and supplements `model-invocation.v1.yaml` with the tool-call iteration loop per ADR-0134. ADR-0135 documents the deliberate decision not to add a separate `AgentSession` SPI.)
-
-(rc52 corrective: +2 streaming advisor sibling SPI surfaces (`StreamingChatAdvisor`, `StreamingAdvisorChain`) per ADR-0132. Agent-middleware SPI packages now use same-package carrier types for advisor, conversation-memory, and retrieval contracts so the strict purity rule is no cross-SPI dependencies.)
+(The pre-rebuild agentic-contract-surface SPI set — Agent, AgentRegistry, ModelGateway, Skill, Memory/Vector/Retrieval, Planner, advisor SPIs per ADR-0120..0135 — was retired with the agent-runtime pure rebuild and the agent-middleware module deletion; none of those Java interfaces exist in the current reactor. Only the rows below are active.)
 
 | Interface | Module | Package | Status |
 |---|---|---|---|
@@ -47,14 +57,20 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `AgentCardProvider` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — optional provider for the A2A Agent Card of one runtime-hosted business Agent; separated from `AgentRuntimeHandler` so card metadata can be supplied by a dedicated Bean or by a handler that chooses to implement both interfaces |
 | `MemoryProvider` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — reserved narrow memory init/search/save SPI for future memory middleware integration; does not bind runtime to one memory backend |
 | `StreamAdapter` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — adapts a framework's native result stream into the neutral `AgentExecutionResult` stream |
+| `LlmCallListener` | `agent-runtime` | `com.huawei.ascend.runtime.llm.gateway.spi` | shipped — observer of every LLM invocation the egress gateway forwards upstream (before/after positions mirror `engine-hooks.v1.yaml`); the ordered listener chain is the SOLE emission path for GENERATION spans and spend records (ADR-0160), guarded by `LlmGatewayEmissionBoundaryArchTest` |
+| `GenerationSpanSink` | `agent-runtime` | `com.huawei.ascend.runtime.llm.gateway.spi` | shipped — receiver of GENERATION attribute records (tokens, cost, latency, tenant attribution); dropping `NoopGenerationSpanSink` default, OTel bridge auto-binds when an `OpenTelemetry` bean is present (ADR-0160) |
+| `SpendLog` | `agent-runtime` | `com.huawei.ascend.runtime.llm.gateway.spi` | shipped — per-tenant LLM spend ledger appended once per successful upstream call; in-memory reference `InMemorySpendLog` ships in-package (ADR-0160) |
+| `RuntimeRegistry` | `agent-service` | `com.huawei.ascend.service.spi.registry` | shipped — runtime registration + lease/TTL state behind the serviceization facade; in-memory reference impl; HTTP edge in `agent-service-starter` (ADR-0161) |
+| `AgentDirectory` | `agent-service` | `com.huawei.ascend.service.spi.discovery` | shipped — tenant-scoped agent cards + route resolution (ADR-0161) |
+| `RouteGrantService` | `agent-service` | `com.huawei.ascend.service.spi.routing` | shipped — HMAC-signed east-west route grants: resolve + validate (ADR-0161) |
 
-**SPI count by module (shipped surface; the agent-runtime SPI surface is the framework-neutral `engine.spi` set `AgentRuntimeHandler` + `AgentCardProvider` + `MemoryProvider` + `StreamAdapter`):**
+**SPI count by module (shipped surface):**
 
 | Module | SPI interfaces |
 |---|---|
-| `agent-service` | 0 — serviceization façade skeleton; registration/discovery SPI deferred to a dedicated ADR (ADR-0159) |
-| `agent-runtime` | 4 (`AgentRuntimeHandler`, `AgentCardProvider`, `MemoryProvider`, `StreamAdapter`) |
-| `agent-bus` | 8 (`IngressGateway`, `S2cCallbackTransport`, `ReflectionEnvelopeRouter`, `FederationGateway`, `Checkpointer`, `Orchestrator`, `EnginePort`, `DefinitionResolver`) |
+| `agent-service` | 3 (`RuntimeRegistry`, `AgentDirectory`, `RouteGrantService`) — Spring HTTP edge lives in `agent-service-starter`, which declares no SPI of its own |
+| `agent-runtime` | 7 (`AgentRuntimeHandler`, `AgentCardProvider`, `MemoryProvider`, `StreamAdapter`, `LlmCallListener`, `GenerationSpanSink`, `SpendLog`) |
+| `agent-bus` | 5 (`S2cCallbackTransport`, `Checkpointer`, `Orchestrator`, `EnginePort`, `DefinitionResolver`) — `RunContext` / `TraceContext` / `ExecutionContext` are structural carriers, listed below |
 
 **Per-SPI tenant scope (canonical post-ADR-0044):**
 
@@ -83,10 +99,10 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 
 | Surface | Current status | Authority |
 |---|---|---|
-| `Skill` / `SkillRegistry` / `SkillContext` | promoted to active SPI in rc43; `SkillResourceMatrix` remains W2 admission-policy design | ADR-0127 / ADR-0122; ADR-0052 |
-| `AgentRegistry` | promoted to active SPI in rc43; `RemoteAgentClient` remains post-W4 deferred | ADR-0128; ADR-0016 |
-| `RunDispatcher` | deferred W2 dispatcher shape | ADR-0031 |
-| `CapabilityRegistry` | deferred W2 capability registry shape | ADR-0021 |
+| `Skill` / `SkillRegistry` / `SkillContext` | design name only — no Java interface in the current reactor (the rc43 promotion was reverted by the pure rebuild) | ADR-0127 / ADR-0122; ADR-0052 |
+| `AgentRegistry` | design name only — no Java interface in the current reactor; `RemoteAgentClient` remains post-W4 deferred | ADR-0128; ADR-0016 |
+| `RunDispatcher` | deferred dispatcher shape — no Java interface | ADR-0031 |
+| `CapabilityRegistry` | deferred capability registry shape — no Java interface | ADR-0021 |
 
 Seven previously listed SDK SPI interfaces were deleted in the 2026-05-12 Occam pass (see `architecture-status.yaml` row `sdk_spi_starters`). They are no longer part of the contract surface.
 
@@ -110,14 +126,12 @@ Schema-first domain contracts (Rule M-2.a, formerly Rule 48). Each YAML file is 
 | `backpressure-request.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0100 (rc25 — bus control-track backpressure channel); runtime impl with BackpressureRequestEmitter SPI |
 | `federation-envelope.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0101 (rc26 — Mode B Business-Centric federation wire shape); broker choice deferred to separate ADR |
 | `evolution-scope.v1.yaml` | `docs/governance/` | `schema_shipped` | ADR-0077 (Rule R-M.e) |
-| `model-invocation.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0121 (rc43 — ModelGateway SPI; runtime_enforced when W2 LLM gateway ships) |
 | `skill-definition.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0127 (rc43 — unified Skill SPI; extends ADR-0030); ADR-0122 (Tool-Skill resolution Path b) |
 | `memory-store.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0123 (rc43 — Memory unified SPI); ADR-0034 (taxonomy); ADR-0051 (ownership boundary) |
 | `vector-store.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0124 (rc43 — Vector / Retrieval / Embedding SPIs); ADR-0125 (Spring AI canonical boundary) |
 | `planning-request.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0126 (rc43 — Planner SPI; extends ADR-0032); runtime_enforced when W4 planner ships |
 | `plan.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0126 (rc43 — Planner output DAG; distinct from `plan-projection.v1.yaml` scheduler INPUT) |
 | `agent-definition.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0128 (rc43 — Agent first-class entity SPI); runtime_enforced when W3 SDK GA ships |
-| `model-streaming.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0129 (rc51 — Streaming-aware `ModelGateway.stream(...)`; runtime_enforced when W2 LLM gateway wires Spring AI `ChatModel.stream(...)`) |
 | `structured-output.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0130 (rc51 — `StructuredOutputConverter<T>` SPI; reference adapter wraps Spring AI `BeanOutputConverter`) |
 | `prompt-template.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0131 (rc51 — `PromptTemplate` SPI; reference adapter wraps Spring AI `PromptTemplate`) |
 | `chat-advisor.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0132 (rc53 — `ChatAdvisor` + `StreamingChatAdvisor` interceptor SPIs; typed same-package advisor carriers avoid model-SPI dependency; `advisor-model-hook-order/v1` binds ordering relative to `BEFORE_LLM` / `AFTER_LLM`) |
@@ -141,6 +155,8 @@ Schema-first domain contracts (Rule M-2.a, formerly Rule 48). Each YAML file is 
 | `session-snapshot.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0155 §3 (PlatformMemoryProvider read projection of STM-04) |
 
 Note: `evolution-scope.v1.yaml` lives under `docs/governance/`, not `docs/contracts/`, because it indexes governance-plane export rules rather than a wire/Java contract.
+
+Note: the former `model-invocation.v1.yaml` / `model-streaming.v1.yaml` rows were retired — the YAML files never existed and their authority ADR-0121 was deleted as over-designed. The shipped LLM egress surface is the §1 gateway route plus the §2 `llm.gateway.spi` observer seam (ADR-0160).
 
 ---
 
@@ -172,9 +188,13 @@ SemVer from 1.0.0: PATCH=fix, MINOR=additive, MAJOR=breaking. Stable surface: st
 |---|---|---|
 | `spring-ai-ascend-parent` | none | Parent POM (not a reactor row by itself; declared via `<parent>`) |
 | `spring-ai-ascend-dependencies` | none | BoM (dependency management) |
-| `agent-service` | compute_control | Enterprise serviceization façade (skeleton) — registration/discovery driving runtime-built Agent instances via agent-runtime; the runtime SDK formerly hosted here was relocated to agent-runtime per ADR-0159 |
-| `agent-runtime` | compute_control | Run-owning runtime SDK: framework-neutral engine (`engine.spi.AgentRuntimeHandler` + `StreamAdapter`, openJiuwen and AgentScope adapters) + Run lifecycle + engine dispatch + session + task-centric control + internal event queue + access (A2A) + bootable runtime app (`app.RuntimeApp` / `LocalA2aRuntimeHost`); consumes the neutral `bus.spi.engine` boundary — ADR-0159 |
-| `agent-bus` | bus_state | Active cross-plane control surfaces: `bus.spi.ingress.IngressGateway` (ADR-0089) + `bus.spi.s2c.S2cCallbackTransport` (ADR-0074 + ADR-0088) + neutral orchestration/engine SPI `bus.spi.engine` (EnginePort + RunMode + Checkpointer + Orchestrator + RunContext + SuspendSignal + TraceContext + ExecutorDefinition + ExecutionContext; ADR-0158). Workflow primitives W2 per ADR-0050 |
+| `agent-service` | compute_control | Spring-free serviceization façade — registration/discovery/route-grant SPIs (`service.spi.*`) with in-memory references, byte-level A2A pass-through forwarder, runtime self-registration client (ADR-0161) |
+| `agent-service-starter` | compute_control | Spring Boot edge for agent-service — auto-configured registration/discovery/route-grant/A2A-forwarding controllers + JWT tenant cross-check at the service ingress (ADR-0161) |
+| `agent-runtime` | compute_control | Run-owning runtime SDK: framework-neutral engine (`engine.spi.AgentRuntimeHandler` + `StreamAdapter`; openJiuwen, AgentScope and LangGraph adapters) + Run lifecycle + access (A2A) + the OpenAI-compatible LLM egress gateway (`llm.gateway`, ADR-0160) + bootable runtime app (`app.RuntimeApp` / `LocalA2aRuntimeHost`); consumes the neutral `bus.spi.engine` boundary — ADR-0159 |
+| `agent-sdk` | compute_control | Declarative agent definition SDK — `ascend-agent/v1` YAML specs resolved into runnable `AgentRuntimeHandler`s via `AgentHandlerFactory` |
+| `agent-bus` | bus_state | Server→client callback surface `bus.spi.s2c.S2cCallbackTransport` (ADR-0074 + ADR-0088) + neutral orchestration/engine SPI `bus.spi.engine` (EnginePort + RunMode + Checkpointer + Orchestrator + RunContext + SuspendSignal + TraceContext + ExecutorDefinition + ExecutionContext; ADR-0158). The planned C2S ingress (ADR-0089) was superseded by ADR-0161. Workflow primitives W2 per ADR-0050 |
+| `springai-ascend-client` | none (customer process) | Java A2A client SDK — `AscendA2aClient` facade with terminal-event semantics, auth, trace propagation, optional OTLP telemetry (ADR-0162) |
+| `springai-ascend-client-kotlin` | none (customer process) | Kotlin idiom layer over the Java client SDK — suspend send/stream + `ascendA2aClient {}` DSL (ADR-0162) |
 
 **Module history (rc12 → rc13 reactor count: 9 → 8)**
 

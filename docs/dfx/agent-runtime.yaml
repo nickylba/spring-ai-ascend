@@ -1,48 +1,46 @@
 # DFX (Design-for-X) declaration for the agent-runtime module.
 #
-# Required by CLAUDE.md Rule 32 — every module declared `kind: domain` MUST
+# Required by CLAUDE.md Rule R-D — every module declared `kind: domain` MUST
 # publish a DFX yaml covering all five dimensions.
 
 module: agent-runtime
 kind: domain
 version: 1
-generated_at: 2026-05-18
+generated_at: 2026-06-11
 
 spi_packages:
-  - com.huawei.ascend.runtime.engine.spi
-  - com.huawei.ascend.runtime.engine.planner.spi          # rc43: Planner SPI per ADR-0126 (engine-side plan generator; Plan DAG feeds plan-projection.v1.yaml scheduler INPUT)
+  - com.huawei.ascend.runtime.engine.spi          # framework-neutral runtime SPI (AgentRuntimeHandler + AgentCardProvider + StreamAdapter + MemoryProvider)
+  - com.huawei.ascend.runtime.llm.gateway.spi     # LLM egress gateway observer SPI (LlmCallListener + GenerationSpanSink + SpendLog) per ADR-0160
 
 releasability:
-  artifact_coords: "io.github.springai-ascend:agent-runtime"
-  semver_policy: "0.x — engine SPI contract-frozen at L1 under .spi.*; envelope schema versioned via docs/contracts/engine-envelope.v1.yaml"
+  artifact_coords: "com.huawei.ascend:agent-runtime"
+  semver_policy: "0.x — public surface is the framework-neutral engine SPI (engine.spi), the gateway observer SPI (llm.gateway.spi), and the bootable app entry points (app.RuntimeApp / LocalA2aRuntimeHost)"
   deprecation_window: "two minor versions on SPI; one on non-SPI"
-  packaging: "library jar consumed by agent-service (post-Phase-C consolidation of pre-Phase-C agent-runtime + agent-platform per ADR-0078)"
+  packaging: "library jar embedding a bootable Spring Boot runtime host; JDBC / Flyway / pgvector dependencies are <optional> so the minimal classpath boots without Postgres (docs/quickstart.md §4)"
 
 resilience:
-  fallback_paths: []   # Rule 44 forbids fallback — engine mismatch fails closed
-  posture_aware_defaults: "boot self-validation against engine-envelope.v1.yaml fails closed in research/prod; dev tolerates missing adapters with WARN"
-  cancellation_contract: "EngineMatchingException → Run.FAILED with reason engine_mismatch (Rule 44)"
-  reference_rule: "Rule 43 (Engine Envelope Single Authority) + Rule 44 (Strict Engine Matching)"
+  fallback_paths: []   # no silent fallbacks — a failed agent execution ends the A2A task in TASK_STATE_FAILED; a mid-stream failure ends the SSE stream with a JSON-RPC error frame
+  posture_aware_defaults: "in-memory reference implementations (task store, idempotency store, spend log) bind behind @ConditionalOnMissingBean; deployments replace them by contributing beans"
+  cancellation_contract: "A2A cancel — A2aAgentExecutor#cancel cancels the task on the emitter and transitions every non-terminal Run for the (tenant, task) pair to RunStatus.CANCELLED; transitions are validated by the RunStateMachine DFA"
+  reference_rule: "RunStateMachine is the single Run state-transition authority; message/send is idempotent per (tenant, messageId) via IdempotentRequestHandler (ADR-0027 in-memory tier)"
 
 availability:
-  health_endpoints: []
-  readiness_signal: "library-internal — readiness = engine registry boot self-validation OK"
+  health_endpoints: []   # no dedicated health route; the agent card doubles as the probe
+  readiness_signal: "GET /.well-known/agent-card.json answers as soon as the runtime host is up"
   startup_failure_modes:
-    - "known_engines id with no registered adapter — IllegalStateException at boot (E84 EngineRegistry.validateAgainstSchema)"
-    - "engine_type X registered but absent from known_engines — IllegalStateException at boot"
-    - "engine-envelope.v1.yaml mismatch vs ENGINE_TYPE constants — gate Rule 56 fails CI"
+    - "no AgentRuntimeHandler bean registered — the runtime boots for card discovery but rejects every execution (WARN at startup)"
+    - "application adds its own JDBC stack without excluding the datasource auto-configurations — boot attempts to reach Postgres (mitigation list in docs/quickstart.md §4)"
 
 vulnerability:
-  scan_tooling: "manual review at L1; automated CVE/SCA deferred per CLAUDE-deferred.md 32.d"
-  tenant_isolation: "EngineEnvelope carries no tenant — tenant scope is enforced upstream by the orchestrator before dispatch"
-  payload_integrity: "ExecutorDefinition is a sealed type per engine; pattern-matching restricted to EngineRegistry (Rule 43)"
-  spi_purity: "com.huawei.ascend.runtime.engine.spi.* imports java.* + own spi siblings + agent-middleware SPI (HookPoint) + the neutral orchestration/engine SPI from agent-bus (bus.spi.engine for RunContext/ExecutorDefinition/SuspendSignal, re-homed there per ADR-0158). Spring / platform / impl / micrometer imports forbidden — enforced by E48 SpiPurityGeneralizedArchTest (the strict same-package-only test applies only to s2c.spi)"
+  scan_tooling: "manual review at L1; rides the reactor's dependency pinning (parent BoM)"
+  tenant_isolation: "every A2A request is attributed to a tenant (JWT tenant_id claim > X-Tenant-Id header > configured default); with jwt.enabled the HS256 signature is verified and a claim/header mismatch returns 403 (ADR-0040)"
+  secret_handling: "agents never hold provider keys — gateway callers send a minted opaque token + model alias; only the server-side routing table knows the upstream URL, credential and real model name (ADR-0160)"
+  spi_purity: "engine.spi imports java.*, the engine package's AgentExecutionContext carrier, and the OSS a2a spec card types; llm.gateway.spi is pure-JDK observer types (implementations may live anywhere). Gateway GENERATION-span/spend emission is confined to the listener seam — enforced by LlmGatewayEmissionBoundaryArchTest"
 
 observability:
-  metric_namespace: "springai_ascend_engine_*"
-  trace_carrier: "engine adapters propagate traceId from RunContext into HookContext"
-  hook_emission_path: "every engine adapter MUST fire BEFORE_/AFTER_ hooks via HookDispatcher; W2 telemetry middleware listens (E80 RuntimeMiddlewareInterceptsHooksIT)"
-  audit_trail: "engine_dispatched / engine_mismatch span events emitted at registry resolve"
+  metric_namespace: "springai_ascend_llm_* gateway meters (requests, tokens, upstream latency, unpriced cost — bounded tags only, never tenant) + springai_ascend_traceparent_invalid_total; unmetered when no MeterRegistry is present"
+  trace_carrier: "TraceParentFilter propagates the inbound W3C version-00 traceparent (originating one when absent) and counts unparseable inbound headers"
+  emission_path: "the gateway's ordered LlmCallListener chain is the SOLE emission path for GENERATION spans (GenerationSpanSink; OTel bridge auto-binds when an OpenTelemetry bean is present) and per-tenant spend records (SpendLog)"
   spi_packages:
     - "com.huawei.ascend.runtime.engine.spi"
-    - "com.huawei.ascend.runtime.engine.planner.spi"
+    - "com.huawei.ascend.runtime.llm.gateway.spi"

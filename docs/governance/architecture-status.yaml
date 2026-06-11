@@ -410,7 +410,7 @@ capabilities:
     l0_decision: docs/adr/0020-runlifecycle-spi-and-runstatus-formal-dfa.md
     implementation: null
     tests: []
-    allowed_claim: "Design only — the `RunLifecycle` SPI (resume/retry/cancel orchestration) remains design-only for W2; it is a DIFFERENT surface from the shipped W1 HTTP cancel edge. The HTTP cancel route POST /v1/runs/{runId}/cancel IS shipped in agent-service RunController.java#cancel and is independently re-authorized by Rule R-J.b at the HTTP boundary. Shipped W0/W1 run-owner semantics are 200 success, 404 not_found for missing or cross-tenant run ownership, 409 illegal_state_transition for illegal state changes, and idempotent same-terminal recancel returns 200. HTTP 403 tenant_mismatch is reserved for JWT/header tenant-claim mismatch today and the ADR-0108/0116 future widening. At W2 the SPI will materialize as the in-process resume/retry/cancel orchestration layer used by the async scheduler; until then orchestrator-level cancellation is handled by SyncOrchestrator's existing handoff to RunStateMachine."
+    allowed_claim: "Design only — the `RunLifecycle` SPI (resume/retry/cancel orchestration) remains design-only; it is a DIFFERENT surface from the shipped cancellation path. NO HTTP run-management cancel route (POST /v1/runs/{runId}/cancel) is shipped — the run HTTP API and its RunController were retired with the agent-runtime pure rebuild. The shipped cancellation surface is A2A-level: agent-runtime A2aAgentExecutor#cancel handles the A2A cancel request, cancels the task on the emitter, and transitions every non-terminal Run for the (tenant, task) pair to RunStatus.CANCELLED via Run.withStatus (validated by the RunStateMachine DFA). An HTTP run-management edge, resume/retry orchestration, and the async scheduler remain unshipped."
 
   run_state_change_audit_log:
     status: design_accepted
@@ -659,12 +659,17 @@ capabilities:
   # --- Fourth-reviewer response additions (2026-05-12) ---
 
   idempotency_store_promotion_to_interface:
-    status: deferred_w1
-    shipped: false
+    status: test_verified
+    shipped: true
     l0_decision: docs/adr/0021-layered-spi-taxonomy.yaml
-    implementation: null
-    tests: []
-    allowed_claim: "Deferred W1 — wire IdempotencyStore into IdempotencyHeaderFilter with (tenant_id, key) claim/replay/409-conflict semantics backed by Postgres. Currently IdempotencyStore is a @Component stub not injected in production."
+    implementation:
+      - agent-runtime/src/main/java/com/huawei/ascend/runtime/idempotency/IdempotencyStore.java
+      - agent-runtime/src/main/java/com/huawei/ascend/runtime/idempotency/InMemoryIdempotencyStore.java
+      - agent-runtime/src/main/java/com/huawei/ascend/runtime/engine/a2a/IdempotentRequestHandler.java
+    tests:
+      - agent-runtime/src/test/java/com/huawei/ascend/runtime/idempotency/InMemoryIdempotencyStoreTest.java
+      - agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/a2a/IdempotentRequestHandlerTest.java
+    allowed_claim: "Shipped (in-memory tier) — IdempotencyStore is a tenant-scoped claim/replay interface in agent-runtime, wired in production: RuntimeAutoConfiguration binds InMemoryIdempotencyStore behind @ConditionalOnMissingBean and injects it into the A2A handler chain via IdempotentRequestHandler, which deduplicates message/send by (tenant, messageId) — first request claims and proceeds, a retry of a completed request replays the recorded task, a concurrent in-flight duplicate is rejected. Documented in docs/quickstart.md §5. Still deferred: the Postgres-backed durable tier and an HTTP Idempotency-Key header surface (no /v1 run-management routes exist to carry it)."
 
   otel_trace_propagation_across_suspend:
     status: deferred_w2
@@ -1076,9 +1081,11 @@ capabilities:
     implementation:
       - springai-ascend-client/src/main/java/com/huawei/ascend/client/
       - springai-ascend-client/src/main/java/com/huawei/ascend/client/telemetry/
+      - springai-ascend-client-kotlin/src/main/kotlin/com/huawei/ascend/client/kotlin/
     tests:
       - springai-ascend-client/src/test/java/com/huawei/ascend/client/
-    allowed_claim: "Shipped per ADR-0162 (Java-only): A2A facade (typed send/stream/card with the platform terminal-event + post-terminal-cancellation semantics), business CLIENT spans via the ClientTelemetry seam (Noop default; consumer-supplied OpenTelemetry or SDK-owned OTLP/HTTP pipeline with BatchSpanProcessor), outbound traceparent derived from the active span (random mint as no-telemetry fallback), traceresponse correlation surfaced on results and as span attribute, posture-aware sampling (dev=1.0/research=0.10/prod=0.01) with structural PII redaction in posture=prod, JWT bearer + X-Tenant-Id auth helpers. Kotlin idioms follow-up; JS/Python W3+."
+      - springai-ascend-client-kotlin/src/test/kotlin/com/huawei/ascend/client/kotlin/
+    allowed_claim: "Shipped per ADR-0162: A2A facade (typed send/stream/card with the platform terminal-event + post-terminal-cancellation semantics), business CLIENT spans via the ClientTelemetry seam (Noop default; consumer-supplied OpenTelemetry or SDK-owned OTLP/HTTP pipeline with BatchSpanProcessor), outbound traceparent derived from the active span (random mint as no-telemetry fallback), traceresponse correlation surfaced on results and as span attribute, posture-aware sampling (dev=1.0/research=0.10/prod=0.01) with structural PII redaction in posture=prod, JWT bearer + X-Tenant-Id auth helpers. Kotlin idiom layer shipped as springai-ascend-client-kotlin (suspend send/stream extensions over Dispatchers.IO with cancellation-to-interrupt translation, ascendA2aClient {} builder DSL, named-argument sendSpec factory). JS/Python W3+."
 
   # --- Layer-0 Governing Principles (ADR-0064..0067; CLAUDE.md Rules 29-32; §4 #60-#63) ---
 
@@ -1097,7 +1104,7 @@ capabilities:
       - CLAUDE.md
     tests:
       - gate/check_architecture_sync.sh
-    allowed_claim: "Section 4 #60 / Rule R-A shipped at L1.x — platform/business decoupling enforced by E48 SpiPurityGeneralizedArchTest (no Spring/platform/inmemory/Micrometer/OTel in any *.spi.* package) and Rule R-A.c quickstart_present (CI quickstart smoke job per ADR-0064 / W4). docs/quickstart.md ships referenced from README.md so developers reach first-agent execution without source patches. CLAUDE.md restructured to Layer-0 / Layer-1; review-cycle scaffolding sunk to docs/governance/rule-history.md."
+    allowed_claim: "Section 4 #60 / Rule R-A shipped at L1.x — platform/business decoupling enforced by the module-boundary ArchUnit guards: agent-service ServicePackageBoundaryTest (Spring-free facade; no reach into the bus SPI plane; runtime touched only through engine.spi), agent-runtime LlmGatewayEmissionBoundaryArchTest (gateway GENERATION-span/spend emission confined to the llm.gateway.spi listener seam), and springai-ascend-client ClientPackageBoundaryTest (Spring-free client; no reactor sibling dependencies). docs/quickstart.md ships referenced from README.md so developers reach first-agent execution without source patches (a CI quickstart smoke job remains planned per ADR-0064). CLAUDE.md restructured to Layer-0 / Layer-1; review-cycle scaffolding sunk to docs/governance/rule-history.md."
 
   competitive_baselines:
     status: test_verified
@@ -1120,11 +1127,11 @@ capabilities:
       - docs/adr/0066-independent-module-evolution.yaml
     implementation:
       - agent-service/module-metadata.yaml
-      - agent-service/module-metadata.yaml
+      - agent-runtime/module-metadata.yaml
       - spring-ai-ascend-dependencies/module-metadata.yaml
     tests:
       - gate/check_architecture_sync.sh
-    allowed_claim: "Section 4 #62 / Rule R-C.1 shipped at L1.x — each of the 6 reactor modules (`agent-service`, `agent-service-starter`, `agent-sdk`, `agent-bus`, `agent-runtime`, `spring-ai-ascend-dependencies`) has a sibling module-metadata.yaml declaring module, kind (platform | domain | starter | bom | sample), version, semver_compatibility, architecture_doc, dfx_doc, spi_packages, allowed/forbidden_dependencies. Enforced by Gate Rule G-1 sub-clause .b module_metadata_present_and_complete + existing Gate Rule D-6 module_dep_direction + Rule G-8.c module topology parity (rc14). Runtime semver compatibility enforcement deferred per CLAUDE-deferred.md 31.b."
+    allowed_claim: "Section 4 #62 / Rule R-C.1 shipped at L1.x — each of the 8 reactor modules (`agent-runtime`, `agent-service`, `agent-service-starter`, `agent-sdk`, `agent-bus`, `springai-ascend-client`, `springai-ascend-client-kotlin`, `spring-ai-ascend-dependencies`) has a sibling module-metadata.yaml declaring module, kind (platform | domain | starter | bom | sample | sdk), version, semver_compatibility, spi_packages, allowed/forbidden_dependencies, and deployment_plane; architecture_doc and dfx_doc are declared where the module has an L1/DFX surface (agent-sdk has no dedicated L1 doc yet — its architecture_doc is null; the BoM declares both null by design). Enforced by Gate Rule 36 domain_module_has_spi_package (declared SPI packages must exist on disk). Runtime semver compatibility enforcement deferred per CLAUDE-deferred.md 31.b."
 
   spi_dfx_tck_codesign:
     status: test_verified
@@ -1140,7 +1147,7 @@ capabilities:
       - agent-service/module-metadata.yaml
     tests:
       - gate/check_architecture_sync.sh
-    allowed_claim: "Section 4 #63 / Rule R-D sub-clause .a shipped at L1.x — the neutral orchestration/engine SPI lives on `agent-bus` (kind:domain) at `com.huawei.ascend.bus.spi.engine.*` (EnginePort + RunMode + RunContext + SuspendSignal + Checkpointer + Orchestrator + TraceContext + ExecutorDefinition + ExecutionContext, the transport-agnostic EnginePort boundary); the S2C SPI on `agent-bus` (kind:domain) at `com.huawei.ascend.bus.spi.s2c` (S2cCallbackTransport + S2cCallbackEnvelope + S2cCallbackResponse); the framework-neutral runtime SPI lives on `agent-runtime` (kind:domain) at `com.huawei.ascend.runtime.engine.spi` (AgentRuntimeHandler + StreamAdapter + AgentCardProvider + MemoryProvider). Each kind:platform / kind:domain module publishes a `docs/dfx/<module>.yaml` covering 5 DFX dimensions (releasability, resilience, availability, vulnerability, observability). Enforced by Gate Rule R-E dfx_yaml_present_and_wellformed, Gate Rule R-F domain_module_has_spi_package, ArchUnit E48 SpiPurityGeneralizedArchTest, plus Rule G-8.b SPI path parity."
+    allowed_claim: "Section 4 #63 / Rule R-D sub-clause .a shipped at L1.x — the neutral orchestration/engine SPI lives on `agent-bus` (kind:domain) at `com.huawei.ascend.bus.spi.engine.*` (EnginePort + RunMode + RunContext + SuspendSignal + Checkpointer + Orchestrator + TraceContext + ExecutorDefinition + ExecutionContext, the transport-agnostic EnginePort boundary); the S2C SPI on `agent-bus` (kind:domain) at `com.huawei.ascend.bus.spi.s2c` (S2cCallbackTransport + S2cCallbackEnvelope + S2cCallbackResponse); the framework-neutral runtime SPI lives on `agent-runtime` (kind:domain) at `com.huawei.ascend.runtime.engine.spi` (AgentRuntimeHandler + StreamAdapter + AgentCardProvider + MemoryProvider) plus the LLM-gateway observer SPI at `com.huawei.ascend.runtime.llm.gateway.spi` (LlmCallListener + GenerationSpanSink + SpendLog). Each kind:platform / kind:domain module publishes a `docs/dfx/<module>.yaml` covering 5 DFX dimensions (releasability, resilience, availability, vulnerability, observability). Enforced by Gate Rule 36 domain_module_has_spi_package and Gate Rule 95 spi_catalog_exhaustiveness."
 
   claude_md_token_budget:
     status: test_verified
