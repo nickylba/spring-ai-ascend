@@ -115,3 +115,4 @@ tools/codegraph/node_modules/
 .codex/
 .claude/
 .obsidian/
+tmp/
