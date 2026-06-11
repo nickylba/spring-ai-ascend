@@ -39,6 +39,7 @@
     <module>agent-service</module>
     <module>agent-service-starter</module>
     <module>springai-ascend-client</module>
+    <module>springai-ascend-client-kotlin</module>
   </modules>
 
   <properties>
@@ -320,6 +321,11 @@
       <dependency>
         <groupId>com.huawei.ascend</groupId>
         <artifactId>springai-ascend-client</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.huawei.ascend</groupId>
+        <artifactId>springai-ascend-client-kotlin</artifactId>
         <version>${project.version}</version>
       </dependency>
     </dependencies>

@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  springai-ascend-client-kotlin: Kotlin idiom layer over springai-ascend-client.
+
+  No protocol logic of its own — every call delegates to the Java facade. The
+  module adds only what Kotlin callers cannot express over the Java API:
+  suspend send/stream extensions whose coroutine cancellation interrupts the
+  underlying blocking call, an ascendA2aClient {} builder DSL, and a
+  named-argument SendSpec factory.
+
+  Kotlin toolchain: kotlin-stdlib / kotlinx-coroutines versions and the
+  kotlin-maven-plugin (version, jvmTarget=${java.version}, compile +
+  test-compile executions) are all managed by the inherited Spring Boot
+  parent, so this POM pins nothing.
+
+  Authority: ADR-0162.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.huawei.ascend</groupId>
+    <artifactId>spring-ai-ascend-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>springai-ascend-client-kotlin</artifactId>
+  <name>springai-ascend-client-kotlin</name>
+  <description>Kotlin idiom layer for the A2A client SDK: suspend send/stream extensions with cancellation-to-interrupt semantics, a builder DSL, and a named-argument SendSpec factory.</description>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.huawei.ascend</groupId>
+      <artifactId>springai-ascend-client</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.jetbrains.kotlin</groupId>
+      <artifactId>kotlin-stdlib</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.jetbrains.kotlinx</groupId>
+      <artifactId>kotlinx-coroutines-core</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.jetbrains.kotlinx</groupId>
+      <artifactId>kotlinx-coroutines-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- The local stub server serializes wire payloads with the same
+         proto-JSON helpers the platform uses; springai-ascend-client carries
+         protobuf at runtime scope only, so the stub needs compile visibility
+         here. -->
+    <dependency>
+      <groupId>com.google.protobuf</groupId>
+      <artifactId>protobuf-java</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.google.protobuf</groupId>
+      <artifactId>protobuf-java-util</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <sourceDirectory>${project.basedir}/src/main/kotlin</sourceDirectory>
+    <testSourceDirectory>${project.basedir}/src/test/kotlin</testSourceDirectory>
+    <plugins>
+      <!-- Version, jvmTarget and the compile/test-compile executions come
+           from the Spring Boot parent's pluginManagement. -->
+      <plugin>
+        <groupId>org.jetbrains.kotlin</groupId>
+        <artifactId>kotlin-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

@@ -1,0 +1,21 @@
+# Module metadata for springai-ascend-client-kotlin.
+# Required by CLAUDE.md Rule R-C sub-clause .b (Independent Module Evolution).
+# Authority: ADR-0162. Enforced by gate rule module_metadata_present_and_complete.
+
+module: springai-ascend-client-kotlin
+kind: sdk                # platform | domain | starter | bom | sample | sdk
+version: 0.1.0-SNAPSHOT
+semver_compatibility: 0.x
+description: "Kotlin idiom layer over springai-ascend-client for external Kotlin/coroutine codebases: suspend sendText/streamText extensions that translate coroutine cancellation into a thread interrupt of the blocking call, an ascendA2aClient {} builder DSL mirroring the Java builder, and a named-argument SendSpec factory. No protocol logic of its own — every call delegates to the Java facade."
+architecture_doc: architecture/docs/L1/springai-ascend-client-kotlin/README.md
+dfx_doc: docs/dfx/springai-ascend-client-kotlin.yaml
+spi_packages: []          # idiom layer over a consumable facade; no extension seam
+allowed_dependencies:
+  - springai-ascend-client   # the Java facade this layer wraps; nothing else from the reactor
+forbidden_dependencies:
+  - agent-runtime
+  - agent-bus
+  - agent-sdk
+  - agent-service
+  - agent-service-starter
+deployment_plane: none    # runs inside the customer application process, outside platform deployment planes

@@ -1,0 +1,46 @@
+# DFX (Design-for-X) declaration for the springai-ascend-client-kotlin module.
+#
+# Published voluntarily for the SDK surface (Rule 32 mandates DFX yamls for
+# kind: domain; this module is kind: sdk and adopts the same five-dimension
+# shape so the client surface has one DFX authority).
+#
+# Authority: ADR-0162 (client SDK un-deferred — Kotlin idiom layer).
+# Enforced by gate rule dfx_yaml_present_and_wellformed.
+
+module: springai-ascend-client-kotlin
+kind: sdk
+version: 1
+generated_at: 2026-06-11
+
+spi_packages: []   # idiom layer over a consumable facade; no extension seam
+
+releasability:
+  artifact_coords: "com.huawei.ascend:springai-ascend-client-kotlin"
+  semver_policy: "0.x — the Kotlin surface (suspend extensions / ascendA2aClient DSL / sendSpec factory) tracks the Java facade it wraps and may change without major bump until 1.0"
+  deprecation_window: "one minor version on the public surface, lockstep with springai-ascend-client"
+  packaging: "plain jar; Spring-free main scope; depends only on springai-ascend-client plus kotlin-stdlib and kotlinx-coroutines-core (versions managed by the Spring Boot parent); embeds in customer apps without platform server modules"
+
+resilience:
+  fallback_paths: []
+  posture_aware_defaults: "not applicable — the layer runs in the customer process and holds no platform posture; all failure classification lives in the Java facade"
+  cancellation_contract: "suspend calls run the blocking facade on Dispatchers.IO via runInterruptible: coroutine cancellation interrupts the blocking wait and surfaces as CancellationException; the Java facade's own contract (terminal-event completion, post-terminal SSE cancellation classified as normal, timeout -> IllegalStateException) is unchanged"
+  reference_rule: "cancellation-to-interrupt is unit-locked against a hanging-stream stub with a real-time deadline"
+
+availability:
+  health_endpoints: []   # client library; no served endpoints
+  readiness_signal: "delegates to the Java facade — agentCard() doubles as the connectivity probe"
+  startup_failure_modes:
+    - "missing/blank baseUrl in the DSL -> IllegalArgumentException from the Java builder's build()"
+
+vulnerability:
+  scan_tooling: "manual review at L1; rides the reactor's dependency pinning (Spring Boot parent manages the Kotlin toolchain)"
+  auth_surface: "none of its own — the DSL forwards the caller's ClientAuth to the Java facade unmodified"
+  tenant_isolation: "delegated to the Java facade and the server-side ingress filters"
+  secret_handling: "the layer never touches token values; suppliers pass through to the Java facade"
+  spi_purity: "not applicable — no SPI packages"
+
+observability:
+  metric_namespace: "none — telemetry is configured through the DSL's telemetry property and executed entirely by the Java facade"
+  trace_propagation: "delegated to the Java facade (per-call W3C traceparent origination, traceresponse correlation on every A2aResponse)"
+  log_field_shape: "no logging of its own; the Java facade's single debug line per call applies"
+  pii_redaction: "follows the Java facade's second-slice decision (ADR-0162)"
