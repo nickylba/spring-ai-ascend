@@ -1,6 +1,12 @@
 ---
 date: 2026-06-11
-status: proposal-awaiting-owner-review
+status: approved
+approved_by: owner (2026-06-11)
+approvals:
+  - "§1 wire-level egress gateway as the W2 LLM-gateway shape, including honest non-coverage of remote runtimes"
+  - "§2 ChatClient deferral behind the thin UpstreamModelClient seam until the 2026-08-01 Spring AI re-evaluation — stages, not reverses, locked ADR-0002"
+  - "§3 gateway-local LlmCallListener seam as the W2 reading of §4 #56 under a retired #16"
+  - "§4 recording-only cost promotion (spend log without budget enforcement) for W2"
 ---
 
 # W2 LLM Gateway — minimal egress-gateway proposal honest to today's runtime

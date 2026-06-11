@@ -1,0 +1,61 @@
+id: ADR-0160
+title: "W2 LLM egress gateway — wire-level OpenAI-compatible interposition, gateway-local listener seam, ChatClient deferral, recording-only cost"
+status: accepted
+date: 2026-06-11
+level: L1
+view: development
+affects_level: L1
+affects_view: [logical, development, process]
+authors:
+  - owner (decision)
+  - claude (proposal + drafting)
+extends:
+  - ADR-0002    # Spring AI over LangChain4j — staged, not reversed: ChatClient deferred behind the UpstreamModelClient port until the 2026-08-01 re-evaluation
+relates_to:
+  - ADR-0156    # cost governance product authority — partial recording-only promotion of cost-governance.v1.yaml
+  - ADR-0158    # EnginePort boundary — unrelated seam; gateway is HTTP egress, not engine transport
+context: |
+  Today no platform gateway exists between any agent and any LLM. Real W0/W1
+  LLM traffic is wire-level OpenAI-compatible HTTP issued by third-party
+  framework internals (openJiuwen model client built from agent-sdk ModelSpec;
+  AgentScope's OpenAIChatModel), and remote runtimes (AgentScope runtime,
+  LangGraph) own their model configuration entirely. No in-process Java seam
+  can see this traffic. The Hook SPI (§4 #16) is RETIRED/design_only, yet
+  §4 #56 requires hook-emitted GENERATION spans for every LLM invocation.
+  Raw provider API keys sit in agent YAML and example env defaults.
+
+  Full analysis and verified-against-source evidence:
+  docs/logs/plans/2026-06-11-llm-gateway-w2-proposal.md (status: approved).
+decision: |
+  1. The W2 LLM gateway is a wire-level OpenAI-compatible EGRESS endpoint
+     inside agent-runtime (package com.huawei.ascend.runtime.llm.gateway):
+     POST /v1/chat/completions, non-streaming + SSE pass-through. Adoption is
+     by ModelSpec indirection (baseUrl -> gateway, apiKey -> minted
+     tenant-scoped token). Remote runtimes are opt-in only; the platform does
+     not claim coverage it cannot force.
+  2. Spring AI ChatClient does NOT enter main code at W2. The gateway's
+     internal seam is the thin UpstreamModelClient port (the LlmRouter
+     reversal hinge ADR-0002 names). ChatClient adoption is re-decided at the
+     2026-08-01 Spring AI re-evaluation, as a CLIENT of the gateway.
+  3. The smallest hook seam under a retired §4 #16: a gateway-local
+     LlmCallListener SPI with two observer methods mirroring
+     before/after_llm_invocation from engine-hooks.v1.yaml. No HookPoint
+     enum, no dispatcher, no outcome consumption. The listener chain is the
+     SOLE emission path for GENERATION spans and spend records, enforced by
+     an ArchUnit boundary test with post-ADR-0159 names.
+  4. Cost promotion is RECORDING-ONLY at W2: SpendRecordListener persists the
+     post_call_spend_record shape; pre_call_budget_check / TokenBudgetStore
+     (enforcement) stay design_only pending a re-homing decision (their
+     declared SPI home is the retired agent-middleware module).
+consequences: |
+  - Tenant/cost attribution rides minted tokens, GENERATION spans, and the
+    spend log; meters carry no tenant_id tag (cardinality rule §4 #57).
+  - §4 #56's locked enforcer pair (LlmGatewayHookChainOnlyTest against
+    pre-0159 service.runtime.llm.*) is superseded by the gateway emission
+    boundary test; the L0 text refresh rides the next design-mode wave
+    together with the stale citations listed in the proposal §9.
+  - Test strategy requires no live provider: WireMock upstream, byte-level
+    request-fidelity checks, span-schema assertions against an in-memory sink.
+  - Staged landing: skeleton (non-streaming) -> streaming/usage/metrics ->
+    listener seam + spans -> ModelSpec indirection + example flip -> spend
+    log migration.
