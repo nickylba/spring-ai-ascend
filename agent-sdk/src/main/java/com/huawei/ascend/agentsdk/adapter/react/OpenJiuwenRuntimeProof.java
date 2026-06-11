@@ -18,20 +18,26 @@ public final class OpenJiuwenRuntimeProof {
     }
 
     public Map<String, Object> run(Object input) {
+        List<Object> toolResults = invokeTools(input);
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("result_type", "answer");
-        result.put("output", output(input));
-        result.put("tools", invokeTools(input));
+        result.put("output", output(input, toolResults));
+        result.put("tools", toolResults);
         result.put("skills", readSkills());
         return result;
     }
 
-    private String output(Object input) {
+    private String output(Object input, List<Object> toolResults) {
+        // The output text is the only field the runtime's stream adapter surfaces
+        // as the A2A answer, so the tool invocation results ride in it: a
+        // wire-level observer can verify the resolved tool chain actually
+        // executed, not merely that it parsed and registered.
         return "sdk-proof agent=" + spec.name() + " tools=" + tools.stream()
                 .map(tool -> tool.getCard().getName())
                 .toList()
                 + " skills=" + spec.skillSpecs().stream().map(skill -> skill.name()).toList()
-                + " input=" + input;
+                + " input=" + input
+                + " toolResults=" + toolResults;
     }
 
     private List<Object> invokeTools(Object input) {
