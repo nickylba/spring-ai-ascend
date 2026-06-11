@@ -101,10 +101,16 @@ public final class ChatCompletionsController {
             return error(404, "model '" + alias + "' is not a configured model alias",
                     "invalid_request_error");
         }
+        return forward(principal.get(), request, alias, route, body);
+    }
+
+    /** Post-validation phase: build the upstream request, notify listeners, relay. */
+    private ResponseEntity<StreamingResponseBody> forward(LlmGatewayProperties.MintedToken principal,
+            ObjectNode request, String alias, ModelAliasRegistry.Route route, byte[] body) {
         boolean streaming = request.path("stream").asBoolean(false);
         byte[] forwarded = forwardedBody(body, request, route, streaming);
         LlmCallContext context = new LlmCallContext(
-                principal.get().getTenantId(), principal.get().getAgentId(),
+                principal.getTenantId(), principal.getAgentId(),
                 alias, route.provider(), currentTraceId());
         notifyBefore(context);
         var upstreamRequest = new UpstreamModelClient.UpstreamRequest(
@@ -131,12 +137,18 @@ public final class ChatCompletionsController {
         record(context, route, success ? OUTCOME_SUCCESS : OUTCOME_UPSTREAM_ERROR,
                 latencyMillis, usage);
         notifyAfter(context, new LlmCallResult(success, response.status(), latencyMillis, usage));
-        if (response.status() >= 500) {
-            return error(502, "upstream returned status " + response.status(), "upstream_error");
+        return relayUpstream(response.status(), response.contentType(), response.body());
+    }
+
+    /** Upstream 5xx becomes 502 (an upstream fault); everything else passes through untranslated. */
+    private ResponseEntity<StreamingResponseBody> relayUpstream(int status, String contentType,
+            byte[] body) {
+        if (status >= 500) {
+            return error(502, "upstream returned status " + status, "upstream_error");
         }
-        return ResponseEntity.status(response.status())
-                .contentType(parseContentType(response.contentType()))
-                .body(writer(response.body()));
+        return ResponseEntity.status(status)
+                .contentType(parseContentType(contentType))
+                .body(writer(body));
     }
 
     private ResponseEntity<StreamingResponseBody> forwardStreaming(LlmCallContext context,
@@ -151,8 +163,16 @@ public final class ChatCompletionsController {
         if (!isSuccess(response.status())) {
             return streamingUpstreamError(context, route, startNanos, response);
         }
-        MediaType contentType = parseContentType(response.contentType());
-        StreamingResponseBody relay = output -> {
+        return ResponseEntity.status(response.status())
+                .contentType(parseContentType(response.contentType()))
+                .body(streamingRelay(context, route, startNanos, response));
+    }
+
+    /** Pumps the upstream SSE stream to the caller, accumulating usage from the chunks. */
+    private StreamingResponseBody streamingRelay(LlmCallContext context,
+            ModelAliasRegistry.Route route, long startNanos,
+            UpstreamModelClient.UpstreamStreamResponse response) {
+        return output -> {
             UsageExtractor.SseAccumulator accumulator = usageExtractor.newSseAccumulator();
             boolean completed = false;
             try (response) {
@@ -176,7 +196,6 @@ public final class ChatCompletionsController {
                         new LlmCallResult(completed, response.status(), latencyMillis, usage));
             }
         };
-        return ResponseEntity.status(response.status()).contentType(contentType).body(relay);
     }
 
     /** Non-2xx on a stream open: relay the (small) error payload as a buffered response. */
@@ -193,12 +212,7 @@ public final class ChatCompletionsController {
         LlmTokenUsage usage = LlmTokenUsage.estimatedAbsent();
         record(context, route, OUTCOME_UPSTREAM_ERROR, latencyMillis, usage);
         notifyAfter(context, new LlmCallResult(false, response.status(), latencyMillis, usage));
-        if (response.status() >= 500) {
-            return error(502, "upstream returned status " + response.status(), "upstream_error");
-        }
-        return ResponseEntity.status(response.status())
-                .contentType(parseContentType(response.contentType()))
-                .body(writer(errorBody));
+        return relayUpstream(response.status(), response.contentType(), errorBody);
     }
 
     private ResponseEntity<StreamingResponseBody> transportFailure(LlmCallContext context,
@@ -264,21 +278,9 @@ public final class ChatCompletionsController {
      */
     private byte[] forwardedBody(byte[] original, ObjectNode request,
             ModelAliasRegistry.Route route, boolean streaming) {
-        boolean mutated = false;
-        String upstreamModel = route.upstreamModel();
-        if (upstreamModel != null && !upstreamModel.equals(request.path("model").asText())) {
-            request.put("model", upstreamModel);
-            mutated = true;
-        }
+        boolean mutated = swapModelName(request, route);
         if (streaming) {
-            JsonNode streamOptions = request.get("stream_options");
-            if (streamOptions == null || !streamOptions.isObject()) {
-                request.set("stream_options", mapper.createObjectNode().put("include_usage", true));
-                mutated = true;
-            } else if (!streamOptions.has("include_usage")) {
-                ((ObjectNode) streamOptions).put("include_usage", true);
-                mutated = true;
-            }
+            mutated |= ensureIncludeUsage(request);
         }
         try {
             return mutated ? mapper.writeValueAsBytes(request) : original;
@@ -286,6 +288,30 @@ public final class ChatCompletionsController {
             // Cannot happen for a tree we just parsed; forward the original rather than fail.
             return original;
         }
+    }
+
+    /** Replaces the alias with the upstream model name; returns true when the tree changed. */
+    private static boolean swapModelName(ObjectNode request, ModelAliasRegistry.Route route) {
+        String upstreamModel = route.upstreamModel();
+        if (upstreamModel == null || upstreamModel.equals(request.path("model").asText())) {
+            return false;
+        }
+        request.put("model", upstreamModel);
+        return true;
+    }
+
+    /** Injects {@code stream_options.include_usage=true}; returns true when the tree changed. */
+    private boolean ensureIncludeUsage(ObjectNode request) {
+        JsonNode streamOptions = request.get("stream_options");
+        if (streamOptions == null || !streamOptions.isObject()) {
+            request.set("stream_options", mapper.createObjectNode().put("include_usage", true));
+            return true;
+        }
+        if (!streamOptions.has("include_usage")) {
+            ((ObjectNode) streamOptions).put("include_usage", true);
+            return true;
+        }
+        return false;
     }
 
     private ResponseEntity<StreamingResponseBody> error(int status, String message, String type) {

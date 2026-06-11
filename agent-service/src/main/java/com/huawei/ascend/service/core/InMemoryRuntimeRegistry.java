@@ -19,9 +19,7 @@ import com.huawei.ascend.service.spi.registry.SlaSnapshot;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -54,18 +52,7 @@ public final class InMemoryRuntimeRegistry implements RuntimeRegistry, AgentDire
 
     private final Clock clock;
     private final ConcurrentHashMap<RuntimeInstanceId, RuntimeRecord> records = new ConcurrentHashMap<>();
-
-    /**
-     * Insertion-ordered so the eldest pin is the eviction victim; all view
-     * iteration synchronizes on the map per {@link Collections#synchronizedMap}.
-     */
-    private final Map<SessionKey, RuntimeInstanceId> sessionPins =
-            Collections.synchronizedMap(new LinkedHashMap<>() {
-                @Override
-                protected boolean removeEldestEntry(Map.Entry<SessionKey, RuntimeInstanceId> eldest) {
-                    return size() > MAX_SESSION_PINS;
-                }
-            });
+    private final SessionPins sessionPins = new SessionPins(MAX_SESSION_PINS);
 
     public InMemoryRuntimeRegistry() {
         this(Clock.systemUTC());
@@ -121,7 +108,7 @@ public final class InMemoryRuntimeRegistry implements RuntimeRegistry, AgentDire
         Objects.requireNonNull(runtimeInstanceId, "runtimeInstanceId");
         refreshExpiredLeases();
         RuntimeRecord removed = records.remove(runtimeInstanceId);
-        dropPinsFor(runtimeInstanceId);
+        sessionPins.dropAllFor(runtimeInstanceId);
         return new RuntimeDeregisterResult(runtimeInstanceId, RuntimeState.DEREGISTERED, removed != null);
     }
 
@@ -196,8 +183,8 @@ public final class InMemoryRuntimeRegistry implements RuntimeRegistry, AgentDire
         if (sessionId == null || sessionId.isBlank()) {
             return best;
         }
-        SessionKey key = new SessionKey(best.tenantId(), best.agentId(), sessionId.trim());
-        RuntimeInstanceId pinnedId = sessionPins.get(key);
+        SessionPins.Key key = new SessionPins.Key(best.tenantId(), best.agentId(), sessionId.trim());
+        RuntimeInstanceId pinnedId = sessionPins.pinnedInstance(key);
         if (pinnedId != null) {
             for (RuntimeRecord candidate : ready) {
                 if (candidate.runtimeInstanceId().equals(pinnedId)) {
@@ -205,11 +192,20 @@ public final class InMemoryRuntimeRegistry implements RuntimeRegistry, AgentDire
                 }
             }
         }
-        sessionPins.put(key, best.runtimeInstanceId());
+        sessionPins.pin(key, best.runtimeInstanceId());
         return best;
     }
 
     private List<RuntimeRecord> eligibleRoutes(String agentId, String tenantId) {
+        List<RuntimeRecord> candidates = tenantAgentCandidates(agentId, tenantId);
+        List<RuntimeRecord> ready = readyByRouteScore(candidates);
+        if (ready.isEmpty()) {
+            throw noReadyRoute(candidates, agentId, tenantId);
+        }
+        return ready;
+    }
+
+    private List<RuntimeRecord> tenantAgentCandidates(String agentId, String tenantId) {
         String normalizedTenantId = required(tenantId, "tenantId");
         String normalizedAgentId = required(agentId, "agentId");
         List<RuntimeRecord> candidates = records.values().stream()
@@ -224,22 +220,26 @@ public final class InMemoryRuntimeRegistry implements RuntimeRegistry, AgentDire
                     GatewayErrorCode.AGENT_NOT_FOUND,
                     "No registered runtime for tenantId=" + tenantId + ", agentId=" + agentId);
         }
-        List<RuntimeRecord> ready = candidates.stream()
+        return candidates;
+    }
+
+    private List<RuntimeRecord> readyByRouteScore(List<RuntimeRecord> candidates) {
+        return candidates.stream()
                 .filter(record -> effectiveRouteState(record) == RuntimeState.READY)
                 .sorted(Comparator.<RuntimeRecord>comparingDouble(record -> record.capacitySnapshot().routeScore())
                         .thenComparingLong(record -> record.capacitySnapshot().p95FirstTokenMs())
                         .thenComparing(RuntimeRecord::lastHeartbeatAt, Comparator.reverseOrder())
                         .thenComparing(record -> record.runtimeInstanceId().value()))
                 .toList();
-        if (!ready.isEmpty()) {
-            return ready;
-        }
+    }
+
+    private AgentRouteNotFoundException noReadyRoute(List<RuntimeRecord> candidates, String agentId, String tenantId) {
         RuntimeState dominantState = candidates.stream()
                 .map(this::effectiveRouteState)
                 .filter(RuntimeState.AT_CAPACITY::equals)
                 .findFirst()
                 .orElse(effectiveRouteState(candidates.get(0)));
-        throw new AgentRouteNotFoundException(errorCodeForState(dominantState),
+        return new AgentRouteNotFoundException(errorCodeForState(dominantState),
                 "No READY runtime for tenantId=" + tenantId + ", agentId=" + agentId
                         + ", dominantState=" + dominantState);
     }
@@ -275,13 +275,7 @@ public final class InMemoryRuntimeRegistry implements RuntimeRegistry, AgentDire
             }
             return record;
         });
-        expired.forEach(this::dropPinsFor);
-    }
-
-    private void dropPinsFor(RuntimeInstanceId runtimeInstanceId) {
-        synchronized (sessionPins) {
-            sessionPins.values().removeIf(runtimeInstanceId::equals);
-        }
+        expired.forEach(sessionPins::dropAllFor);
     }
 
     private GatewayErrorCode errorCodeForState(RuntimeState state) {
@@ -299,9 +293,6 @@ public final class InMemoryRuntimeRegistry implements RuntimeRegistry, AgentDire
             throw new IllegalArgumentException(field + " is required");
         }
         return value.trim();
-    }
-
-    private record SessionKey(String tenantId, String agentId, String sessionId) {
     }
 
     private record RuntimeRecord(

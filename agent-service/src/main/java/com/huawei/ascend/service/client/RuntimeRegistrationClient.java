@@ -10,8 +10,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -21,20 +19,17 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
-import org.a2aproject.sdk.jsonrpc.common.json.JsonUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Self-registration client a runtime instance points at the service facade:
  * {@link #register} announces the instance, {@link #startHeartbeat} keeps its
  * lease alive on a daemon scheduler, and {@link #close} best-effort
  * deregisters everything this client registered. The API speaks the
- * {@code spi.registry} records; the HTTP/JSON wire shape of the
- * {@code /v1/runtime-registrations} routes is mapped internally so the
- * Spring-free runtime side never needs the service's Spring edge on its
+ * {@code spi.registry} records; {@link RegistrationWireCodec} maps them onto
+ * the HTTP/JSON wire shape of the {@code /v1/runtime-registrations} routes so
+ * the Spring-free runtime side never needs the service's Spring edge on its
  * classpath.
  *
  * <p>Heartbeat failures are logged and retried on the next tick — a transient
@@ -54,7 +49,7 @@ public final class RuntimeRegistrationClient implements AutoCloseable {
     private final Duration requestTimeout;
     private final Supplier<String> bearerTokenSupplier;
     private final String tenantId;
-    private final JsonMapper json = JsonMapper.builder().build();
+    private final RegistrationWireCodec wire = new RegistrationWireCodec();
     private final ScheduledExecutorService heartbeatScheduler;
     private final Set<String> registeredInstanceIds = ConcurrentHashMap.newKeySet();
     private final ConcurrentHashMap<String, ScheduledFuture<?>> heartbeats = new ConcurrentHashMap<>();
@@ -85,27 +80,13 @@ public final class RuntimeRegistrationClient implements AutoCloseable {
     public RuntimeRegistrationOutcome register(RuntimeAgentRegistration registration) {
         Objects.requireNonNull(registration, "registration");
         ensureOpen();
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("runtimeInstanceId", registration.runtimeInstanceId().value());
-        body.put("tenantId", registration.tenantId());
-        body.put("agentId", registration.agentId());
-        // The agent card is a third-party A2A spec type with polymorphic
-        // members (securitySchemes); its wire shape belongs to the SDK's own
-        // serializer, never to a default-Jackson view of the record graph.
-        body.put("agentCard", agentCardWireJson(registration));
-        body.put("a2aEndpoint", registration.a2aEndpoint().toString());
-        body.put("healthEndpoint", registration.healthEndpoint().toString());
-        body.put("version", registration.version());
-        body.put("ttlSeconds", registration.ttl().toSeconds());
-        body.put("capacitySnapshot", registration.capacitySnapshot());
-        body.put("metadata", registration.metadata());
         HttpResponse<String> response = send(request("/v1/runtime-registrations")
-                .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body)))
+                .POST(HttpRequest.BodyPublishers.ofString(wire.registrationBody(registration)))
                 .build());
         if (!isSuccess(response.statusCode())) {
             return rejected(response);
         }
-        RuntimeRegistrationResult result = json.readValue(response.body(), RuntimeRegistrationResult.class);
+        RuntimeRegistrationResult result = wire.readRegistrationResult(response.body());
         registeredInstanceIds.add(result.runtimeInstanceId().value());
         return RuntimeRegistrationOutcome.accepted(response.statusCode(), result);
     }
@@ -159,15 +140,9 @@ public final class RuntimeRegistrationClient implements AutoCloseable {
     private void renewQuietly(RuntimeInstanceId runtimeInstanceId, Supplier<RuntimeLeaseRenewal> renewalSupplier) {
         try {
             RuntimeLeaseRenewal renewal = renewalSupplier.get();
-            Map<String, Object> body = new LinkedHashMap<>();
-            body.put("state", renewal.state());
-            body.put("ttlSeconds", renewal.ttl().toSeconds());
-            body.put("slaSnapshot", renewal.slaSnapshot());
-            body.put("capacitySnapshot", renewal.capacitySnapshot());
-            body.put("metadata", renewal.metadata());
             HttpResponse<String> response = send(
                     request("/v1/runtime-registrations/" + runtimeInstanceId.value() + "/lease")
-                            .PUT(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body)))
+                            .PUT(HttpRequest.BodyPublishers.ofString(wire.renewalBody(renewal)))
                             .build());
             if (!isSuccess(response.statusCode())) {
                 log.warn("Lease renewal for {} rejected with status {}; retrying next tick: {}",
@@ -191,33 +166,9 @@ public final class RuntimeRegistrationClient implements AutoCloseable {
         }
     }
 
-    private JsonNode agentCardWireJson(RuntimeAgentRegistration registration) {
-        try {
-            return json.readTree(JsonUtil.toJson(registration.agentCard()));
-        } catch (Exception ex) {
-            throw new RuntimeRegistrationClientException(
-                    "Failed to serialize the agent card for " + registration.agentId(), ex);
-        }
-    }
-
     private RuntimeRegistrationOutcome rejected(HttpResponse<String> response) {
-        String code = null;
-        String message = response.body();
-        try {
-            JsonNode node = json.readTree(response.body());
-            if (node.path("code").isString()) {
-                code = node.path("code").asText();
-            }
-            if (node.path("message").isString()) {
-                message = node.path("message").asText();
-            } else if (node.path("error").path("message").isString()) {
-                // The JWT service ingress rejects with {"error":{"status","message"}}.
-                message = node.path("error").path("message").asText();
-            }
-        } catch (RuntimeException ignored) {
-            // Non-JSON error body: surface the raw payload as the message.
-        }
-        return RuntimeRegistrationOutcome.rejected(response.statusCode(), code, message);
+        RegistrationWireCodec.Rejection rejection = wire.readRejection(response.body());
+        return RuntimeRegistrationOutcome.rejected(response.statusCode(), rejection.code(), rejection.message());
     }
 
     private HttpRequest.Builder request(String path) {

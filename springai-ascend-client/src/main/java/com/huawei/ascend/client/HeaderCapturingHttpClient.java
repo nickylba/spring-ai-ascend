@@ -12,7 +12,6 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Flow;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import org.a2aproject.sdk.client.http.A2AHttpClient;
@@ -87,24 +86,41 @@ final class HeaderCapturingHttpClient implements A2AHttpClient {
     private CompletableFuture<Void> asyncSse(HttpRequest request,
             Consumer<ServerSentEvent> eventConsumer, Consumer<Throwable> errorConsumer,
             Runnable completeRunnable) {
+        Consumer<Throwable> deliverOnce = deliverOnceTo(errorConsumer);
+        ServerSentEventParser parser = new ServerSentEventParser(eventConsumer, deliverOnce);
+        CompletableFuture<HttpResponse<Void>> exchange = http.sendAsync(request,
+                responseInfo -> sseBody(responseInfo, parser, deliverOnce, completeRunnable));
+        return subscriptionFor(exchange, deliverOnce);
+    }
+
+    /** At most one error is ever delivered per stream, matching the stock client. */
+    private static Consumer<Throwable> deliverOnceTo(Consumer<Throwable> errorConsumer) {
         AtomicBoolean errorDelivered = new AtomicBoolean();
-        Consumer<Throwable> deliverOnce = error -> {
+        return error -> {
             if (errorDelivered.compareAndSet(false, true)) {
                 errorConsumer.accept(error);
             }
         };
-        ServerSentEventParser parser = new ServerSentEventParser(eventConsumer, deliverOnce);
+    }
+
+    /** Header capture plus HTTP-status gate before the body reaches the SSE parser. */
+    private HttpResponse.BodySubscriber<Void> sseBody(HttpResponse.ResponseInfo responseInfo,
+            ServerSentEventParser parser, Consumer<Throwable> deliverOnce,
+            Runnable completeRunnable) {
+        capture(responseInfo.headers());
+        if (responseInfo.statusCode() != 200) {
+            deliverOnce.accept(new IOException(
+                    "A2A SSE endpoint returned HTTP " + responseInfo.statusCode()));
+            return HttpResponse.BodySubscribers.discarding();
+        }
+        return HttpResponse.BodySubscribers.fromLineSubscriber(
+                new SseLineSubscriber(parser, completeRunnable));
+    }
+
+    /** The future handed to the transport, mirroring the exchange's outcome. */
+    private static CompletableFuture<Void> subscriptionFor(
+            CompletableFuture<HttpResponse<Void>> exchange, Consumer<Throwable> deliverOnce) {
         CompletableFuture<Void> subscription = new CompletableFuture<>();
-        CompletableFuture<HttpResponse<Void>> exchange = http.sendAsync(request, responseInfo -> {
-            capture(responseInfo.headers());
-            if (responseInfo.statusCode() != 200) {
-                deliverOnce.accept(new IOException(
-                        "A2A SSE endpoint returned HTTP " + responseInfo.statusCode()));
-                return HttpResponse.BodySubscribers.discarding();
-            }
-            return HttpResponse.BodySubscribers.fromLineSubscriber(
-                    new SseLineSubscriber(parser, completeRunnable));
-        });
         exchange.whenComplete((response, error) -> {
             if (error != null) {
                 deliverOnce.accept(unwrap(error));
@@ -131,40 +147,6 @@ final class HeaderCapturingHttpClient implements A2AHttpClient {
             return error.getCause();
         }
         return error;
-    }
-
-    /** Feeds response body lines into the SSE parser; completion flushes a trailing event. */
-    private static final class SseLineSubscriber implements Flow.Subscriber<String> {
-
-        private final ServerSentEventParser parser;
-        private final Runnable completeRunnable;
-
-        private SseLineSubscriber(ServerSentEventParser parser, Runnable completeRunnable) {
-            this.parser = parser;
-            this.completeRunnable = completeRunnable;
-        }
-
-        @Override
-        public void onSubscribe(Flow.Subscription subscription) {
-            subscription.request(Long.MAX_VALUE);
-        }
-
-        @Override
-        public void onNext(String line) {
-            parser.processLine(line);
-        }
-
-        @Override
-        public void onError(Throwable throwable) {
-            // Surfaced once through the exchange future in asyncSse; reporting
-            // here as well would double-deliver the same failure.
-        }
-
-        @Override
-        public void onComplete() {
-            parser.flush();
-            completeRunnable.run();
-        }
     }
 
     private record CapturedResponse(int status, String body) implements A2AHttpResponse {

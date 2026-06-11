@@ -72,16 +72,12 @@ public final class A2aAgentExecutor implements AgentExecutor {
     public void execute(RequestContext ctx, AgentEmitter emitter) {
         String taskId = ctx.getTaskId();
         if (handler == null) {
-            LOG.warn("[A2A] no handler registered taskId={}", taskId);
-            emitter.reject(failureMessage(emitter, "NO_HANDLER",
-                    "no agent handler registered for this task", false));
-            LOG.info("[A2A] task state=REJECTED taskId={}", taskId);
+            rejectNoHandler(emitter, taskId);
             return;
         }
         long startedNanos = System.nanoTime();
-        String sessionId = ctx.getContextId();
-        String agentId = handler.agentId();
-        LOG.info("[A2A] execute start taskId={} sessionId={} agentId={}", taskId, sessionId, agentId);
+        LOG.info("[A2A] execute start taskId={} sessionId={} agentId={}",
+                taskId, ctx.getContextId(), handler.agentId());
 
         // ── (received) → SUBMITTED → WORKING ──
         emitter.submit();
@@ -89,58 +85,79 @@ public final class A2aAgentExecutor implements AgentExecutor {
         emitter.startWork();
         LOG.info("[A2A] task state=WORKING taskId={}", taskId);
 
-        // Per-task local state (this bean is a shared singleton — never hoist to a field).
-        AtomicBoolean firstArtifact = new AtomicBoolean(true);
-        String artifactId = taskId + "-response";
-
         // Everything after startWork must fail the task on error — context
         // construction throws on wire-controllable input (blank/null ids), and
         // an escape here would strand the task in WORKING forever.
         AtomicReference<Run> run = new AtomicReference<>();
         try {
-            String inputText = extractText(ctx);
-            LOG.info("[A2A] input parsed taskId={} textChars={}", taskId, inputText.length());
-            AgentExecutionContext context = toExecutionContext(ctx, inputText);
-            run.set(startRun(context));
-
-            try (Stream<?> raw = executeAgent(context);
-                 Stream<AgentExecutionResult> results = handler.resultAdapter().adapt(raw)) {
-
-                AtomicBoolean terminalRouted = new AtomicBoolean(false);
-                results.forEach(result -> {
-                    LOG.info("[A2A] result taskId={} type={} outputChars={}",
-                            taskId, result.type(),
-                            result.outputContent() != null
-                                    ? result.outputContent().length() : 0);
-                    if (route(result, emitter, taskId, artifactId, firstArtifact)) {
-                        terminalRouted.set(true);
-                        transitionRun(run, runStatusOf(result.type()));
-                    }
-                });
-                if (!terminalRouted.get()) {
-                    // The handler stream drained without a terminal result (e.g. the
-                    // upstream runtime replied with no events). DefaultRequestHandler
-                    // never forces a terminal state, so finalize here or the task
-                    // stays WORKING forever and polling clients hang.
-                    LOG.warn("[A2A] result stream ended without terminal result taskId={} — completing", taskId);
-                    emitter.complete();
-                    transitionRun(run, RunStatus.SUCCEEDED);
-                }
-            }
+            runToCompletion(ctx, emitter, taskId, run);
             LOG.info("[A2A] execute finish taskId={} durationMs={}",
                     taskId, (System.nanoTime() - startedNanos) / 1_000_000L);
-
         } catch (Exception e) {
-            RuntimeErrorCode code = RuntimeErrorCode.classify(e);
-            String detail = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-            LOG.error("[A2A] execute failed taskId={} code={} errorClass={} message={}",
-                    taskId, code, e.getClass().getSimpleName(), e.getMessage(), e);
-            emitter.fail(failureMessage(emitter, code.name(), detail, code.retryable()));
-            LOG.info("[A2A] task state=FAILED taskId={}", taskId);
-            transitionRun(run, RunStatus.FAILED);
+            failTask(emitter, taskId, run, e);
         } finally {
             MDC.remove("runId");
         }
+    }
+
+    private static void rejectNoHandler(AgentEmitter emitter, String taskId) {
+        LOG.warn("[A2A] no handler registered taskId={}", taskId);
+        emitter.reject(failureMessage(emitter, "NO_HANDLER",
+                "no agent handler registered for this task", false));
+        LOG.info("[A2A] task state=REJECTED taskId={}", taskId);
+    }
+
+    /** Parse the request, start Run tracking, then route the handler's result stream. */
+    private void runToCompletion(RequestContext ctx, AgentEmitter emitter, String taskId,
+                                 AtomicReference<Run> run) {
+        String inputText = extractText(ctx);
+        LOG.info("[A2A] input parsed taskId={} textChars={}", taskId, inputText.length());
+        AgentExecutionContext context = toExecutionContext(ctx, inputText);
+        run.set(startRun(context));
+
+        try (Stream<?> raw = executeAgent(context);
+             Stream<AgentExecutionResult> results = handler.resultAdapter().adapt(raw)) {
+            drainResults(results, emitter, taskId, run);
+        }
+    }
+
+    /** Routes every result to the emitter, forcing a terminal state if the stream never yields one. */
+    private void drainResults(Stream<AgentExecutionResult> results, AgentEmitter emitter,
+                              String taskId, AtomicReference<Run> run) {
+        // Per-task local state (this bean is a shared singleton — never hoist to a field).
+        AtomicBoolean firstArtifact = new AtomicBoolean(true);
+        String artifactId = taskId + "-response";
+
+        AtomicBoolean terminalRouted = new AtomicBoolean(false);
+        results.forEach(result -> {
+            LOG.info("[A2A] result taskId={} type={} outputChars={}",
+                    taskId, result.type(),
+                    result.outputContent() != null
+                            ? result.outputContent().length() : 0);
+            if (route(result, emitter, taskId, artifactId, firstArtifact)) {
+                terminalRouted.set(true);
+                transitionRun(run, runStatusOf(result.type()));
+            }
+        });
+        if (!terminalRouted.get()) {
+            // The handler stream drained without a terminal result (e.g. the
+            // upstream runtime replied with no events). DefaultRequestHandler
+            // never forces a terminal state, so finalize here or the task
+            // stays WORKING forever and polling clients hang.
+            LOG.warn("[A2A] result stream ended without terminal result taskId={} — completing", taskId);
+            emitter.complete();
+            transitionRun(run, RunStatus.SUCCEEDED);
+        }
+    }
+
+    private void failTask(AgentEmitter emitter, String taskId, AtomicReference<Run> run, Exception e) {
+        RuntimeErrorCode code = RuntimeErrorCode.classify(e);
+        String detail = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+        LOG.error("[A2A] execute failed taskId={} code={} errorClass={} message={}",
+                taskId, code, e.getClass().getSimpleName(), e.getMessage(), e);
+        emitter.fail(failureMessage(emitter, code.name(), detail, code.retryable()));
+        LOG.info("[A2A] task state=FAILED taskId={}", taskId);
+        transitionRun(run, RunStatus.FAILED);
     }
 
     /** Creates and persists the Run record tracking this execution: PENDING → RUNNING. */
@@ -219,58 +236,66 @@ public final class A2aAgentExecutor implements AgentExecutor {
     }
 
     /** Routes one result to the emitter; returns true when it put the task in a terminal state. */
-    private boolean route(AgentExecutionResult result, AgentEmitter emitter, String taskId,
-                          String artifactId, AtomicBoolean firstArtifact) {
-        switch (result.type()) {
-            case OUTPUT -> {
-                String text = outputText(result);
-                LOG.info("[A2A] output stream taskId={} textChars={}", taskId, text.length());
-                // First chunk opens the artifact (append=false); later chunks append to the same
-                // artifactId so the stream forms one growing artifact rather than many fragments.
-                boolean append = !firstArtifact.getAndSet(false);
-                emitter.addArtifact(List.<Part<?>>of(new TextPart(text)),
-                        artifactId, "agent-response", null, append, false);
-                // state stays WORKING — more output may follow; the terminal status closes the stream
-                return false;
-            }
-            case COMPLETED -> {
-                String text = outputText(result);
-                if (!text.isBlank()) {
-                    LOG.info("[A2A] complete with final output taskId={} textChars={}", taskId, text.length());
-                    emitter.complete(emitter.newAgentMessage(List.<Part<?>>of(new TextPart(text)), null));
-                } else {
-                    emitter.complete();
-                }
-                LOG.info("[A2A] task state=COMPLETED taskId={}", taskId);
-                return true;
-            }
-            case FAILED -> {
-                String code = result.errorCode() == null ? "RUNTIME_ERROR" : result.errorCode();
-                String msg = result.errorMessage() == null ? code : result.errorMessage();
-                LOG.warn("[A2A] task state=FAILED taskId={} code={} message={}", taskId, code, msg);
-                // Adapter-supplied codes pass through unchanged; retryability is unknown → conservative false.
-                emitter.fail(failureMessage(emitter, code, result.errorMessage(), false));
-                return true;
-            }
-            case INTERRUPTED -> {
-                String prompt = result.prompt() == null ? "" : result.prompt();
-                LOG.info("[A2A] task state=INPUT_REQUIRED taskId={} prompt={}", taskId, prompt);
-                // The A2A SDK drops the isFinal flag when building input-required
-                // status updates (the event builder is never told), so a streaming
-                // client never receives the suspension status and would hang to its
-                // timeout, losing the prompt. The platform convention therefore
-                // rides the prompt MESSAGE itself: runStatus=input-required
-                // metadata, mirroring the terminal runStatus message convention the
-                // client already understands. The non-final status update still
-                // follows for the task store and blocking callers.
-                String promptText = prompt.isBlank() ? "input required" : prompt;
-                emitter.sendMessage(List.of(new TextPart(promptText)),
-                        Map.of("runStatus", "input-required"));
-                emitter.requiresInput();
-                return true;
-            }
-        }
+    private static boolean route(AgentExecutionResult result, AgentEmitter emitter, String taskId,
+                                 String artifactId, AtomicBoolean firstArtifact) {
+        return switch (result.type()) {
+            case OUTPUT -> routeOutput(result, emitter, taskId, artifactId, firstArtifact);
+            case COMPLETED -> routeCompleted(result, emitter, taskId);
+            case FAILED -> routeFailed(result, emitter, taskId);
+            case INTERRUPTED -> routeInterrupted(result, emitter, taskId);
+        };
+    }
+
+    private static boolean routeOutput(AgentExecutionResult result, AgentEmitter emitter,
+                                       String taskId, String artifactId, AtomicBoolean firstArtifact) {
+        String text = outputText(result);
+        LOG.info("[A2A] output stream taskId={} textChars={}", taskId, text.length());
+        // First chunk opens the artifact (append=false); later chunks append to the same
+        // artifactId so the stream forms one growing artifact rather than many fragments.
+        boolean append = !firstArtifact.getAndSet(false);
+        emitter.addArtifact(List.<Part<?>>of(new TextPart(text)),
+                artifactId, "agent-response", null, append, false);
+        // state stays WORKING — more output may follow; the terminal status closes the stream
         return false;
+    }
+
+    private static boolean routeCompleted(AgentExecutionResult result, AgentEmitter emitter, String taskId) {
+        String text = outputText(result);
+        if (!text.isBlank()) {
+            LOG.info("[A2A] complete with final output taskId={} textChars={}", taskId, text.length());
+            emitter.complete(emitter.newAgentMessage(List.<Part<?>>of(new TextPart(text)), null));
+        } else {
+            emitter.complete();
+        }
+        LOG.info("[A2A] task state=COMPLETED taskId={}", taskId);
+        return true;
+    }
+
+    private static boolean routeFailed(AgentExecutionResult result, AgentEmitter emitter, String taskId) {
+        String code = result.errorCode() == null ? "RUNTIME_ERROR" : result.errorCode();
+        String msg = result.errorMessage() == null ? code : result.errorMessage();
+        LOG.warn("[A2A] task state=FAILED taskId={} code={} message={}", taskId, code, msg);
+        // Adapter-supplied codes pass through unchanged; retryability is unknown → conservative false.
+        emitter.fail(failureMessage(emitter, code, result.errorMessage(), false));
+        return true;
+    }
+
+    private static boolean routeInterrupted(AgentExecutionResult result, AgentEmitter emitter, String taskId) {
+        String prompt = result.prompt() == null ? "" : result.prompt();
+        LOG.info("[A2A] task state=INPUT_REQUIRED taskId={} prompt={}", taskId, prompt);
+        // The A2A SDK drops the isFinal flag when building input-required
+        // status updates (the event builder is never told), so a streaming
+        // client never receives the suspension status and would hang to its
+        // timeout, losing the prompt. The platform convention therefore
+        // rides the prompt MESSAGE itself: runStatus=input-required
+        // metadata, mirroring the terminal runStatus message convention the
+        // client already understands. The non-final status update still
+        // follows for the task store and blocking callers.
+        String promptText = prompt.isBlank() ? "input required" : prompt;
+        emitter.sendMessage(List.of(new TextPart(promptText)),
+                Map.of("runStatus", "input-required"));
+        emitter.requiresInput();
+        return true;
     }
 
     private static String outputText(AgentExecutionResult result) {

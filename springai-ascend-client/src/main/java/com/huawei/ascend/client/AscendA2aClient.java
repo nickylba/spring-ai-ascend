@@ -2,23 +2,26 @@ package com.huawei.ascend.client;
 
 import com.huawei.ascend.client.telemetry.ClientCallSpan;
 import com.huawei.ascend.client.telemetry.ClientTelemetry;
+import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.a2aproject.sdk.client.http.A2ACardResolver;
 import org.a2aproject.sdk.client.transport.jsonrpc.JSONRPCTransport;
 import org.a2aproject.sdk.client.transport.spi.interceptors.ClientCallContext;
+import org.a2aproject.sdk.jsonrpc.common.json.JsonProcessingException;
+import org.a2aproject.sdk.jsonrpc.common.json.JsonUtil;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.CancelTaskRequest;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.CancelTaskResponse;
 import org.a2aproject.sdk.spec.AgentCard;
 import org.a2aproject.sdk.spec.CancelTaskParams;
 import org.a2aproject.sdk.spec.EventKind;
@@ -105,18 +108,16 @@ public final class AscendA2aClient implements AutoCloseable {
     public A2aResponse sendText(SendSpec spec) {
         Objects.requireNonNull(spec, "spec");
         AgentCard card = agentCard();
-        ClientCallSpan span = telemetry.startCall("send", spec, tenantId(), serverAddress);
-        String traceparent = outboundTraceparent(span);
-        AtomicReference<String> traceresponse = new AtomicReference<>();
-        JSONRPCTransport transport = newTransport(card, traceresponse);
+        CallTrace call = startCall("send", spec);
+        JSONRPCTransport transport = newTransport(card, call.traceresponse());
         try {
             EventKind result = transport.sendMessage(
-                    messageSendParams(spec), callContext(traceparent));
+                    messageSendParams(spec), callContext(call.traceparent()));
             List<StreamingEventKind> events = result instanceof StreamingEventKind streaming
                     ? List.of(streaming) : List.of();
-            return complete(span, events, traceparent, traceresponse.get());
+            return complete(call, events);
         } catch (RuntimeException e) {
-            fail(span, e, traceresponse.get());
+            fail(call, e);
             throw e;
         } finally {
             transport.close();
@@ -139,33 +140,36 @@ public final class AscendA2aClient implements AutoCloseable {
         // symmetric by construction.
         String traceparent = trace.newTraceparent();
         try {
-            String requestJson = org.a2aproject.sdk.jsonrpc.common.json.JsonUtil.toJson(
-                    new org.a2aproject.sdk.jsonrpc.common.wrappers.CancelTaskRequest(
-                            "cancel-" + java.util.UUID.randomUUID(), new CancelTaskParams(taskId)));
-            java.net.http.HttpRequest.Builder request = java.net.http.HttpRequest.newBuilder(
-                            URI.create(baseUrl + "/a2a"))
-                    .header("Content-Type", "application/json")
-                    .timeout(timeout)
-                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(requestJson));
-            callHeaders(traceparent).forEach(request::header);
-            java.net.http.HttpResponse<String> response = http.send(
-                    request.build(), java.net.http.HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() != 200) {
-                throw new IllegalStateException("tasks/cancel failed with HTTP " + response.statusCode());
-            }
-            org.a2aproject.sdk.jsonrpc.common.wrappers.CancelTaskResponse parsed =
-                    org.a2aproject.sdk.jsonrpc.common.json.JsonUtil.fromJson(
-                            response.body(), org.a2aproject.sdk.jsonrpc.common.wrappers.CancelTaskResponse.class);
+            String requestJson = JsonUtil.toJson(new CancelTaskRequest(
+                    "cancel-" + UUID.randomUUID(), new CancelTaskParams(taskId)));
+            String body = postTasksCancel(requestJson, traceparent);
+            CancelTaskResponse parsed = JsonUtil.fromJson(body, CancelTaskResponse.class);
             if (parsed.getResult() == null) {
-                throw new IllegalStateException("tasks/cancel returned no task: " + response.body());
+                throw new IllegalStateException("tasks/cancel returned no task: " + body);
             }
             return parsed.getResult();
-        } catch (org.a2aproject.sdk.jsonrpc.common.json.JsonProcessingException | java.io.IOException e) {
+        } catch (JsonProcessingException | IOException e) {
             throw new IllegalStateException("tasks/cancel failed", e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("tasks/cancel interrupted", e);
         }
+    }
+
+    /** One blocking JSON-RPC POST to {@code /a2a} with this client's auth/trace headers. */
+    private String postTasksCancel(String requestJson, String traceparent)
+            throws IOException, InterruptedException {
+        HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(baseUrl + "/a2a"))
+                .header("Content-Type", "application/json")
+                .timeout(timeout)
+                .POST(HttpRequest.BodyPublishers.ofString(requestJson));
+        callHeaders(traceparent).forEach(request::header);
+        HttpResponse<String> response = http.send(
+                request.build(), HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() != 200) {
+            throw new IllegalStateException("tasks/cancel failed with HTTP " + response.statusCode());
+        }
+        return response.body();
     }
 
     /** Streaming send aggregated into one blocking result; see {@link #streamText(SendSpec, Consumer)}. */
@@ -193,58 +197,29 @@ public final class AscendA2aClient implements AutoCloseable {
         Objects.requireNonNull(spec, "spec");
         Objects.requireNonNull(listener, "listener");
         AgentCard card = agentCard();
-        ClientCallSpan span = telemetry.startCall("stream", spec, tenantId(), serverAddress);
-        String traceparent = outboundTraceparent(span);
-        AtomicReference<String> traceresponse = new AtomicReference<>();
+        CallTrace call = startCall("stream", spec);
         try {
-            List<StreamingEventKind> events = streamEvents(card, spec, listener, traceparent,
-                    traceresponse);
-            return complete(span, events, traceparent, traceresponse.get());
+            List<StreamingEventKind> events = streamEvents(card, spec, listener, call);
+            return complete(call, events);
         } catch (RuntimeException | InterruptedException e) {
-            fail(span, e, traceresponse.get());
+            fail(call, e);
             throw e;
         }
     }
 
     /** The streaming exchange itself: collect events until turn-end/failure/timeout. */
     private List<StreamingEventKind> streamEvents(AgentCard card, SendSpec spec,
-            Consumer<StreamingEventKind> listener, String traceparent,
-            AtomicReference<String> traceresponse) throws InterruptedException {
-        List<StreamingEventKind> events = Collections.synchronizedList(new ArrayList<>());
-        CountDownLatch completed = new CountDownLatch(1);
-        AtomicReference<Throwable> failure = new AtomicReference<>();
-        AtomicBoolean sawTurnEnd = new AtomicBoolean(false);
-        JSONRPCTransport transport = newTransport(card, traceresponse);
+            Consumer<StreamingEventKind> listener, CallTrace call) throws InterruptedException {
+        StreamTurnCollector collector = new StreamTurnCollector(listener);
+        JSONRPCTransport transport = newTransport(card, call.traceresponse());
         try {
-            transport.sendMessageStreaming(
-                    messageSendParams(spec),
-                    event -> {
-                        events.add(event);
-                        listener.accept(event);
-                        if (A2aEvents.isTurnEnding(event)) {
-                            sawTurnEnd.set(true);
-                            completed.countDown();
-                        }
-                    },
-                    error -> {
-                        if (A2aEvents.isFailureError(error, sawTurnEnd.get())) {
-                            failure.set(error);
-                        }
-                        completed.countDown();
-                    },
-                    callContext(traceparent));
-            if (!completed.await(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
-                throw new IllegalStateException("A2A stream did not complete before timeout");
-            }
+            transport.sendMessageStreaming(messageSendParams(spec),
+                    collector::onEvent, collector::onError, callContext(call.traceparent()));
+            collector.awaitTurnEnd(timeout);
         } finally {
             transport.close();
         }
-        if (failure.get() != null) {
-            throw new IllegalStateException("A2A stream failed", failure.get());
-        }
-        synchronized (events) {
-            return List.copyOf(events);
-        }
+        return collector.eventsOrThrow();
     }
 
     @Override
@@ -260,6 +235,16 @@ public final class AscendA2aClient implements AutoCloseable {
         telemetry.close();
     }
 
+    /** Per-call telemetry context: business span, wire traceparent, traceresponse capture. */
+    private record CallTrace(ClientCallSpan span, String traceparent,
+            AtomicReference<String> traceresponse) {
+    }
+
+    private CallTrace startCall(String operation, SendSpec spec) {
+        ClientCallSpan span = telemetry.startCall(operation, spec, tenantId(), serverAddress);
+        return new CallTrace(span, outboundTraceparent(span), new AtomicReference<>());
+    }
+
     /**
      * The header that crosses the wire: the active span's trace context when
      * telemetry originates one, otherwise this client's own per-call mint.
@@ -269,17 +254,17 @@ public final class AscendA2aClient implements AutoCloseable {
         return fromSpan != null ? fromSpan : trace.newTraceparent();
     }
 
-    private A2aResponse complete(ClientCallSpan span, List<StreamingEventKind> events,
-            String traceparent, String traceresponse) {
-        A2aResponse result = response(events, traceparent, traceresponse);
-        span.traceresponse(traceresponse);
-        span.succeed(events.stream().anyMatch(A2aEvents::isTerminal), result.text());
+    private A2aResponse complete(CallTrace call, List<StreamingEventKind> events) {
+        String traceresponse = call.traceresponse().get();
+        A2aResponse result = response(events, call.traceparent(), traceresponse);
+        call.span().traceresponse(traceresponse);
+        call.span().succeed(events.stream().anyMatch(A2aEvents::isTerminal), result.text());
         return result;
     }
 
-    private static void fail(ClientCallSpan span, Throwable error, String traceresponse) {
-        span.traceresponse(traceresponse);
-        span.fail(error);
+    private static void fail(CallTrace call, Throwable error) {
+        call.span().traceresponse(call.traceresponse().get());
+        call.span().fail(error);
     }
 
     private String tenantId() {

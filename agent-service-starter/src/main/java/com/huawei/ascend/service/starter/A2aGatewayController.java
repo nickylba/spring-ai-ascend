@@ -71,11 +71,7 @@ public final class A2aGatewayController {
                 a2aMethod,
                 routingContext,
                 Duration.ofSeconds(60)));
-        Map<String, List<String>> forwardHeaders = copyHeaders(headers);
-        addHeader(forwardHeaders, "X-Ascend-Route-Grant-Id", grant.grantId());
-        addHeader(forwardHeaders, "X-Ascend-Route-Grant-Signature", grant.signature());
-        addHeader(forwardHeaders, "X-Ascend-Source-Agent", grant.sourceAgentId());
-        addHeader(forwardHeaders, "X-Ascend-Tenant", grant.tenantId());
+        Map<String, List<String>> forwardHeaders = grantStampedHeaders(headers, grant);
         Instant forwardCallStart = Instant.now();
         A2aGatewayStreamResponse response = gateway.forwardStreaming(
                 agentId,
@@ -108,34 +104,32 @@ public final class A2aGatewayController {
             long requestBytes,
             Instant requestStart,
             long forwardStartMs) {
+        ForwardContext context = new ForwardContext(
+                grant, a2aMethod, sessionId, correlationId, requestBytes, requestStart);
         HttpStatusCode statusCode;
         HttpHeaders responseHeaders;
         try {
             statusCode = HttpStatusCode.valueOf(response.statusCode());
-            responseHeaders = new HttpHeaders();
-            responseHeaders.setContentType(parseContentType(response.contentType()));
-            responseHeaders.set("X-Ascend-Runtime-Instance", response.runtimeInstanceId());
-            responseHeaders.set("X-Ascend-Route-Grant-Id", grant.grantId());
-            responseHeaders.set("X-Ascend-Route-Resolve-Ms", Long.toString(response.routeResolveLatency().toMillis()));
-            responseHeaders.set("X-Ascend-First-Byte-Ms", Long.toString(response.firstByteLatency().toMillis()));
-            responseHeaders.set("X-Ascend-Forward-Start-Ms", Long.toString(forwardStartMs));
+            responseHeaders = relayHeaders(response, grant, forwardStartMs);
         } catch (RuntimeException ex) {
             closeQuietly(response.body());
-            recordCompletion(response, grant, a2aMethod, sessionId, correlationId,
-                    requestBytes, requestStart, 0, "FAILED", GatewayErrorCode.GATEWAY_FORWARD_FAILED.name());
+            recordCompletion(response, context, 0, "FAILED", GatewayErrorCode.GATEWAY_FORWARD_FAILED.name());
             throw new A2aGatewayForwardException(
                     "Runtime " + response.runtimeInstanceId() + " returned a response the gateway could not relay", ex);
         }
-        StreamingResponseBody stream = output -> streamAndRecord(
-                response,
-                output,
-                grant,
-                a2aMethod,
-                sessionId,
-                correlationId,
-                requestBytes,
-                requestStart);
+        StreamingResponseBody stream = output -> streamAndRecord(response, output, context);
         return new ResponseEntity<>(stream, responseHeaders, statusCode);
+    }
+
+    private static HttpHeaders relayHeaders(A2aGatewayStreamResponse response, RouteGrant grant, long forwardStartMs) {
+        HttpHeaders responseHeaders = new HttpHeaders();
+        responseHeaders.setContentType(parseContentType(response.contentType()));
+        responseHeaders.set("X-Ascend-Runtime-Instance", response.runtimeInstanceId());
+        responseHeaders.set("X-Ascend-Route-Grant-Id", grant.grantId());
+        responseHeaders.set("X-Ascend-Route-Resolve-Ms", Long.toString(response.routeResolveLatency().toMillis()));
+        responseHeaders.set("X-Ascend-First-Byte-Ms", Long.toString(response.firstByteLatency().toMillis()));
+        responseHeaders.set("X-Ascend-Forward-Start-Ms", Long.toString(forwardStartMs));
+        return responseHeaders;
     }
 
     private static MediaType parseContentType(String contentType) {
@@ -176,25 +170,21 @@ public final class A2aGatewayController {
                 .body(new RuntimeRegistryController.ErrorResponse(GatewayErrorCode.BAD_REQUEST.name(), ex.getMessage()));
     }
 
-    private Map<String, List<String>> copyHeaders(HttpHeaders headers) {
-        Map<String, List<String>> copied = new LinkedHashMap<>();
-        headers.forEach((name, values) -> copied.put(name, List.copyOf(values)));
-        return copied;
-    }
-
-    private void addHeader(Map<String, List<String>> headers, String name, String value) {
-        headers.put(name, List.of(value));
+    /** Stamps the route-grant proof onto a copy of the inbound headers. */
+    private static Map<String, List<String>> grantStampedHeaders(HttpHeaders headers, RouteGrant grant) {
+        Map<String, List<String>> forwardHeaders = new LinkedHashMap<>();
+        headers.forEach((name, values) -> forwardHeaders.put(name, List.copyOf(values)));
+        forwardHeaders.put("X-Ascend-Route-Grant-Id", List.of(grant.grantId()));
+        forwardHeaders.put("X-Ascend-Route-Grant-Signature", List.of(grant.signature()));
+        forwardHeaders.put("X-Ascend-Source-Agent", List.of(grant.sourceAgentId()));
+        forwardHeaders.put("X-Ascend-Tenant", List.of(grant.tenantId()));
+        return forwardHeaders;
     }
 
     private void streamAndRecord(
             A2aGatewayStreamResponse response,
             OutputStream output,
-            RouteGrant grant,
-            String a2aMethod,
-            String sessionId,
-            String correlationId,
-            long requestBytes,
-            Instant requestStart) throws IOException {
+            ForwardContext context) throws IOException {
         long responseBytes = 0;
         String status = "OK";
         String errorCode = null;
@@ -210,37 +200,42 @@ public final class A2aGatewayController {
             errorCode = GatewayErrorCode.RUNTIME_UNREACHABLE.name();
             throw ex;
         } finally {
-            recordCompletion(response, grant, a2aMethod, sessionId, correlationId,
-                    requestBytes, requestStart, responseBytes, status, errorCode);
+            recordCompletion(response, context, responseBytes, status, errorCode);
         }
     }
 
     private void recordCompletion(
             A2aGatewayStreamResponse response,
-            RouteGrant grant,
-            String a2aMethod,
-            String sessionId,
-            String correlationId,
-            long requestBytes,
-            Instant requestStart,
+            ForwardContext context,
             long responseBytes,
             String status,
             String errorCode) {
+        RouteGrant grant = context.grant();
         forwardObserver.onForwardCompleted(new A2aForwardObserver.A2aForwardCompletion(
                 grant.tenantId(),
                 grant.sourceAgentId(),
                 grant.targetAgentId(),
                 response.runtimeInstanceId(),
                 grant.grantId(),
-                a2aMethod,
-                sessionId,
-                correlationId,
+                context.a2aMethod(),
+                context.sessionId(),
+                context.correlationId(),
                 status,
                 errorCode,
                 response.routeResolveLatency(),
                 response.firstByteLatency(),
-                Duration.between(requestStart, Instant.now()),
-                requestBytes,
+                Duration.between(context.requestStart(), Instant.now()),
+                context.requestBytes(),
                 responseBytes));
+    }
+
+    /** Per-forward facts the relay and its completion record both need. */
+    private record ForwardContext(
+            RouteGrant grant,
+            String a2aMethod,
+            String sessionId,
+            String correlationId,
+            long requestBytes,
+            Instant requestStart) {
     }
 }

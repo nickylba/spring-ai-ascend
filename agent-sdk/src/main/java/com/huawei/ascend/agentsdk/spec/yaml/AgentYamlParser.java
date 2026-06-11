@@ -15,8 +15,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public final class AgentYamlParser {
 
@@ -32,10 +34,7 @@ public final class AgentYamlParser {
 
     public AgentSpec parse(Map<String, Object> root, Path yamlPath) {
         Path yamlDir = yamlPath.toAbsolutePath().normalize().getParent();
-        String schema = string(root.get("schema"));
-        if (!"ascend-agent/v1".equals(schema)) {
-            throw new ValidationException("Unsupported agent schema: " + schema);
-        }
+        String schema = validatedSchema(root);
         String name = requiredString(root, "name");
         String displayName = defaultString(string(root.get("displayName")), name);
         String description = requiredString(root, "description");
@@ -68,6 +67,14 @@ public final class AgentYamlParser {
                 mcpServers);
     }
 
+    private static String validatedSchema(Map<String, Object> root) {
+        String schema = string(root.get("schema"));
+        if (!"ascend-agent/v1".equals(schema)) {
+            throw new ValidationException("Unsupported agent schema: " + schema);
+        }
+        return schema;
+    }
+
     /**
      * Two forms, never mixed: the explicit form names the upstream directly
      * (provider/name/baseUrl/apiKey), the alias form delegates all routing to
@@ -78,17 +85,25 @@ public final class AgentYamlParser {
     private ModelSpec model(Map<String, Object> model) {
         String alias = string(model.get("alias"));
         if (alias != null && !alias.isBlank()) {
-            for (String key : List.of("provider", "name", "baseUrl", "apiKey")) {
-                if (model.containsKey(key)) {
-                    throw new ValidationException("model.alias is mutually exclusive with model." + key
-                            + ": the alias form delegates provider/name/baseUrl/apiKey to the platform gateway");
-                }
-            }
-            return gatewayModelResolver.resolve(
-                    alias,
-                    booleanValue(model.get("sslVerify"), true, "model.sslVerify"),
-                    stringMap(mapOrEmpty(model.get("headers"))));
+            return aliasModel(alias, model);
         }
+        return explicitModel(model);
+    }
+
+    private ModelSpec aliasModel(String alias, Map<String, Object> model) {
+        for (String key : List.of("provider", "name", "baseUrl", "apiKey")) {
+            if (model.containsKey(key)) {
+                throw new ValidationException("model.alias is mutually exclusive with model." + key
+                        + ": the alias form delegates provider/name/baseUrl/apiKey to the platform gateway");
+            }
+        }
+        return gatewayModelResolver.resolve(
+                alias,
+                booleanValue(model.get("sslVerify"), true, "model.sslVerify"),
+                stringMap(mapOrEmpty(model.get("headers"))));
+    }
+
+    private static ModelSpec explicitModel(Map<String, Object> model) {
         return new ModelSpec(
                 defaultString(string(model.get("provider")), "openai-compatible"),
                 requiredString(model, "name", "model.name"),
@@ -103,26 +118,27 @@ public final class AgentYamlParser {
     }
 
     private List<SkillSourceSpec> skillSources(Map<String, Object> skills, Path yamlDir) {
-        List<Object> sources = listOrEmpty(skills.get("sources"));
         List<SkillSourceSpec> result = new ArrayList<>();
-        for (Object source : sources) {
-            if (source instanceof String path) {
-                result.add(new SkillSourceSpec("filesystem", resolvePath(yamlDir, path), false));
-            } else {
-                Map<String, Object> sourceMap = map(source);
-                String type = defaultString(string(sourceMap.get("type")), "filesystem");
-                result.add(new SkillSourceSpec(
-                        type,
-                        resolvePath(yamlDir, requiredString(sourceMap, "path")),
-                        booleanValue(sourceMap.get("localCache"), false, "skills.sources[].localCache")));
-            }
+        for (Object source : listOrEmpty(skills.get("sources"))) {
+            result.add(skillSource(source, yamlDir));
         }
         return List.copyOf(result);
     }
 
+    private static SkillSourceSpec skillSource(Object source, Path yamlDir) {
+        if (source instanceof String path) {
+            return new SkillSourceSpec("filesystem", resolvePath(yamlDir, path), false);
+        }
+        Map<String, Object> sourceMap = map(source);
+        return new SkillSourceSpec(
+                defaultString(string(sourceMap.get("type")), "filesystem"),
+                resolvePath(yamlDir, requiredString(sourceMap, "path")),
+                booleanValue(sourceMap.get("localCache"), false, "skills.sources[].localCache"));
+    }
+
     private List<ToolSpec> toolSpecs(List<Object> tools, Path yamlDir) {
         List<ToolSpec> result = new ArrayList<>();
-        java.util.Set<String> names = new java.util.LinkedHashSet<>();
+        Set<String> names = new LinkedHashSet<>();
         for (Object tool : tools) {
             Map<String, Object> toolMap = map(tool);
             String name = requiredString(toolMap, "name", "tools[].name");
@@ -130,20 +146,32 @@ public final class AgentYamlParser {
                 // The name becomes the global tool registry key — a duplicate silently shadows.
                 throw new ValidationException("Duplicate tool name: " + name);
             }
-            Object rawRef = toolMap.get("ref");
-            if (rawRef == null) {
-                throw new ValidationException("Missing required YAML field: tools[].ref (tool: " + name + ")");
-            }
-            ToolRef ref = toolRef(rawRef, yamlDir);
-            result.add(new ToolSpec(
-                    name,
-                    requiredString(toolMap, "description", "tools[].description (tool: " + name + ")"),
-                    mapOrEmpty(toolMap.get("inputSchema")),
-                    mapOrEmpty(toolMap.get("outputSchema")),
-                    ref,
-                    booleanValue(toolMap.get("localCache"), false, "tools[].localCache")));
+            result.add(toolSpec(name, toolMap, yamlDir));
         }
         return List.copyOf(result);
+    }
+
+    private ToolSpec toolSpec(String name, Map<String, Object> toolMap, Path yamlDir) {
+        Object rawRef = toolMap.get("ref");
+        if (rawRef == null) {
+            throw new ValidationException("Missing required YAML field: tools[].ref (tool: " + name + ")");
+        }
+        ToolRef ref = toolRef(rawRef, yamlDir);
+        return new ToolSpec(
+                name,
+                requiredString(toolMap, "description", "tools[].description (tool: " + name + ")"),
+                mapOrEmpty(toolMap.get("inputSchema")),
+                mapOrEmpty(toolMap.get("outputSchema")),
+                ref,
+                booleanValue(toolMap.get("localCache"), false, "tools[].localCache"));
+    }
+
+    private Map<String, McpServerSpec> mcpServers(Map<String, Object> servers) {
+        Map<String, McpServerSpec> result = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : servers.entrySet()) {
+            result.put(entry.getKey(), mcpServer(entry.getKey(), map(entry.getValue())));
+        }
+        return result;
     }
 
     /**
@@ -152,49 +180,64 @@ public final class AgentYamlParser {
      * transport — a stray headers/env block on the wrong kind almost always
      * means the author picked the wrong transport, not that the key is spare.
      */
-    private Map<String, McpServerSpec> mcpServers(Map<String, Object> servers) {
-        Map<String, McpServerSpec> result = new LinkedHashMap<>();
-        for (Map.Entry<String, Object> entry : servers.entrySet()) {
-            String name = entry.getKey();
-            Map<String, Object> server = map(entry.getValue());
-            String command = string(server.get("command"));
-            String url = string(server.get("url"));
-            boolean stdio = command != null && !command.isBlank();
-            boolean http = url != null && !url.isBlank();
-            if (stdio == http) {
-                throw new ValidationException("MCP server '" + name
-                        + "' must declare exactly one of command (stdio) or url (HTTP/SSE)");
-            }
-            if (stdio && server.containsKey("headers")) {
-                throw new ValidationException("MCP server '" + name
-                        + "' is stdio (command); headers only applies to url servers");
-            }
-            if (http && (server.containsKey("args") || server.containsKey("env"))) {
-                throw new ValidationException("MCP server '" + name
-                        + "' is HTTP/SSE (url); args/env only apply to command servers");
-            }
-            result.put(name, new McpServerSpec(
-                    name,
-                    stdio ? command : null,
-                    stringList(listOrEmpty(server.get("args"))),
-                    stringMap(mapOrEmpty(server.get("env"))),
-                    http ? url : null,
-                    stringMap(mapOrEmpty(server.get("headers")))));
+    private static McpServerSpec mcpServer(String name, Map<String, Object> server) {
+        String command = string(server.get("command"));
+        String url = string(server.get("url"));
+        boolean stdio = command != null && !command.isBlank();
+        boolean http = url != null && !url.isBlank();
+        if (stdio == http) {
+            throw new ValidationException("MCP server '" + name
+                    + "' must declare exactly one of command (stdio) or url (HTTP/SSE)");
         }
-        return result;
+        return stdio ? stdioServer(name, command, server) : httpServer(name, url, server);
+    }
+
+    private static McpServerSpec stdioServer(String name, String command, Map<String, Object> server) {
+        if (server.containsKey("headers")) {
+            throw new ValidationException("MCP server '" + name
+                    + "' is stdio (command); headers only applies to url servers");
+        }
+        return new McpServerSpec(
+                name,
+                command,
+                stringList(listOrEmpty(server.get("args"))),
+                stringMap(mapOrEmpty(server.get("env"))),
+                null,
+                stringMap(mapOrEmpty(server.get("headers"))));
+    }
+
+    private static McpServerSpec httpServer(String name, String url, Map<String, Object> server) {
+        if (server.containsKey("args") || server.containsKey("env")) {
+            throw new ValidationException("MCP server '" + name
+                    + "' is HTTP/SSE (url); args/env only apply to command servers");
+        }
+        return new McpServerSpec(
+                name,
+                null,
+                stringList(listOrEmpty(server.get("args"))),
+                stringMap(mapOrEmpty(server.get("env"))),
+                url,
+                stringMap(mapOrEmpty(server.get("headers"))));
     }
 
     private ToolRef toolRef(Object ref, Path yamlDir) {
         if (ref instanceof String value) {
-            int split = value.indexOf(':');
-            if (split <= 0) {
-                throw new ValidationException("Tool ref must be scheme:value: " + value);
-            }
-            String scheme = value.substring(0, split);
-            String rawValue = value.substring(split + 1);
-            return new ToolRef(scheme, shorthandAttributes(scheme, rawValue, value));
+            return shorthandToolRef(value);
         }
-        Map<String, Object> refMap = map(ref);
+        return mapToolRef(map(ref), yamlDir);
+    }
+
+    private static ToolRef shorthandToolRef(String value) {
+        int split = value.indexOf(':');
+        if (split <= 0) {
+            throw new ValidationException("Tool ref must be scheme:value: " + value);
+        }
+        String scheme = value.substring(0, split);
+        String rawValue = value.substring(split + 1);
+        return new ToolRef(scheme, shorthandAttributes(scheme, rawValue, value));
+    }
+
+    private static ToolRef mapToolRef(Map<String, Object> refMap, Path yamlDir) {
         String scheme = requiredString(refMap, "type");
         Map<String, Object> attributes = new LinkedHashMap<>(refMap);
         attributes.remove("type");
