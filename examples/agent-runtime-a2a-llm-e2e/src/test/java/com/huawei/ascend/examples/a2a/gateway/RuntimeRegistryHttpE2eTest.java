@@ -5,10 +5,10 @@ import com.huawei.ascend.examples.a2a.gateway.http.RouteGrantController.ResolveG
 import com.huawei.ascend.examples.a2a.gateway.http.RuntimeRegistryController.RuntimeLeaseRenewalRequest;
 import com.huawei.ascend.examples.a2a.gateway.http.RuntimeRegistryController.RuntimeRegistrationRequest;
 import com.huawei.ascend.examples.a2a.gateway.model.AgentInteractionEvent;
-import com.huawei.ascend.examples.a2a.gateway.model.InboundA2aContext;
-import com.huawei.ascend.examples.a2a.gateway.model.RoutingContext;
-import com.huawei.ascend.examples.a2a.gateway.model.RuntimeCapacitySnapshot;
-import com.huawei.ascend.examples.a2a.gateway.model.RuntimeState;
+import com.huawei.ascend.service.spi.discovery.RoutingContext;
+import com.huawei.ascend.service.spi.registry.RuntimeCapacitySnapshot;
+import com.huawei.ascend.service.spi.registry.RuntimeState;
+import com.huawei.ascend.service.spi.routing.InboundA2aContext;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -177,8 +177,8 @@ class RuntimeRegistryHttpE2eTest {
         HttpServer runtime = HttpServer.create(new InetSocketAddress(0), 0);
         runtime.createContext("/a2a", exchange -> {
             forwardedBody.set(new String(exchange.getRequestBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
-            forwardedRuntime.set(exchange.getRequestHeaders().getFirst("X-Agent-Examples-Runtime-Instance"));
-            forwardedGrantId.set(exchange.getRequestHeaders().getFirst("X-Agent-Examples-Route-Grant-Id"));
+            forwardedRuntime.set(exchange.getRequestHeaders().getFirst("X-Ascend-Runtime-Instance"));
+            forwardedGrantId.set(exchange.getRequestHeaders().getFirst("X-Ascend-Route-Grant-Id"));
             byte[] response = "{\"jsonrpc\":\"2.0\",\"id\":\"req-1\",\"result\":{\"ok\":true}}"
                     .getBytes(java.nio.charset.StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "application/json");
@@ -201,8 +201,8 @@ class RuntimeRegistryHttpE2eTest {
             assertThat(forwardedBody.get()).contains("\"method\":\"message/send\"");
             assertThat(forwardedRuntime.get()).isEqualTo("runtime-gateway-1");
             assertThat(forwardedGrantId.get()).isNotBlank();
-            assertThat(response.firstHeader("X-Agent-Examples-Runtime-Instance")).isEqualTo("runtime-gateway-1");
-            assertThat(response.firstHeader("X-Agent-Examples-Route-Grant-Id")).isEqualTo(forwardedGrantId.get());
+            assertThat(response.firstHeader("X-Ascend-Runtime-Instance")).isEqualTo("runtime-gateway-1");
+            assertThat(response.firstHeader("X-Ascend-Route-Grant-Id")).isEqualTo(forwardedGrantId.get());
             assertThat(response.firstHeader("X-Agent-Examples-Route-Resolve-Ms")).isNotBlank();
             assertThat(response.firstHeader("X-Agent-Examples-First-Byte-Ms")).isNotBlank();
             assertThat(response.firstHeader("X-Agent-Examples-Forward-Start-Ms")).isNotBlank();

@@ -36,6 +36,12 @@
       <artifactId>agent-runtime</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <!-- Gateway facade wiring uses the promoted serviceization SPI + reference impls. -->
+    <dependency>
+      <groupId>com.huawei.ascend</groupId>
+      <artifactId>agent-service</artifactId>
+      <version>${project.version}</version>
+    </dependency>
     <dependency>
       <groupId>com.openjiuwen</groupId>
       <artifactId>agent-core-java</artifactId>

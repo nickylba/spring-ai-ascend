@@ -1,21 +1,21 @@
 package com.huawei.ascend.examples.a2a.gateway.http;
 
-import com.huawei.ascend.examples.a2a.gateway.api.AgentDiscoveryApi;
-import com.huawei.ascend.examples.a2a.gateway.api.RuntimeRegistrationApi;
-import com.huawei.ascend.examples.a2a.gateway.model.AgentCardSummary;
-import com.huawei.ascend.examples.a2a.gateway.model.AgentRouteNotFoundException;
-import com.huawei.ascend.examples.a2a.gateway.model.GatewayErrorCode;
-import com.huawei.ascend.examples.a2a.gateway.model.RoutingContext;
-import com.huawei.ascend.examples.a2a.gateway.model.RuntimeAgentRegistration;
-import com.huawei.ascend.examples.a2a.gateway.model.RuntimeCapacitySnapshot;
-import com.huawei.ascend.examples.a2a.gateway.model.RuntimeDeregisterResult;
-import com.huawei.ascend.examples.a2a.gateway.model.RuntimeInstanceId;
-import com.huawei.ascend.examples.a2a.gateway.model.RuntimeLeaseRenewal;
-import com.huawei.ascend.examples.a2a.gateway.model.RuntimeLeaseResult;
-import com.huawei.ascend.examples.a2a.gateway.model.RuntimeRegistrationResult;
-import com.huawei.ascend.examples.a2a.gateway.model.RuntimeRoute;
-import com.huawei.ascend.examples.a2a.gateway.model.RuntimeState;
-import com.huawei.ascend.examples.a2a.gateway.model.SlaSnapshot;
+import com.huawei.ascend.service.spi.AgentRouteNotFoundException;
+import com.huawei.ascend.service.spi.GatewayErrorCode;
+import com.huawei.ascend.service.spi.discovery.AgentCardSummary;
+import com.huawei.ascend.service.spi.discovery.AgentDirectory;
+import com.huawei.ascend.service.spi.discovery.RoutingContext;
+import com.huawei.ascend.service.spi.discovery.RuntimeRoute;
+import com.huawei.ascend.service.spi.registry.RuntimeAgentRegistration;
+import com.huawei.ascend.service.spi.registry.RuntimeCapacitySnapshot;
+import com.huawei.ascend.service.spi.registry.RuntimeDeregisterResult;
+import com.huawei.ascend.service.spi.registry.RuntimeInstanceId;
+import com.huawei.ascend.service.spi.registry.RuntimeLeaseRenewal;
+import com.huawei.ascend.service.spi.registry.RuntimeLeaseResult;
+import com.huawei.ascend.service.spi.registry.RuntimeRegistrationResult;
+import com.huawei.ascend.service.spi.registry.RuntimeRegistry;
+import com.huawei.ascend.service.spi.registry.RuntimeState;
+import com.huawei.ascend.service.spi.registry.SlaSnapshot;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
@@ -37,17 +37,17 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public final class RuntimeRegistryController {
 
-    private final RuntimeRegistrationApi registrationApi;
-    private final AgentDiscoveryApi discoveryApi;
+    private final RuntimeRegistry runtimeRegistry;
+    private final AgentDirectory directory;
 
-    public RuntimeRegistryController(RuntimeRegistrationApi registrationApi, AgentDiscoveryApi discoveryApi) {
-        this.registrationApi = Objects.requireNonNull(registrationApi, "registrationApi");
-        this.discoveryApi = Objects.requireNonNull(discoveryApi, "discoveryApi");
+    public RuntimeRegistryController(RuntimeRegistry runtimeRegistry, AgentDirectory directory) {
+        this.runtimeRegistry = Objects.requireNonNull(runtimeRegistry, "runtimeRegistry");
+        this.directory = Objects.requireNonNull(directory, "directory");
     }
 
     @PostMapping("/v1/runtime-registrations")
     public RuntimeRegistrationResult register(@RequestBody RuntimeRegistrationRequest request) {
-        return registrationApi.register(new RuntimeAgentRegistration(
+        return runtimeRegistry.register(new RuntimeAgentRegistration(
                 RuntimeInstanceId.of(request.runtimeInstanceId()),
                 request.tenantId(),
                 request.agentId(),
@@ -62,7 +62,7 @@ public final class RuntimeRegistryController {
 
     @PutMapping("/v1/runtime-registrations/{runtimeInstanceId}/lease")
     public RuntimeLeaseResult renew(@PathVariable String runtimeInstanceId, @RequestBody RuntimeLeaseRenewalRequest request) {
-        return registrationApi.renew(new RuntimeLeaseRenewal(
+        return runtimeRegistry.renew(new RuntimeLeaseRenewal(
                 RuntimeInstanceId.of(runtimeInstanceId),
                 request.state(),
                 Duration.ofSeconds(request.ttlSeconds()),
@@ -73,17 +73,17 @@ public final class RuntimeRegistryController {
 
     @DeleteMapping("/v1/runtime-registrations/{runtimeInstanceId}")
     public RuntimeDeregisterResult deregister(@PathVariable String runtimeInstanceId) {
-        return registrationApi.deregister(RuntimeInstanceId.of(runtimeInstanceId));
+        return runtimeRegistry.deregister(RuntimeInstanceId.of(runtimeInstanceId));
     }
 
     @GetMapping("/v1/agents")
     public List<AgentCardSummary> listAgents(@RequestParam String tenantId) {
-        return discoveryApi.listAgents(tenantId);
+        return directory.listAgents(tenantId);
     }
 
     @GetMapping("/v1/agents/{agentId}/card")
     public AgentCard getAgentCard(@PathVariable String agentId, @RequestParam String tenantId) {
-        return discoveryApi.getAgentCard(agentId, tenantId);
+        return directory.getAgentCard(agentId, tenantId);
     }
 
     @PostMapping("/v1/agents/{agentId}/routes/resolve")
@@ -91,7 +91,7 @@ public final class RuntimeRegistryController {
             @PathVariable String agentId,
             @RequestParam String tenantId,
             @RequestBody(required = false) RoutingContext routingContext) {
-        return discoveryApi.resolveRoute(
+        return directory.resolveRoute(
                 agentId,
                 tenantId,
                 routingContext == null ? RoutingContext.empty() : routingContext);

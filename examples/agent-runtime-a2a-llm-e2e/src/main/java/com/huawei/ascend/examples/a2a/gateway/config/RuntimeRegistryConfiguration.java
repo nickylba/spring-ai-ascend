@@ -1,18 +1,18 @@
 package com.huawei.ascend.examples.a2a.gateway.config;
 
-import com.huawei.ascend.examples.a2a.gateway.api.AgentDiscoveryApi;
 import com.huawei.ascend.examples.a2a.gateway.api.AgentInteractionTelemetry;
-import com.huawei.ascend.examples.a2a.gateway.api.RouteGrantService;
-import com.huawei.ascend.examples.a2a.gateway.api.RuntimeRegistrationApi;
-import com.huawei.ascend.examples.a2a.gateway.core.HmacRouteGrantService;
 import com.huawei.ascend.examples.a2a.gateway.core.InMemoryAgentInteractionTelemetry;
-import com.huawei.ascend.examples.a2a.gateway.core.InMemoryRuntimeRegistry;
-import com.huawei.ascend.examples.a2a.gateway.core.RuntimeA2aGateway;
 import com.huawei.ascend.examples.a2a.gateway.http.A2aGatewayController;
 import com.huawei.ascend.examples.a2a.gateway.http.GatewayHealthController;
 import com.huawei.ascend.examples.a2a.gateway.http.RouteGrantController;
 import com.huawei.ascend.examples.a2a.gateway.http.RuntimeRegistryController;
 import com.huawei.ascend.examples.a2a.gateway.http.TelemetryController;
+import com.huawei.ascend.service.core.HmacRouteGrantService;
+import com.huawei.ascend.service.core.InMemoryRuntimeRegistry;
+import com.huawei.ascend.service.core.RuntimeA2aGateway;
+import com.huawei.ascend.service.spi.discovery.AgentDirectory;
+import com.huawei.ascend.service.spi.registry.RuntimeRegistry;
+import com.huawei.ascend.service.spi.routing.RouteGrantService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
@@ -28,29 +28,29 @@ public class RuntimeRegistryConfiguration {
     }
 
     @Bean
-    @ConditionalOnMissingBean(RuntimeRegistrationApi.class)
-    RuntimeRegistrationApi runtimeRegistrationApi(InMemoryRuntimeRegistry registry) {
+    @ConditionalOnMissingBean(RuntimeRegistry.class)
+    RuntimeRegistry runtimeRegistry(InMemoryRuntimeRegistry registry) {
         return registry;
     }
 
     @Bean
-    @ConditionalOnMissingBean(AgentDiscoveryApi.class)
-    AgentDiscoveryApi agentDiscoveryApi(InMemoryRuntimeRegistry registry) {
+    @ConditionalOnMissingBean(AgentDirectory.class)
+    AgentDirectory agentDirectory(InMemoryRuntimeRegistry registry) {
         return registry;
     }
 
     @Bean
     @ConditionalOnMissingBean
-    RuntimeA2aGateway runtimeA2aGateway(AgentDiscoveryApi discoveryApi) {
-        return new RuntimeA2aGateway(discoveryApi);
+    RuntimeA2aGateway runtimeA2aGateway(AgentDirectory directory) {
+        return new RuntimeA2aGateway(directory);
     }
 
     @Bean
     @ConditionalOnMissingBean
     RouteGrantService routeGrantService(
-            AgentDiscoveryApi discoveryApi,
+            AgentDirectory directory,
             @Value("${sample.gateway.route-grant-secret:${SAA_SAMPLE_GATEWAY_ROUTE_GRANT_SECRET:agent-examples-local-route-grant-secret}}") String secret) {
-        return new HmacRouteGrantService(discoveryApi, secret);
+        return new HmacRouteGrantService(directory, secret);
     }
 
     @Bean
@@ -62,9 +62,9 @@ public class RuntimeRegistryConfiguration {
     @Bean
     @ConditionalOnMissingBean
     RuntimeRegistryController runtimeRegistryController(
-            RuntimeRegistrationApi registrationApi,
-            AgentDiscoveryApi discoveryApi) {
-        return new RuntimeRegistryController(registrationApi, discoveryApi);
+            RuntimeRegistry runtimeRegistry,
+            AgentDirectory directory) {
+        return new RuntimeRegistryController(runtimeRegistry, directory);
     }
 
     @Bean

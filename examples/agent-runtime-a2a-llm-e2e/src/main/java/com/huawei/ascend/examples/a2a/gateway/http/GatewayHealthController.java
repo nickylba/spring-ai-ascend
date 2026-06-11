@@ -1,8 +1,8 @@
 package com.huawei.ascend.examples.a2a.gateway.http;
 
 import com.huawei.ascend.examples.a2a.gateway.api.AgentInteractionTelemetry;
-import com.huawei.ascend.examples.a2a.gateway.core.InMemoryRuntimeRegistry;
 import com.huawei.ascend.examples.a2a.gateway.model.GatewayHealthSnapshot;
+import com.huawei.ascend.service.core.InMemoryRuntimeRegistry;
 import java.util.Objects;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,6 +20,11 @@ public final class GatewayHealthController {
 
     @GetMapping("/v1/gateway-health")
     public GatewayHealthSnapshot health() {
-        return registry.healthSnapshot(telemetry.count());
+        InMemoryRuntimeRegistry.HealthStats stats = registry.healthStats();
+        return new GatewayHealthSnapshot(
+                stats.registeredRuntimeCount(),
+                stats.readyRuntimeCount(),
+                stats.unreachableRuntimeCount(),
+                telemetry.count());
     }
 }

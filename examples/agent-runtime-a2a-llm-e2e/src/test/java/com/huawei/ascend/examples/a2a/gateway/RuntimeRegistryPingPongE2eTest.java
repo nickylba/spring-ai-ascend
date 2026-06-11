@@ -1,11 +1,11 @@
 package com.huawei.ascend.examples.a2a.gateway;
 
-import com.huawei.ascend.examples.a2a.gateway.api.AgentDiscoveryApi;
-import com.huawei.ascend.examples.a2a.gateway.api.RuntimeRegistrationApi;
 import com.huawei.ascend.examples.a2a.gateway.config.RuntimeRegistryConfiguration;
-import com.huawei.ascend.examples.a2a.gateway.model.RoutingContext;
-import com.huawei.ascend.examples.a2a.gateway.model.RuntimeAgentRegistration;
-import com.huawei.ascend.examples.a2a.gateway.model.RuntimeInstanceId;
+import com.huawei.ascend.service.spi.discovery.AgentDirectory;
+import com.huawei.ascend.service.spi.discovery.RoutingContext;
+import com.huawei.ascend.service.spi.registry.RuntimeAgentRegistration;
+import com.huawei.ascend.service.spi.registry.RuntimeInstanceId;
+import com.huawei.ascend.service.spi.registry.RuntimeRegistry;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
@@ -31,10 +31,10 @@ class RuntimeRegistryPingPongE2eTest {
     @Test
     void runtimeRegistrationCanBeDiscoveredAndRoutedByServiceFacade() {
         contextRunner.run(context -> {
-            RuntimeRegistrationApi registrationApi = context.getBean(RuntimeRegistrationApi.class);
-            AgentDiscoveryApi discoveryApi = context.getBean(AgentDiscoveryApi.class);
+            RuntimeRegistry runtimeRegistry = context.getBean(RuntimeRegistry.class);
+            AgentDirectory directory = context.getBean(AgentDirectory.class);
 
-            registrationApi.register(new RuntimeAgentRegistration(
+            runtimeRegistry.register(new RuntimeAgentRegistration(
                     RuntimeInstanceId.of("runtime-ping-1"),
                     TENANT,
                     AGENT,
@@ -45,8 +45,8 @@ class RuntimeRegistryPingPongE2eTest {
                     Duration.ofSeconds(30),
                     Map.of("zone", "az-1")));
 
-            AgentCard discoveredCard = discoveryApi.getAgentCard(AGENT, TENANT);
-            var route = discoveryApi.resolveRoute(
+            AgentCard discoveredCard = directory.getAgentCard(AGENT, TENANT);
+            var route = directory.resolveRoute(
                     AGENT,
                     TENANT,
                     new RoutingContext("session-ping", "corr-ping", Map.of("message", "ping")));
@@ -54,7 +54,7 @@ class RuntimeRegistryPingPongE2eTest {
             assertThat(discoveredCard.name()).isEqualTo(AGENT);
             assertThat(route.runtimeInstanceId()).isEqualTo(RuntimeInstanceId.of("runtime-ping-1"));
             assertThat(route.a2aEndpoint()).isEqualTo(URI.create("http://runtime-ping-1.local/a2a"));
-            assertThat(discoveryApi.listAgents(TENANT)).extracting("agentId").containsExactly(AGENT);
+            assertThat(directory.listAgents(TENANT)).extracting("agentId").containsExactly(AGENT);
         });
     }
 

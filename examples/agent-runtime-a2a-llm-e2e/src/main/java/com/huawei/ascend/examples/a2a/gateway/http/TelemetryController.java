@@ -2,7 +2,7 @@ package com.huawei.ascend.examples.a2a.gateway.http;
 
 import com.huawei.ascend.examples.a2a.gateway.api.AgentInteractionTelemetry;
 import com.huawei.ascend.examples.a2a.gateway.model.AgentInteractionEvent;
-import com.huawei.ascend.examples.a2a.gateway.model.GatewayErrorCode;
+import com.huawei.ascend.service.spi.GatewayErrorCode;
 import java.util.List;
 import java.util.Objects;
 import org.springframework.http.ResponseEntity;

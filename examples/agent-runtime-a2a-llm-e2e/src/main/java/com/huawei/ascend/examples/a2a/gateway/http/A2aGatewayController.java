@@ -1,16 +1,16 @@
 package com.huawei.ascend.examples.a2a.gateway.http;
 
 import com.huawei.ascend.examples.a2a.gateway.api.AgentInteractionTelemetry;
-import com.huawei.ascend.examples.a2a.gateway.api.RouteGrantService;
-import com.huawei.ascend.examples.a2a.gateway.core.RuntimeA2aGateway;
-import com.huawei.ascend.examples.a2a.gateway.model.A2aGatewayForwardException;
-import com.huawei.ascend.examples.a2a.gateway.model.A2aGatewayStreamResponse;
 import com.huawei.ascend.examples.a2a.gateway.model.AgentInteractionEvent;
-import com.huawei.ascend.examples.a2a.gateway.model.AgentRouteNotFoundException;
-import com.huawei.ascend.examples.a2a.gateway.model.GatewayErrorCode;
-import com.huawei.ascend.examples.a2a.gateway.model.RouteGrant;
-import com.huawei.ascend.examples.a2a.gateway.model.RouteGrantRequest;
-import com.huawei.ascend.examples.a2a.gateway.model.RoutingContext;
+import com.huawei.ascend.service.core.A2aGatewayForwardException;
+import com.huawei.ascend.service.core.A2aGatewayStreamResponse;
+import com.huawei.ascend.service.core.RuntimeA2aGateway;
+import com.huawei.ascend.service.spi.AgentRouteNotFoundException;
+import com.huawei.ascend.service.spi.GatewayErrorCode;
+import com.huawei.ascend.service.spi.discovery.RoutingContext;
+import com.huawei.ascend.service.spi.routing.RouteGrant;
+import com.huawei.ascend.service.spi.routing.RouteGrantRequest;
+import com.huawei.ascend.service.spi.routing.RouteGrantService;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -74,10 +74,10 @@ public final class A2aGatewayController {
                 routingContext,
                 Duration.ofSeconds(60)));
         Map<String, List<String>> forwardHeaders = copyHeaders(headers);
-        addHeader(forwardHeaders, "X-Agent-Examples-Route-Grant-Id", grant.grantId());
-        addHeader(forwardHeaders, "X-Agent-Examples-Route-Grant-Signature", grant.signature());
-        addHeader(forwardHeaders, "X-Agent-Examples-Source-Agent", grant.sourceAgentId());
-        addHeader(forwardHeaders, "X-Agent-Examples-Tenant", grant.tenantId());
+        addHeader(forwardHeaders, "X-Ascend-Route-Grant-Id", grant.grantId());
+        addHeader(forwardHeaders, "X-Ascend-Route-Grant-Signature", grant.signature());
+        addHeader(forwardHeaders, "X-Ascend-Source-Agent", grant.sourceAgentId());
+        addHeader(forwardHeaders, "X-Ascend-Tenant", grant.tenantId());
         A2aGatewayStreamResponse response = gateway.forwardStreaming(
                 agentId,
                 tenantId,
@@ -86,8 +86,8 @@ public final class A2aGatewayController {
                 forwardHeaders);
         HttpHeaders responseHeaders = new HttpHeaders();
         responseHeaders.setContentType(MediaType.parseMediaType(response.contentType()));
-        responseHeaders.set("X-Agent-Examples-Runtime-Instance", response.runtimeInstanceId());
-        responseHeaders.set("X-Agent-Examples-Route-Grant-Id", grant.grantId());
+        responseHeaders.set("X-Ascend-Runtime-Instance", response.runtimeInstanceId());
+        responseHeaders.set("X-Ascend-Route-Grant-Id", grant.grantId());
         responseHeaders.set("X-Agent-Examples-Route-Resolve-Ms", Long.toString(response.routeResolveLatency().toMillis()));
         responseHeaders.set("X-Agent-Examples-First-Byte-Ms", Long.toString(response.firstByteLatency().toMillis()));
         responseHeaders.set("X-Agent-Examples-Forward-Start-Ms", Long.toString(response.firstByteLatency().toMillis()));

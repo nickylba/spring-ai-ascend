@@ -1,12 +1,12 @@
 package com.huawei.ascend.examples.a2a.gateway.http;
 
-import com.huawei.ascend.examples.a2a.gateway.api.RouteGrantService;
-import com.huawei.ascend.examples.a2a.gateway.model.GatewayErrorCode;
-import com.huawei.ascend.examples.a2a.gateway.model.GrantValidationResult;
-import com.huawei.ascend.examples.a2a.gateway.model.InboundA2aContext;
-import com.huawei.ascend.examples.a2a.gateway.model.RouteGrant;
-import com.huawei.ascend.examples.a2a.gateway.model.RouteGrantRequest;
-import com.huawei.ascend.examples.a2a.gateway.model.RoutingContext;
+import com.huawei.ascend.service.spi.GatewayErrorCode;
+import com.huawei.ascend.service.spi.discovery.RoutingContext;
+import com.huawei.ascend.service.spi.routing.GrantValidationResult;
+import com.huawei.ascend.service.spi.routing.InboundA2aContext;
+import com.huawei.ascend.service.spi.routing.RouteGrant;
+import com.huawei.ascend.service.spi.routing.RouteGrantRequest;
+import com.huawei.ascend.service.spi.routing.RouteGrantService;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
