@@ -75,14 +75,14 @@ strategic_decisions:
 
 # Source: root pom.xml <modules> list updated 2026-05-20 (rc13 wave)
 repository_counts:
-  note: "Canonical counts -- derived from root pom.xml <modules>. The reactor holds 7 modules: agent-runtime (run-owning runtime SDK; framework-neutral engine SPI + Run lifecycle + engine dispatch + session + task-centric control + A2A access + bootable app), agent-service (serviceization facade: Spring-free registration/discovery/routing SPI + reference impls + self-registration client), agent-service-starter (Spring Boot edge of the facade), agent-sdk (declarative agent definition SDK), springai-ascend-client (Audience B A2A client SDK per ADR-0162), agent-bus (neutral bus.spi.engine + bus.spi.s2c surfaces), spring-ai-ascend-dependencies (BoM). The historical agent-client / agent-middleware / agent-execution-engine / agent-evolve / agent-runtime-core modules are retired or never materialized and are NOT in the reactor."
-  reactor_modules: 7
+  note: "Canonical counts -- derived from root pom.xml <modules>. The reactor holds 8 modules: agent-runtime (run-owning runtime SDK; framework-neutral engine SPI + Run lifecycle + engine dispatch + session + task-centric control + A2A access + bootable app), agent-service (serviceization facade: Spring-free registration/discovery/routing SPI + reference impls + self-registration client), agent-service-starter (Spring Boot edge of the facade), agent-sdk (declarative agent definition SDK), springai-ascend-client (Audience B A2A client SDK per ADR-0162), springai-ascend-client-kotlin (Kotlin idiom layer over the client SDK), agent-bus (neutral bus.spi.engine + bus.spi.s2c surfaces), spring-ai-ascend-dependencies (BoM). The historical agent-client / agent-middleware / agent-execution-engine / agent-evolve / agent-runtime-core modules are retired or never materialized and are NOT in the reactor."
+  reactor_modules: 8
   sdk_spi_starters: 0
   sidecar_adapter_starters: 1
   alternate_framework_profiles: 0
-  internal_modules: 5      # kind:domain/platform/sdk reactor modules excluding the BoM and starter: agent-service + agent-bus + agent-runtime + agent-sdk + springai-ascend-client
+  internal_modules: 6      # kind:domain/platform/sdk reactor modules excluding the BoM and starter: agent-service + agent-bus + agent-runtime + agent-sdk + springai-ascend-client + springai-ascend-client-kotlin
   bom_module: 1
-  total_reactor_modules: 7
+  total_reactor_modules: 8
   skeleton_modules: 0      # no skeleton-only modules in the reactor (agent-client / agent-evolve never materialized)
 
 capabilities:
