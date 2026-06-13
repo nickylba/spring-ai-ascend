@@ -196,7 +196,7 @@ class A2aExecutionConfiguration {
     /**
      * Applies the YAML-configured overlay onto the base descriptor.
      * Fields set explicitly in {@code props} replace the corresponding descriptor fields.
-     * Security default (#234): when no security schemes are present after the overlay,
+     * Security default: when no security schemes are present after the overlay,
      * a single APIKey scheme for {@code X-Tenant-Id} is injected as the honesty default.
      */
     private static AgentCardDescriptor applyYamlOverlay(AgentCardDescriptor base,
@@ -238,7 +238,7 @@ class A2aExecutionConfiguration {
             d = d.withSkills(yamlSkills);
         }
 
-        // Additional interfaces from additionalEndpoints (#235).
+        // Additional interfaces from additionalEndpoints.
         if (props.hasAdditionalEndpoints()) {
             List<AgentInterfaceDescriptor> extraInterfaces = props.getAdditionalEndpoints().stream()
                     .filter(ep -> ep.getProtocol() != null && ep.getPath() != null)
@@ -252,17 +252,17 @@ class A2aExecutionConfiguration {
             }
         }
 
-        // documentationUrl overlay (#237).
+        // documentationUrl overlay.
         if (props.getDocumentationUrl() != null && !props.getDocumentationUrl().isBlank()) {
             d = d.withDocumentationUrl(props.getDocumentationUrl());
         }
 
-        // iconUrl overlay (#237).
+        // iconUrl overlay.
         if (props.getIconUrl() != null && !props.getIconUrl().isBlank()) {
             d = d.withIconUrl(props.getIconUrl());
         }
 
-        // Security default (#234): when no security schemes are declared after all overlays,
+        // Security default: when no security schemes are declared after all overlays,
         // inject the X-Tenant-Id APIKey default so the card honestly reflects the runtime's
         // actual tenant-header contract. Unauthenticated is a dev-only fallback.
         if (d.securitySchemes().isEmpty()) {

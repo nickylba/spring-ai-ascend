@@ -107,7 +107,7 @@ class AgentCardControllerTest {
         assertThat(card.url()).isEqualTo("https://elsewhere.example.com/a2a");
     }
 
-    // --- #241: additionalInterfaces URL rewrite ---
+    // --- additionalInterfaces URL rewrite ---
 
     @Test
     void additionalInterfacesUrlIsRewrittenToResolvedBase() {
@@ -147,7 +147,7 @@ class AgentCardControllerTest {
                 .isEqualTo("https://other.example.com/grpc");
     }
 
-    // --- #239: ETag + Cache-Control + 304 ---
+    // --- ETag + Cache-Control + 304 ---
 
     @Test
     void cacheControlHeaderIsPresentOnCanonicalEndpoint() {
@@ -199,7 +199,7 @@ class AgentCardControllerTest {
         assertThat(response.getBody()).isNotNull();
     }
 
-    // --- #238: legacy canonical Link header ---
+    // --- legacy canonical Link header ---
 
     @Test
     void legacyEndpointHasCanonicalLinkHeader() {

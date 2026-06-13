@@ -26,7 +26,7 @@ class AgentCardDescriptorTest {
     void ofSetsDefaultCapabilities() {
         AgentCardDescriptor d = AgentCardDescriptor.of("agent", "desc");
 
-        // Intentional fail-safe change (#229/#230): capabilities default to false.
+        // Intentional fail-safe change: capabilities default to false.
         // The boot configuration overrides these from the registered handler's metadata.
         assertThat(d.capabilities()).isNotNull();
         assertThat(d.capabilities().streaming()).isFalse();
@@ -38,7 +38,7 @@ class AgentCardDescriptorTest {
     void ofSetsDefaultModes() {
         AgentCardDescriptor d = AgentCardDescriptor.of("agent", "desc");
 
-        // Intentional fail-safe change (#233): defaultOutputModes defaults to ["text"].
+        // Intentional fail-safe change: defaultOutputModes defaults to ["text"].
         // Handlers that emit artifacts override defaultOutputModes() to add "artifact".
         assertThat(d.defaultInputModes()).containsExactly("text");
         assertThat(d.defaultOutputModes()).containsExactly("text");
@@ -112,7 +112,7 @@ class AgentCardDescriptorTest {
     void agentCapabilitiesDescriptorDefaultsAreFalseSafe() {
         AgentCapabilitiesDescriptor caps = AgentCapabilitiesDescriptor.defaults();
 
-        // Intentional fail-safe change (#229/#230): defaults are false; handlers opt in.
+        // Intentional fail-safe change: defaults are false; handlers opt in.
         assertThat(caps.streaming()).isFalse();
         assertThat(caps.pushNotifications()).isFalse();
         assertThat(caps.extendedAgentCard()).isFalse();

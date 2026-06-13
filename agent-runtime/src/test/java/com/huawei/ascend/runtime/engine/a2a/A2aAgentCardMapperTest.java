@@ -45,7 +45,7 @@ class A2aAgentCardMapperTest {
 
     @Test
     void mappedCardHasFailSafeCapabilitiesByDefault() {
-        // Intentional honest-default change (#229/#230): streaming=false, push=false.
+        // Intentional honest-default change: streaming=false, push=false.
         AgentCard card = A2aAgentCardMapper.toAgentCard(AgentCardDescriptor.of("a", "b"));
 
         assertThat(card.capabilities().streaming()).isFalse();
@@ -80,7 +80,7 @@ class A2aAgentCardMapperTest {
 
     @Test
     void mappedCardHasFailSafeOutputModesByDefault() {
-        // Intentional honest-default change (#233): defaultOutputModes defaults to ["text"].
+        // Intentional honest-default change: defaultOutputModes defaults to ["text"].
         AgentCard card = A2aAgentCardMapper.toAgentCard(AgentCardDescriptor.of("a", "b"));
 
         assertThat(card.defaultOutputModes()).containsExactly("text");
@@ -228,7 +228,7 @@ class A2aAgentCardMapperTest {
         assertThat(card.skills()).isEmpty();
     }
 
-    // --- New tests for E2 (#229/#230/#231/#232/#233) ---
+    // --- New tests for E2 ---
 
     @Test
     void primaryJsonRpcInterfaceHasNonNullProtocolVersion() {
@@ -283,7 +283,7 @@ class A2aAgentCardMapperTest {
         assertThat(card.capabilities().pushNotifications()).isFalse();
     }
 
-    // --- New tests for E3 (#234/#235/#236/#237) ---
+    // --- New tests for E3 ---
 
     @Test
     void apiKeySecuritySchemeDescriptorMapsToApiKeySecurityScheme() {

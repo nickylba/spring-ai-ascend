@@ -298,9 +298,9 @@ class RuntimeAutoConfigurationTest {
                 });
     }
 
-    // --- Capability-honesty tests (#229/#230/#231/#233) ---
+    // --- Capability-honesty tests ---
 
-    /** Default handler (no override) must produce streaming=false on the card (#229). */
+    /** Default handler (no override) must produce streaming=false on the card. */
     @Test
     void defaultHandlerProducesStreamingFalseOnCard() {
         runner.withBean("h", AgentRuntimeHandler.class, () -> new NamedHandler("agent-a"))
@@ -309,7 +309,7 @@ class RuntimeAutoConfigurationTest {
                         .capabilities().streaming()).isFalse());
     }
 
-    /** A handler that overrides supportsStreaming()=true must produce streaming=true on the card (#229). */
+    /** A handler that overrides supportsStreaming()=true must produce streaming=true on the card. */
     @Test
     void streamingHandlerProducesStreamingTrueOnCard() {
         runner.withBean("h", AgentRuntimeHandler.class, () -> new StreamingHandler("agent-s"))
@@ -318,7 +318,7 @@ class RuntimeAutoConfigurationTest {
                         .capabilities().streaming()).isTrue());
     }
 
-    /** In-memory push store (the default) must produce pushNotifications=false on the card (#230). */
+    /** In-memory push store (the default) must produce pushNotifications=false on the card. */
     @Test
     void inMemoryPushStoreProducesPushFalseOnCard() {
         runner.withBean("h", AgentRuntimeHandler.class, () -> new NamedHandler("agent-a"))
@@ -327,7 +327,7 @@ class RuntimeAutoConfigurationTest {
                         .capabilities().pushNotifications()).isFalse());
     }
 
-    /** A durable push store (not InMemoryPushNotificationConfigStore) must produce pushNotifications=true (#230). */
+    /** A durable push store (not InMemoryPushNotificationConfigStore) must produce pushNotifications=true. */
     @Test
     void durablePushStoreProducesPushTrueOnCard() {
         runner.withBean("h", AgentRuntimeHandler.class, () -> new NamedHandler("agent-a"))
@@ -338,7 +338,7 @@ class RuntimeAutoConfigurationTest {
                         .capabilities().pushNotifications()).isTrue());
     }
 
-    /** A handler that declares skills must have them surfaced on the card (#231). */
+    /** A handler that declares skills must have them surfaced on the card. */
     @Test
     void handlerWithSkillsPopulatesCardSkills() {
         runner.withBean("h", AgentRuntimeHandler.class, () -> new HandlerWithSkills("agent-b"))
@@ -350,7 +350,7 @@ class RuntimeAutoConfigurationTest {
                 });
     }
 
-    /** Default handler (no override) must produce outputModes=["text"] on the card (#233). */
+    /** Default handler (no override) must produce outputModes=["text"] on the card. */
     @Test
     void defaultHandlerProducesTextOnlyOutputModes() {
         runner.withBean("h", AgentRuntimeHandler.class, () -> new NamedHandler("agent-a"))
@@ -359,7 +359,7 @@ class RuntimeAutoConfigurationTest {
                         .defaultOutputModes()).containsExactly("text"));
     }
 
-    /** A handler overriding defaultOutputModes to include "artifact" must surface on the card (#233). */
+    /** A handler overriding defaultOutputModes to include "artifact" must surface on the card. */
     @Test
     void handlerWithArtifactOutputModePopulatesCardOutputModes() {
         runner.withBean("h", AgentRuntimeHandler.class, () -> new ArtifactOutputHandler("agent-c"))
@@ -404,7 +404,7 @@ class RuntimeAutoConfigurationTest {
         }
     }
 
-    /** Handler that declares supportsStreaming()=true for #229 tests. */
+    /** Handler that declares supportsStreaming()=true for tests. */
     static final class StreamingHandler extends NamedHandler {
         StreamingHandler(String agentId) { super(agentId); }
 
@@ -412,7 +412,7 @@ class RuntimeAutoConfigurationTest {
         public boolean supportsStreaming() { return true; }
     }
 
-    /** Handler that declares skills for #231 tests. */
+    /** Handler that declares skills for tests. */
     static final class HandlerWithSkills extends NamedHandler {
         HandlerWithSkills(String agentId) { super(agentId); }
 
@@ -422,7 +422,7 @@ class RuntimeAutoConfigurationTest {
         }
     }
 
-    /** Handler that declares artifact output mode for #233 tests. */
+    /** Handler that declares artifact output mode for tests. */
     static final class ArtifactOutputHandler extends NamedHandler {
         ArtifactOutputHandler(String agentId) { super(agentId); }
 
@@ -430,9 +430,9 @@ class RuntimeAutoConfigurationTest {
         public List<String> defaultOutputModes() { return List.of("text", "artifact"); }
     }
 
-    // --- E3 tests (#234/#235/#236/#237) ---
+    // --- E3 tests ---
 
-    /** Default card (no security configured) must carry the X-Tenant-Id APIKey scheme (#234). */
+    /** Default card (no security configured) must carry the X-Tenant-Id APIKey scheme. */
     @Test
     void defaultCardCarriesXTenantIdApiKeyScheme() {
         runner.withBean("h", AgentRuntimeHandler.class, () -> new NamedHandler("agent-a"))
@@ -445,7 +445,7 @@ class RuntimeAutoConfigurationTest {
                 });
     }
 
-    /** YAML-configured capabilities.streaming=true overrides the handler-derived false (#236). */
+    /** YAML-configured capabilities.streaming=true overrides the handler-derived false. */
     @Test
     void yamlCapabilitiesStreamingOverridesHandlerDerived() {
         runner.withBean("h", AgentRuntimeHandler.class, () -> new NamedHandler("agent-a"))
@@ -456,7 +456,7 @@ class RuntimeAutoConfigurationTest {
                         .capabilities().streaming()).isTrue());
     }
 
-    /** YAML-configured defaultOutputModes overrides the handler-declared value (#236). */
+    /** YAML-configured defaultOutputModes overrides the handler-declared value. */
     @Test
     void yamlDefaultOutputModesOverrideHandlerDeclared() {
         runner.withBean("h", AgentRuntimeHandler.class, () -> new NamedHandler("agent-a"))
@@ -468,7 +468,7 @@ class RuntimeAutoConfigurationTest {
                         .defaultOutputModes()).containsExactly("text", "artifact"));
     }
 
-    /** YAML-configured additional-endpoints appear as extra AgentInterfaces on the card (#235). */
+    /** YAML-configured additional-endpoints appear as extra AgentInterfaces on the card. */
     @Test
     void yamlAdditionalEndpointsAppearAsExtraInterfaces() {
         runner.withBean("h", AgentRuntimeHandler.class, () -> new NamedHandler("agent-a"))
@@ -485,7 +485,7 @@ class RuntimeAutoConfigurationTest {
                 });
     }
 
-    /** YAML documentationUrl and iconUrl appear on the card (#237). */
+    /** YAML documentationUrl and iconUrl appear on the card. */
     @Test
     void yamlDocumentationUrlAndIconUrlAppearOnCard() {
         runner.withBean("h", AgentRuntimeHandler.class, () -> new NamedHandler("agent-a"))
@@ -500,7 +500,7 @@ class RuntimeAutoConfigurationTest {
                 });
     }
 
-    /** YAML skills override replaces handler-declared skills (#236). */
+    /** YAML skills override replaces handler-declared skills. */
     @Test
     void yamlSkillsOverrideReplacesHandlerDeclaredSkills() {
         runner.withBean("h", AgentRuntimeHandler.class, () -> new HandlerWithSkills("agent-b"))
@@ -516,7 +516,7 @@ class RuntimeAutoConfigurationTest {
                 });
     }
 
-    /** Stub durable push store (not InMemoryPushNotificationConfigStore) for #230 tests. */
+    /** Stub durable push store (not InMemoryPushNotificationConfigStore) for tests. */
     static final class DurablePushNotificationConfigStore implements PushNotificationConfigStore {
         @Override
         public org.a2aproject.sdk.spec.TaskPushNotificationConfig setInfo(
