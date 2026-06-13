@@ -101,10 +101,30 @@ public class OpenJiuwenReactAgentConfiguration {
             this.memoryProvider = memoryProvider;
         }
 
+        /**
+         * Demonstrates how an adapter subclass installs its own rails on the openJiuwen agent.
+         *
+         * <p><strong>Rail ordering</strong> — rails returned here are installed <em>before</em>
+         * the trajectory rail that the base class installs automatically.  The trajectory rail
+         * ({@code OpenJiuwenTrajectoryRail}) is added immediately before
+         * {@code runOpenJiuwenAgent} and removed in a {@code finally} block afterwards; it is
+         * therefore always the last rail installed and the first to observe each invocation,
+         * regardless of what this method returns.
+         *
+         * <p><strong>Idempotency</strong> — this handler creates a fresh {@code BaseAgent} on
+         * every call to {@link #createOpenJiuwenAgent}, so the list returned here is also
+         * re-evaluated per call and does not accumulate across executions.  Handlers that
+         * <em>cache</em> their agent instance must return the same singleton rail list every time
+         * (or guard against duplicates) to avoid accumulating one extra rail per execution.
+         *
+         * <p><strong>Rail choice</strong> — this example uses {@link #memoryRuntimeRail} because
+         * {@code ReActAgent} does not support the openJiuwen-native external-memory API.
+         * Adapters wrapping a {@code DeepAgent} should prefer
+         * {@link #openJiuwenExternalMemoryRail} instead.  Stateless agents that need no memory
+         * integration should simply not override this method (default returns an empty list).
+         */
         @Override
         protected List<AgentRail> openJiuwenRails(AgentExecutionContext context) {
-            // This sample uses ReActAgent, so keep the compatibility rail. DeepAgent-style
-            // wiring can use openJiuwenExternalMemoryRail(...) for OpenJiuwen native memory.
             return List.of(memoryRuntimeRail(context, memoryProvider));
         }
 

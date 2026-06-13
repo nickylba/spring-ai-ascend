@@ -42,6 +42,14 @@ import org.springframework.context.annotation.Configuration;
  * and the optional {@code agent-runtime.access.a2a.agent-card} YAML block.
  * You can still override it with a custom {@code @Bean AgentCard} if needed.
  *
+ * <strong>Step 4 (optional): Install custom rails</strong>
+ * Override {@link OpenJiuwenAgentRuntimeHandler#openJiuwenRails(AgentExecutionContext)}
+ * to install additional openJiuwen rails on the agent before each execution.
+ * The base class automatically manages the trajectory rail (observability); rails
+ * returned by your override run alongside it. See
+ * {@code SampleOpenJiuwenReactAgentHandler} in the {@code agent-runtime-a2a-openjiuwen-e2e}
+ * example module for a worked example including ordering and idempotency notes.
+ *
  * <p>That's it — the runtime discovers your handler bean, exposes it through
  * the A2A JSON-RPC endpoint, and handles message conversion, streaming, and
  * lifecycle automatically.
