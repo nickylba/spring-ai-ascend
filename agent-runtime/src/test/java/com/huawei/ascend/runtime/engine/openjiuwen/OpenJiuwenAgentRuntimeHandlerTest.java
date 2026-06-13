@@ -6,6 +6,7 @@ import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.common.RuntimeMessage;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
+import com.huawei.ascend.runtime.engine.spi.ErrorCategory;
 import com.huawei.ascend.runtime.engine.spi.MemoryProvider;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent.Kind;
@@ -263,6 +264,7 @@ class OpenJiuwenAgentRuntimeHandlerTest {
                 .filter(e -> e.kind() == Kind.ERROR).findFirst().orElseThrow();
         assertThat(error.error().code()).isEqualTo("OPENJIUWEN_RUN_ERROR");
         assertThat(error.error().message()).contains("boom");
+        assertThat(error.error().category()).isEqualTo(ErrorCategory.UNKNOWN);
     }
 
     /** Opens the trajectory with a synchronous capturing sink, runs the handler, returns the events. */

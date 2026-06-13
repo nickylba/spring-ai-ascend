@@ -109,7 +109,8 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
                     errorMessage(error));
             // ERROR is a mandatory trajectory kind: surface the run-level failure northbound even though
             // the failure is mapped to a result (not rethrown), so the trajectory is not silently truncated.
-            trajectory.emit(TrajectoryDraft.error(null, "OPENJIUWEN_RUN_ERROR", errorMessage(error), null, false));
+            trajectory.emit(TrajectoryDraft.error(null, "OPENJIUWEN_RUN_ERROR", errorMessage(error),
+                    OpenJiuwenTrajectoryRail.categorize(error), null, false));
             return java.util.stream.Stream.of(Map.of("result_type", "error", "output", errorMessage(error)));
         }
     }

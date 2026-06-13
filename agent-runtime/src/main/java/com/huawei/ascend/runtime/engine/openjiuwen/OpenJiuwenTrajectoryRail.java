@@ -1,5 +1,7 @@
 package com.huawei.ascend.runtime.engine.openjiuwen;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.huawei.ascend.runtime.engine.spi.ErrorCategory;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryDraft;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEmitter;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent;
@@ -9,9 +11,14 @@ import com.openjiuwen.core.singleagent.rail.AgentCallbackContext;
 import com.openjiuwen.core.singleagent.rail.AgentRail;
 import com.openjiuwen.core.singleagent.rail.ModelCallInputs;
 import com.openjiuwen.core.singleagent.rail.ToolCallInputs;
+import java.io.IOException;
+import java.net.ConnectException;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -73,6 +80,7 @@ final class OpenJiuwenTrajectoryRail extends AgentRail {
     public void onModelException(AgentCallbackContext context) {
         safe(() -> trajectory.emit(TrajectoryDraft.error(null, MODEL_ERROR_CODE,
                 OpenJiuwenAgentRuntimeHandler.errorMessage(context.getException()),
+                categorize(context.getException()),
                 context.getRetryAttempt(), true)));
     }
 
@@ -115,6 +123,7 @@ final class OpenJiuwenTrajectoryRail extends AgentRail {
             String toolName = context.getInputs() instanceof ToolCallInputs inputs ? inputs.getToolName() : null;
             trajectory.emit(TrajectoryDraft.error(toolName, TOOL_ERROR_CODE,
                     OpenJiuwenAgentRuntimeHandler.errorMessage(context.getException()),
+                    categorize(context.getException()),
                     context.getRetryAttempt(), true));
         });
     }
@@ -125,9 +134,40 @@ final class OpenJiuwenTrajectoryRail extends AgentRail {
         }
         // openJiuwen reports totalLatency in seconds; normalize to milliseconds.
         Double latencyMs = usage.getTotalLatency() > 0 ? usage.getTotalLatency() * 1000.0 : null;
+        // UsageMetadata exposes modelName but not the LLM vendor/provider; gen_ai.system stays
+        // unset until the SDK surfaces a provider accessor at the usage layer.
         return new TrajectoryEvent.Usage(
                 usage.getInputTokens(), usage.getOutputTokens(), latencyMs, usage.getModelName(),
                 null, null, null);
+    }
+
+    /**
+     * Maps a Throwable (and its cause chain) to an {@link ErrorCategory}. Walks the cause chain
+     * so a wrapped root cause is also classified. Unmapped exception types resolve to
+     * {@link ErrorCategory#UNKNOWN} rather than guessing.
+     */
+    static ErrorCategory categorize(Throwable t) {
+        Throwable cursor = t;
+        while (cursor != null) {
+            if (cursor instanceof SocketTimeoutException || cursor instanceof TimeoutException) {
+                return ErrorCategory.TIMEOUT;
+            }
+            if (cursor instanceof ConnectException || cursor instanceof UnknownHostException) {
+                return ErrorCategory.CONNECTION_ERROR;
+            }
+            if (cursor instanceof JsonProcessingException) {
+                return ErrorCategory.PARSE_ERROR;
+            }
+            if (cursor instanceof IOException) {
+                return ErrorCategory.CONNECTION_ERROR;
+            }
+            String name = cursor.getClass().getName();
+            if (name.contains("Json") || name.contains("Parse")) {
+                return ErrorCategory.PARSE_ERROR;
+            }
+            cursor = cursor.getCause();
+        }
+        return ErrorCategory.UNKNOWN;
     }
 
     private static void safe(Runnable action) {
