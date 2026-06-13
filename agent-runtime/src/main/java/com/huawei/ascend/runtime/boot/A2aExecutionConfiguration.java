@@ -1,9 +1,10 @@
 package com.huawei.ascend.runtime.boot;
 
+import com.huawei.ascend.runtime.engine.a2a.A2aAgentCardMapper;
 import com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor;
-import com.huawei.ascend.runtime.engine.a2a.AgentCardProvider;
 import com.huawei.ascend.runtime.engine.a2a.AgentCards;
 import com.huawei.ascend.runtime.engine.a2a.RemoteAgentInvocationService;
+import com.huawei.ascend.runtime.engine.spi.AgentCardProvider;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.Redactor;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySinkFactory;
@@ -71,10 +72,10 @@ class A2aExecutionConfiguration {
     /**
      * Default agent card: an explicit {@code agent-card.name} wins, then the
      * configured {@code default-agent-id} selects among registered handlers (with
-     * a WARN when it matches none), then the first registered handler. The card
-     * shape is built by {@link AgentCards#create(String, String, String, String,
-     * String, String)} so YAML-driven fields override rather than fork the card
-     * construction.
+     * a WARN when it matches none), then the first registered handler. When an
+     * {@link AgentCardProvider} bean is present, its descriptor is mapped to wire
+     * via {@link A2aAgentCardMapper}; otherwise the card is built from
+     * {@link AgentCards#defaultDescriptor(String, String, String, String, String, String)}.
      */
     @Bean @ConditionalOnMissingBean
     public AgentCard a2aAgentCard(ObjectProvider<AgentCardProvider> cardProviders,
@@ -83,7 +84,7 @@ class A2aExecutionConfiguration {
                                    AgentCardProperties cardProperties) {
         var cp = cardProviders.getIfAvailable();
         if (cp != null) {
-            return cp.agentCard();
+            return A2aAgentCardMapper.toAgentCard(cp.describe());
         }
         String name;
         if (cardProperties.hasExplicitName()) {
@@ -101,9 +102,10 @@ class A2aExecutionConfiguration {
                 name = agentIds.isEmpty() ? "agent" : agentIds.get(0);
             }
         }
-        return AgentCards.create(name, cardProperties.getDescription(), cardProperties.getVersion(),
+        return A2aAgentCardMapper.toAgentCard(AgentCards.defaultDescriptor(name,
+                cardProperties.getDescription(), cardProperties.getVersion(),
                 cardProperties.getEndpoint(), cardProperties.getOrganization(),
-                cardProperties.getOrganizationUrl());
+                cardProperties.getOrganizationUrl()));
     }
 
     /**

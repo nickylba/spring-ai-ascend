@@ -1,14 +1,13 @@
 package com.huawei.ascend.runtime.engine.versatile;
 
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.a2a.AgentCardProvider;
-import com.huawei.ascend.runtime.engine.a2a.AgentCards;
+import com.huawei.ascend.runtime.engine.spi.AgentCardDescriptor;
+import com.huawei.ascend.runtime.engine.spi.AgentCardProvider;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Stream;
-import org.a2aproject.sdk.spec.AgentCard;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -80,7 +79,9 @@ public final class VersatileAgentRuntimeHandler implements AgentRuntimeHandler, 
     }
 
     @Override
-    public AgentCard agentCard() {
-        return AgentCards.create(name, description, "0.1.0", "/a2a");
+    public AgentCardDescriptor describe() {
+        return AgentCardDescriptor.of(name, description)
+                .withVersion("0.1.0")
+                .withEndpoint("/a2a");
     }
 }

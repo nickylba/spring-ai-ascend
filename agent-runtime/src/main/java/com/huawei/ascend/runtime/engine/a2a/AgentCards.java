@@ -1,50 +1,38 @@
 package com.huawei.ascend.runtime.engine.a2a;
 
-import java.util.List;
-import org.a2aproject.sdk.spec.AgentCapabilities;
+import com.huawei.ascend.runtime.engine.spi.AgentCardDescriptor;
 import org.a2aproject.sdk.spec.AgentCard;
-import org.a2aproject.sdk.spec.AgentInterface;
-import org.a2aproject.sdk.spec.AgentProvider;
-import org.a2aproject.sdk.spec.TransportProtocol;
 
 /**
- * Small factory for the default A2A card shape used by local runtime handlers.
+ * Thin descriptor factory that preserves the pre-ADR-0163 call sites by
+ * building an {@link AgentCardDescriptor} with the current hardcoded defaults
+ * and projecting it to wire via {@link A2aAgentCardMapper}.
+ *
+ * <p>Kept for backward compatibility with call sites (examples, tests) that
+ * construct an {@link AgentCard} directly. New code should build an
+ * {@link AgentCardDescriptor} and let the boot configuration or mapper do
+ * the A2A projection.
  */
 public final class AgentCards {
 
     private AgentCards() {
     }
 
+    /** Builds a default card for {@code name}/{@code description} with version {@code 0.1.0} and endpoint {@code /a2a}. */
     public static AgentCard create(String name, String description) {
         return create(name, description, "0.1.0", "/a2a");
     }
 
+    /** Builds a default card with explicit version and endpoint. */
     public static AgentCard create(String name, String description, String version, String endpoint) {
         org.springframework.util.Assert.hasText(name, "name must not be blank");
         org.springframework.util.Assert.hasText(description, "description must not be blank");
         org.springframework.util.Assert.hasText(version, "version must not be blank");
         org.springframework.util.Assert.hasText(endpoint, "endpoint must not be blank");
-        AgentCapabilities capabilities = AgentCapabilities.builder()
-                .streaming(true)
-                .pushNotifications(true)
-                .extendedAgentCard(false)
-                .build();
-        return AgentCard.builder()
-                .name(name)
-                .description(description)
-                .url(endpoint)
-                .version(version)
-                // Blank provider URL: the discovery controller rewrites it to the
-                // published base (public-base-url or request-derived) at serve time,
-                // so the default card never leaks a hardcoded host.
-                .provider(new AgentProvider("spring-ai-ascend", ""))
-                .capabilities(capabilities)
-                .defaultInputModes(List.of("text"))
-                .defaultOutputModes(List.of("text", "artifact"))
-                .skills(List.of())
-                .supportedInterfaces(List.of(new AgentInterface(TransportProtocol.JSONRPC.asString(), endpoint)))
-                .preferredTransport(TransportProtocol.JSONRPC.asString())
-                .build();
+        AgentCardDescriptor descriptor = AgentCardDescriptor.of(name, description)
+                .withVersion(version)
+                .withEndpoint(endpoint);
+        return A2aAgentCardMapper.toAgentCard(descriptor);
     }
 
     /**
@@ -61,20 +49,41 @@ public final class AgentCards {
      */
     public static AgentCard create(String name, String description, String version, String endpoint,
             String organization, String organizationUrl) {
-        AgentCard card = create(name,
-                blankToDefault(description, "agent-runtime"),
-                blankToDefault(version, "0.1.0"),
-                blankToDefault(endpoint, "/a2a"));
+        AgentCardDescriptor descriptor = AgentCardDescriptor.of(name,
+                        blankToDefault(description, "agent-runtime"))
+                .withVersion(blankToDefault(version, "0.1.0"))
+                .withEndpoint(blankToDefault(endpoint, "/a2a"));
         boolean hasOrganization = organization != null && !organization.isBlank();
         boolean hasOrganizationUrl = organizationUrl != null && !organizationUrl.isBlank();
-        if (!hasOrganization && !hasOrganizationUrl) {
-            return card;
+        if (hasOrganization || hasOrganizationUrl) {
+            descriptor = descriptor.withProvider(
+                    blankToDefault(organization, "spring-ai-ascend"),
+                    blankToDefault(organizationUrl, ""));
         }
-        return AgentCard.builder(card)
-                .provider(new AgentProvider(
-                        blankToDefault(organization, "spring-ai-ascend"),
-                        blankToDefault(organizationUrl, "")))
-                .build();
+        return A2aAgentCardMapper.toAgentCard(descriptor);
+    }
+
+    /** Returns the default {@link AgentCardDescriptor} shape for the given name and description. */
+    public static AgentCardDescriptor defaultDescriptor(String name, String description) {
+        org.springframework.util.Assert.hasText(name, "name must not be blank");
+        return AgentCardDescriptor.of(name, description != null ? description : "agent-runtime");
+    }
+
+    /** Returns the default {@link AgentCardDescriptor} shape with all YAML-overlay fields applied. */
+    public static AgentCardDescriptor defaultDescriptor(String name, String description, String version,
+            String endpoint, String organization, String organizationUrl) {
+        AgentCardDescriptor descriptor = AgentCardDescriptor.of(name,
+                        blankToDefault(description, "agent-runtime"))
+                .withVersion(blankToDefault(version, "0.1.0"))
+                .withEndpoint(blankToDefault(endpoint, "/a2a"));
+        boolean hasOrganization = organization != null && !organization.isBlank();
+        boolean hasOrganizationUrl = organizationUrl != null && !organizationUrl.isBlank();
+        if (hasOrganization || hasOrganizationUrl) {
+            descriptor = descriptor.withProvider(
+                    blankToDefault(organization, "spring-ai-ascend"),
+                    blankToDefault(organizationUrl, ""));
+        }
+        return descriptor;
     }
 
     private static String blankToDefault(String value, String defaultValue) {
