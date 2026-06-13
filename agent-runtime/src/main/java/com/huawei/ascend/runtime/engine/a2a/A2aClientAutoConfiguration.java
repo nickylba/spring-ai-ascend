@@ -1,5 +1,6 @@
 package com.huawei.ascend.runtime.engine.a2a;
 
+import com.huawei.ascend.runtime.boot.RemoteAgentProperties;
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenRemoteToolInstaller;
 import java.util.concurrent.ExecutorService;

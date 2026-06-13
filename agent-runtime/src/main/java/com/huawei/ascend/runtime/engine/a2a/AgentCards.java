@@ -46,4 +46,38 @@ public final class AgentCards {
                 .preferredTransport(TransportProtocol.JSONRPC.asString())
                 .build();
     }
+
+    /**
+     * Builds a card applying YAML-configured field values with sensible production-safe defaults
+     * for any blank/null field. When {@code organization} or {@code organizationUrl} is non-blank
+     * the provider block is overridden; otherwise the default card provider is kept.
+     *
+     * @param name            card name (non-blank; supplied by the caller)
+     * @param description     blank/null → {@code "agent-runtime"}
+     * @param version         blank/null → {@code "0.1.0"}
+     * @param endpoint        blank/null → {@code "/a2a"}
+     * @param organization    blank/null → kept from the base card provider
+     * @param organizationUrl blank/null → kept from the base card provider
+     */
+    public static AgentCard create(String name, String description, String version, String endpoint,
+            String organization, String organizationUrl) {
+        AgentCard card = create(name,
+                blankToDefault(description, "agent-runtime"),
+                blankToDefault(version, "0.1.0"),
+                blankToDefault(endpoint, "/a2a"));
+        boolean hasOrganization = organization != null && !organization.isBlank();
+        boolean hasOrganizationUrl = organizationUrl != null && !organizationUrl.isBlank();
+        if (!hasOrganization && !hasOrganizationUrl) {
+            return card;
+        }
+        return AgentCard.builder(card)
+                .provider(new AgentProvider(
+                        blankToDefault(organization, "spring-ai-ascend"),
+                        blankToDefault(organizationUrl, "")))
+                .build();
+    }
+
+    private static String blankToDefault(String value, String defaultValue) {
+        return value == null || value.isBlank() ? defaultValue : value;
+    }
 }

@@ -8,7 +8,7 @@ import com.huawei.ascend.runtime.engine.a2a.A2aClientAutoConfiguration;
 import com.huawei.ascend.runtime.engine.a2a.A2aRemoteAgentOutboundAdapter;
 import com.huawei.ascend.runtime.engine.a2a.RemoteAgentCardCache;
 import com.huawei.ascend.runtime.engine.a2a.RemoteAgentInvocationService;
-import com.huawei.ascend.runtime.engine.a2a.RemoteAgentProperties;
+import com.huawei.ascend.runtime.boot.RemoteAgentProperties;
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenRemoteToolInstaller;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;

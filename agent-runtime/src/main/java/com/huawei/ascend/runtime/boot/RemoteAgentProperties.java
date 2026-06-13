@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.engine.a2a;
+package com.huawei.ascend.runtime.boot;
 
 import java.time.Duration;
 import java.util.LinkedHashMap;

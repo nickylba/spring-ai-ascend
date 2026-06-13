@@ -1,7 +1,5 @@
-package com.huawei.ascend.runtime.engine.a2a;
+package com.huawei.ascend.runtime.boot;
 
-import org.a2aproject.sdk.spec.AgentCard;
-import org.a2aproject.sdk.spec.AgentProvider;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -70,34 +68,5 @@ public class AgentCardProperties {
     /** Returns {@code true} when the user explicitly configured a card name. */
     public boolean hasExplicitName() {
         return name != null && !name.isBlank();
-    }
-
-    /**
-     * Build an {@link AgentCard} using this properties object's values for
-     * any set fields, with sensible defaults for unset fields. Delegates to
-     * {@link AgentCards} for the canonical card shape — a second inline copy
-     * here meant every card fix had to land twice.
-     *
-     * @param name the card name (non-blank; supplied by the caller)
-     */
-    public AgentCard createAgentCard(String name) {
-        AgentCard card = AgentCards.create(name,
-                blankToDefault(description, "agent-runtime"),
-                blankToDefault(version, "0.1.0"),
-                blankToDefault(endpoint, "/a2a"));
-        boolean hasOrganization = organization != null && !organization.isBlank();
-        boolean hasOrganizationUrl = organizationUrl != null && !organizationUrl.isBlank();
-        if (!hasOrganization && !hasOrganizationUrl) {
-            return card;
-        }
-        return AgentCard.builder(card)
-                .provider(new AgentProvider(
-                        blankToDefault(organization, "spring-ai-ascend"),
-                        blankToDefault(organizationUrl, "")))
-                .build();
-    }
-
-    private static String blankToDefault(String value, String defaultValue) {
-        return value == null || value.isBlank() ? defaultValue : value;
     }
 }

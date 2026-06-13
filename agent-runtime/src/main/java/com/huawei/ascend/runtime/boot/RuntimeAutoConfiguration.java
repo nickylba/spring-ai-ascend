@@ -1,8 +1,8 @@
 package com.huawei.ascend.runtime.boot;
 
 import com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor;
-import com.huawei.ascend.runtime.engine.a2a.AgentCardProperties;
 import com.huawei.ascend.runtime.engine.a2a.AgentCardProvider;
+import com.huawei.ascend.runtime.engine.a2a.AgentCards;
 import com.huawei.ascend.runtime.engine.a2a.RemoteAgentCardCache;
 import com.huawei.ascend.runtime.engine.a2a.RemoteAgentInvocationService;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
@@ -209,9 +209,9 @@ public class RuntimeAutoConfiguration {
      * Default agent card: an explicit {@code agent-card.name} wins, then the
      * configured {@code default-agent-id} selects among registered handlers (with
      * a WARN when it matches none), then the first registered handler. The card
-     * shape itself comes from {@link AgentCardProperties#createAgentCard(String)},
-     * which delegates to the canonical {@code AgentCards} factory so YAML-driven
-     * fields override rather than fork the card construction.
+     * shape is built by {@link com.huawei.ascend.runtime.engine.a2a.AgentCards#create(String,
+     * String, String, String, String, String)} so YAML-driven fields override rather than
+     * fork the card construction.
      */
     @Bean @ConditionalOnMissingBean
     public AgentCard a2aAgentCard(ObjectProvider<AgentCardProvider> cardProviders,
@@ -238,7 +238,9 @@ public class RuntimeAutoConfiguration {
                 name = agentIds.isEmpty() ? "agent" : agentIds.get(0);
             }
         }
-        return cardProperties.createAgentCard(name);
+        return AgentCards.create(name, cardProperties.getDescription(), cardProperties.getVersion(),
+                cardProperties.getEndpoint(), cardProperties.getOrganization(),
+                cardProperties.getOrganizationUrl());
     }
 
     /**
