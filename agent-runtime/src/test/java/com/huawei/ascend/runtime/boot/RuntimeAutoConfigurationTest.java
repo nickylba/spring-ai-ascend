@@ -396,6 +396,92 @@ class RuntimeAutoConfigurationTest {
         public List<String> defaultOutputModes() { return List.of("text", "artifact"); }
     }
 
+    // --- E3 tests (#234/#235/#236/#237) ---
+
+    /** Default card (no security configured) must carry the X-Tenant-Id APIKey scheme (#234). */
+    @Test
+    void defaultCardCarriesXTenantIdApiKeyScheme() {
+        runner.withBean("h", AgentRuntimeHandler.class, () -> new NamedHandler("agent-a"))
+                .withUserConfiguration(RuntimeAutoConfiguration.class)
+                .run(ctx -> {
+                    AgentCard card = ctx.getBean(AgentCard.class);
+                    assertThat(card.securitySchemes()).containsKey(
+                            A2aExecutionConfiguration.DEFAULT_API_KEY_SCHEME_NAME);
+                    assertThat(card.securityRequirements()).isNotEmpty();
+                });
+    }
+
+    /** YAML-configured capabilities.streaming=true overrides the handler-derived false (#236). */
+    @Test
+    void yamlCapabilitiesStreamingOverridesHandlerDerived() {
+        runner.withBean("h", AgentRuntimeHandler.class, () -> new NamedHandler("agent-a"))
+                .withPropertyValues(
+                        "agent-runtime.access.a2a.agent-card.capabilities.streaming=true")
+                .withUserConfiguration(RuntimeAutoConfiguration.class)
+                .run(ctx -> assertThat(ctx.getBean(AgentCard.class)
+                        .capabilities().streaming()).isTrue());
+    }
+
+    /** YAML-configured defaultOutputModes overrides the handler-declared value (#236). */
+    @Test
+    void yamlDefaultOutputModesOverrideHandlerDeclared() {
+        runner.withBean("h", AgentRuntimeHandler.class, () -> new NamedHandler("agent-a"))
+                .withPropertyValues(
+                        "agent-runtime.access.a2a.agent-card.default-output-modes[0]=text",
+                        "agent-runtime.access.a2a.agent-card.default-output-modes[1]=artifact")
+                .withUserConfiguration(RuntimeAutoConfiguration.class)
+                .run(ctx -> assertThat(ctx.getBean(AgentCard.class)
+                        .defaultOutputModes()).containsExactly("text", "artifact"));
+    }
+
+    /** YAML-configured additional-endpoints appear as extra AgentInterfaces on the card (#235). */
+    @Test
+    void yamlAdditionalEndpointsAppearAsExtraInterfaces() {
+        runner.withBean("h", AgentRuntimeHandler.class, () -> new NamedHandler("agent-a"))
+                .withPropertyValues(
+                        "agent-runtime.access.a2a.agent-card.additional-endpoints[0].protocol=GRPC",
+                        "agent-runtime.access.a2a.agent-card.additional-endpoints[0].path=/a2a/grpc")
+                .withUserConfiguration(RuntimeAutoConfiguration.class)
+                .run(ctx -> {
+                    AgentCard card = ctx.getBean(AgentCard.class);
+                    assertThat(card.supportedInterfaces()).hasSizeGreaterThanOrEqualTo(2);
+                    boolean hasGrpc = card.supportedInterfaces().stream()
+                            .anyMatch(i -> "GRPC".equals(i.protocolBinding()));
+                    assertThat(hasGrpc).as("GRPC interface must be present on the card").isTrue();
+                });
+    }
+
+    /** YAML documentationUrl and iconUrl appear on the card (#237). */
+    @Test
+    void yamlDocumentationUrlAndIconUrlAppearOnCard() {
+        runner.withBean("h", AgentRuntimeHandler.class, () -> new NamedHandler("agent-a"))
+                .withPropertyValues(
+                        "agent-runtime.access.a2a.agent-card.documentation-url=https://docs.example.com",
+                        "agent-runtime.access.a2a.agent-card.icon-url=https://example.com/icon.png")
+                .withUserConfiguration(RuntimeAutoConfiguration.class)
+                .run(ctx -> {
+                    AgentCard card = ctx.getBean(AgentCard.class);
+                    assertThat(card.documentationUrl()).isEqualTo("https://docs.example.com");
+                    assertThat(card.iconUrl()).isEqualTo("https://example.com/icon.png");
+                });
+    }
+
+    /** YAML skills override replaces handler-declared skills (#236). */
+    @Test
+    void yamlSkillsOverrideReplacesHandlerDeclaredSkills() {
+        runner.withBean("h", AgentRuntimeHandler.class, () -> new HandlerWithSkills("agent-b"))
+                .withPropertyValues(
+                        "agent-runtime.access.a2a.agent-card.skills[0].id=yaml-skill",
+                        "agent-runtime.access.a2a.agent-card.skills[0].name=YAML Skill",
+                        "agent-runtime.access.a2a.agent-card.skills[0].description=From YAML")
+                .withUserConfiguration(RuntimeAutoConfiguration.class)
+                .run(ctx -> {
+                    AgentCard card = ctx.getBean(AgentCard.class);
+                    assertThat(card.skills()).hasSize(1);
+                    assertThat(card.skills().get(0).id()).isEqualTo("yaml-skill");
+                });
+    }
+
     /** Stub durable push store (not InMemoryPushNotificationConfigStore) for #230 tests. */
     static final class DurablePushNotificationConfigStore implements PushNotificationConfigStore {
         @Override

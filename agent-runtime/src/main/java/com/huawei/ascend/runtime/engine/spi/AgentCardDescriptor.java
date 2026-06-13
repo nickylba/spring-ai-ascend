@@ -116,4 +116,53 @@ public record AgentCardDescriptor(
                 documentationUrl, iconUrl, protocolVersion, capabilities, defaultInputModes, defaultOutputModes,
                 skills, securitySchemes, securityRequirements, additionalInterfaces, signatures);
     }
+
+    /** Returns a copy with the given default input modes. */
+    public AgentCardDescriptor withDefaultInputModes(List<String> inputModes) {
+        return new AgentCardDescriptor(name, description, version, endpoint, providerOrganization, providerUrl,
+                documentationUrl, iconUrl, protocolVersion, capabilities, inputModes, defaultOutputModes,
+                skills, securitySchemes, securityRequirements, additionalInterfaces, signatures);
+    }
+
+    /** Returns a copy with the given security schemes map. */
+    public AgentCardDescriptor withSecuritySchemes(Map<String, SecuritySchemeDescriptor> schemes) {
+        return new AgentCardDescriptor(name, description, version, endpoint, providerOrganization, providerUrl,
+                documentationUrl, iconUrl, protocolVersion, capabilities, defaultInputModes, defaultOutputModes,
+                skills, schemes, securityRequirements, additionalInterfaces, signatures);
+    }
+
+    /** Returns a copy with the given security requirements. */
+    public AgentCardDescriptor withSecurityRequirements(List<Map<String, List<String>>> requirements) {
+        return new AgentCardDescriptor(name, description, version, endpoint, providerOrganization, providerUrl,
+                documentationUrl, iconUrl, protocolVersion, capabilities, defaultInputModes, defaultOutputModes,
+                skills, securitySchemes, requirements, additionalInterfaces, signatures);
+    }
+
+    /** Returns a copy with the given additional interfaces. */
+    public AgentCardDescriptor withAdditionalInterfaces(List<AgentInterfaceDescriptor> interfaces) {
+        return new AgentCardDescriptor(name, description, version, endpoint, providerOrganization, providerUrl,
+                documentationUrl, iconUrl, protocolVersion, capabilities, defaultInputModes, defaultOutputModes,
+                skills, securitySchemes, securityRequirements, interfaces, signatures);
+    }
+
+    /** Returns a copy with the given signatures. */
+    public AgentCardDescriptor withSignatures(List<SignatureDescriptor> signatures) {
+        return new AgentCardDescriptor(name, description, version, endpoint, providerOrganization, providerUrl,
+                documentationUrl, iconUrl, protocolVersion, capabilities, defaultInputModes, defaultOutputModes,
+                skills, securitySchemes, securityRequirements, additionalInterfaces, signatures);
+    }
+
+    /** Returns a copy with the given documentation URL. */
+    public AgentCardDescriptor withDocumentationUrl(String documentationUrl) {
+        return new AgentCardDescriptor(name, description, version, endpoint, providerOrganization, providerUrl,
+                documentationUrl, iconUrl, protocolVersion, capabilities, defaultInputModes, defaultOutputModes,
+                skills, securitySchemes, securityRequirements, additionalInterfaces, signatures);
+    }
+
+    /** Returns a copy with the given icon URL. */
+    public AgentCardDescriptor withIconUrl(String iconUrl) {
+        return new AgentCardDescriptor(name, description, version, endpoint, providerOrganization, providerUrl,
+                documentationUrl, iconUrl, protocolVersion, capabilities, defaultInputModes, defaultOutputModes,
+                skills, securitySchemes, securityRequirements, additionalInterfaces, signatures);
+    }
 }

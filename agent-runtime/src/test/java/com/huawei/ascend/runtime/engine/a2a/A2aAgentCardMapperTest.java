@@ -7,8 +7,10 @@ import com.huawei.ascend.runtime.engine.spi.AgentCardDescriptor;
 import com.huawei.ascend.runtime.engine.spi.AgentInterfaceDescriptor;
 import com.huawei.ascend.runtime.engine.spi.AgentSkillDescriptor;
 import com.huawei.ascend.runtime.engine.spi.SecuritySchemeDescriptor;
+import com.huawei.ascend.runtime.engine.spi.SignatureDescriptor;
 import java.util.List;
 import java.util.Map;
+import org.a2aproject.sdk.spec.APIKeySecurityScheme;
 import org.a2aproject.sdk.spec.AgentCard;
 import org.a2aproject.sdk.spec.AgentInterface;
 import org.a2aproject.sdk.spec.TransportProtocol;
@@ -279,5 +281,87 @@ class A2aAgentCardMapperTest {
 
         assertThat(card.capabilities().streaming()).isFalse();
         assertThat(card.capabilities().pushNotifications()).isFalse();
+    }
+
+    // --- New tests for E3 (#234/#235/#236/#237) ---
+
+    @Test
+    void apiKeySecuritySchemeDescriptorMapsToApiKeySecurityScheme() {
+        SecuritySchemeDescriptor scheme = SecuritySchemeDescriptor.apiKey("header", "X-Tenant-Id",
+                "Tenant identifier.");
+        AgentCardDescriptor d = AgentCardDescriptor.of("a", "b")
+                .withSecuritySchemes(Map.of("x-tenant-id", scheme));
+
+        AgentCard card = A2aAgentCardMapper.toAgentCard(d);
+
+        assertThat(card.securitySchemes()).containsKey("x-tenant-id");
+        assertThat(card.securitySchemes().get("x-tenant-id")).isInstanceOf(APIKeySecurityScheme.class);
+        APIKeySecurityScheme apiKey = (APIKeySecurityScheme) card.securitySchemes().get("x-tenant-id");
+        assertThat(apiKey.location()).isEqualTo(APIKeySecurityScheme.Location.HEADER);
+        assertThat(apiKey.name()).isEqualTo("X-Tenant-Id");
+    }
+
+    @Test
+    void httpSecuritySchemeDescriptorMapsToHttpAuthSecurityScheme() {
+        SecuritySchemeDescriptor scheme = SecuritySchemeDescriptor.http("bearer", "Bearer token.");
+        AgentCardDescriptor d = AgentCardDescriptor.of("a", "b")
+                .withSecuritySchemes(Map.of("bearerAuth", scheme));
+
+        AgentCard card = A2aAgentCardMapper.toAgentCard(d);
+
+        assertThat(card.securitySchemes()).containsKey("bearerAuth");
+        // The A2A SDK's HTTPAuthSecurityScheme.type() returns its SDK-internal type string.
+        assertThat(card.securitySchemes().get("bearerAuth").type()).isNotBlank();
+    }
+
+    @Test
+    void additionalInterfacesFromWitherFlowThrough() {
+        AgentInterfaceDescriptor grpc = AgentInterfaceDescriptor.of("GRPC", "/a2a/grpc");
+        AgentCardDescriptor d = AgentCardDescriptor.of("a", "b")
+                .withAdditionalInterfaces(List.of(grpc));
+
+        AgentCard card = A2aAgentCardMapper.toAgentCard(d);
+
+        assertThat(card.supportedInterfaces()).hasSize(2);
+        assertThat(card.supportedInterfaces().get(1).protocolBinding()).isEqualTo("GRPC");
+        assertThat(card.supportedInterfaces().get(1).url()).isEqualTo("/a2a/grpc");
+    }
+
+    @Test
+    void documentationUrlAndIconUrlFlowThrough() {
+        AgentCardDescriptor d = AgentCardDescriptor.of("a", "b")
+                .withDocumentationUrl("https://docs.example.com")
+                .withIconUrl("https://example.com/icon.png");
+
+        AgentCard card = A2aAgentCardMapper.toAgentCard(d);
+
+        assertThat(card.documentationUrl()).isEqualTo("https://docs.example.com");
+        assertThat(card.iconUrl()).isEqualTo("https://example.com/icon.png");
+    }
+
+    @Test
+    void signatureFlowsThrough() {
+        SignatureDescriptor sig = new SignatureDescriptor("eyJ...", "sig123", null);
+        AgentCardDescriptor d = AgentCardDescriptor.of("a", "b")
+                .withSignatures(List.of(sig));
+
+        AgentCard card = A2aAgentCardMapper.toAgentCard(d);
+
+        assertThat(card.signatures()).hasSize(1);
+        assertThat(card.signatures().get(0).protectedHeader()).isEqualTo("eyJ...");
+        assertThat(card.signatures().get(0).signature()).isEqualTo("sig123");
+    }
+
+    @Test
+    void securityRequirementsFlowThrough() {
+        SecuritySchemeDescriptor scheme = SecuritySchemeDescriptor.apiKey("header", "X-Key", null);
+        AgentCardDescriptor d = AgentCardDescriptor.of("a", "b")
+                .withSecuritySchemes(Map.of("apiKey", scheme))
+                .withSecurityRequirements(List.of(Map.of("apiKey", List.of())));
+
+        AgentCard card = A2aAgentCardMapper.toAgentCard(d);
+
+        assertThat(card.securityRequirements()).hasSize(1);
+        assertThat(card.securityRequirements().get(0).schemes()).containsKey("apiKey");
     }
 }
