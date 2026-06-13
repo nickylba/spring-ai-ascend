@@ -5,7 +5,7 @@ agent-runtime:
   access:
     a2a:
       default-tenant-id: sample-tenant
-      default-agent-id: remote-b
+      default-agent-id: remote-a2a-agent
 
 sample:
   remote-agent-tool:

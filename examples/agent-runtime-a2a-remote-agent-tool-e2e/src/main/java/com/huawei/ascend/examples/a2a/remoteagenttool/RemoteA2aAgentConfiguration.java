@@ -28,7 +28,7 @@ import org.springframework.context.annotation.Configuration;
 public class RemoteA2aAgentConfiguration {
     private static final Logger LOG = LoggerFactory.getLogger(RemoteA2aAgentConfiguration.class);
 
-    static final String AGENT_ID = "remote-b";
+    static final String AGENT_ID = "remote-a2a-agent";
 
     @Bean
     AgentRuntimeHandler remoteA2aAgentHandler() {
@@ -47,7 +47,7 @@ public class RemoteA2aAgentConfiguration {
                 .defaultInputModes(java.util.List.of("text"))
                 .defaultOutputModes(java.util.List.of("text"))
                 .skills(java.util.List.of(AgentSkill.builder()
-                        .id("remote-b-dialog")
+                        .id("remote-a2a-dialog")
                         .name("Remote agent dialog")
                         .description("Streams two progress messages, requests user input, then streams two more messages and completes.")
                         .tags(java.util.List.of("remote", "input-required", "streaming"))

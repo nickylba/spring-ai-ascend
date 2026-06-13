@@ -16,7 +16,7 @@ import org.a2aproject.sdk.spec.StreamingEventKind;
  * <pre>
  * mvn -f examples/agent-runtime-a2a-remote-agent-tool-e2e/pom.xml exec:java \
  *   -Dexec.mainClass=com.huawei.ascend.examples.a2a.remoteagenttool.A2aConsoleClientApplication \
- *   -Dexec.args="http://localhost:18081 local-a manual-user"
+ *   -Dexec.args="http://localhost:18081 local-openjiuwen manual-user"
  * </pre>
  * Env vars: {@code SAA_SAMPLE_A2A_BASE_URL}, {@code SAA_SAMPLE_AGENT_ID}, {@code SAA_SAMPLE_USER_ID}.
  */
@@ -24,7 +24,7 @@ public final class A2aConsoleClientApplication {
 
     private static final Duration TIMEOUT = Duration.ofSeconds(120);
     private static final String DEFAULT_BASE_URL = "http://localhost:8080";
-    private static final String DEFAULT_AGENT_ID = "local-a";
+    private static final String DEFAULT_AGENT_ID = "local-openjiuwen";
     private static final String DEFAULT_USER_ID = "manual-user";
 
     private A2aConsoleClientApplication() {

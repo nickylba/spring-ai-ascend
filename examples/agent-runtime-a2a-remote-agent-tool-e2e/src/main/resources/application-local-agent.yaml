@@ -5,7 +5,7 @@ agent-runtime:
   access:
     a2a:
       default-tenant-id: sample-tenant
-      default-agent-id: local-a
+      default-agent-id: local-openjiuwen
   # The local agent discovers the remote agent via its A2A Agent Card.
   # Override with --agent-runtime.remote-agents[0].url=<url> if it is elsewhere.
   remote-agents:

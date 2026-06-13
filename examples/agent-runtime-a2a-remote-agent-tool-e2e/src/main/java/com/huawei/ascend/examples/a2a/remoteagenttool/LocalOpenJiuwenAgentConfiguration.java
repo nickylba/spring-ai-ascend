@@ -18,14 +18,14 @@ import org.springframework.context.annotation.Configuration;
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty(name = "sample.remote-agent-tool.role", havingValue = "local")
 public class LocalOpenJiuwenAgentConfiguration {
-    static final String AGENT_ID = "local-a";
+    static final String AGENT_ID = "local-openjiuwen";
 
     private static final String SYSTEM_PROMPT = """
             You are the local OpenJiuwen agent in a remote A2A tool invocation demo.
-            The runtime may provide a tool named a2a_remote_remote_b.
-            When the user asks you to call the remote A2A agent, use the a2a_remote_remote_b tool
+            The runtime may provide a tool named a2a_remote_remote_a2a_agent.
+            When the user asks you to call the remote A2A agent, use the a2a_remote_remote_a2a_agent tool
             with a JSON argument containing a message field:
-            {"message": "start remote-b streaming input-required demo"}
+            {"message": "start remote A2A streaming input-required demo"}
             After the tool result is returned, summarize it briefly for the user.
             """;
 
