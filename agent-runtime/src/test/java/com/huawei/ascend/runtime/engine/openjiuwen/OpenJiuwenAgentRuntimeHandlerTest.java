@@ -204,6 +204,79 @@ class OpenJiuwenAgentRuntimeHandlerTest {
         assertThat(memoryProvider.savedRecords).isEmpty();
     }
 
+    /**
+     * Regression guard: ReActAgent bypasses ModelContext because it rebuilds its prompt from
+     * its config template each iteration. Memory must reach the LLM via beforeModelCall, which
+     * mutates the outgoing ModelCallInputs.getMessages() that ReActAgent actually uses.
+     *
+     * <p>This test fires beforeModelCall directly (as ReActAgent's AgentCallbackManager would),
+     * asserts the system message in ModelCallInputs contains the recalled memory block,
+     * and fails against any beforeInvoke-only implementation.
+     */
+    @Test
+    void memoryRuntimeRailInjectsMemoryIntoModelCallInputsForReActAgent() {
+        AgentExecutionContext context = context(Map.of());
+        FakeMemoryProvider memoryProvider = new FakeMemoryProvider();
+        MemoryRuntimeRail rail =
+                new MemoryRuntimeRail(
+                        context, memoryProvider, new OpenJiuwenMemoryMessageAdapter());
+        RecordingModelContext modelContext = new RecordingModelContext();
+
+        // Simulate agent lifecycle: beforeInvoke runs once, then beforeModelCall runs each iteration
+        rail.beforeInvoke(AgentCallbackContext.builder().context(modelContext).build());
+
+        // Simulate ReActAgent's per-iteration model call — starts with a fresh system message
+        // built from the promptTemplate, NOT from ModelContext
+        List<Object> reactMessages = new ArrayList<>(List.of(new SystemMessage("react prompt template")));
+        ModelCallInputs inputs = ModelCallInputs.builder().messages(reactMessages).tools(List.of()).build();
+        rail.beforeModelCall(AgentCallbackContext.builder().inputs(inputs).build());
+
+        // The outgoing request messages must contain the recalled memory
+        assertThat(inputs.getMessages())
+                .singleElement()
+                .satisfies(msg -> {
+                    assertThat(msg).isInstanceOf(SystemMessage.class);
+                    assertThat(((SystemMessage) msg).getContentAsString())
+                            .contains("react prompt template")
+                            .contains("remembered ping");
+                });
+        // Memory was searched exactly once (not per-iteration)
+        assertThat(memoryProvider.searchCount).isEqualTo(1);
+    }
+
+    /**
+     * Idempotency guard: if beforeModelCall fires multiple times (multiple ReActAgent iterations),
+     * the memory block must not be appended more than once.
+     */
+    @Test
+    void memoryRuntimeRailDoesNotDoubleInjectAcrossMultipleIterations() {
+        AgentExecutionContext context = context(Map.of());
+        FakeMemoryProvider memoryProvider = new FakeMemoryProvider();
+        MemoryRuntimeRail rail =
+                new MemoryRuntimeRail(
+                        context, memoryProvider, new OpenJiuwenMemoryMessageAdapter());
+
+        rail.beforeInvoke(AgentCallbackContext.builder().context(new RecordingModelContext()).build());
+
+        // First iteration
+        List<Object> messages1 = new ArrayList<>(List.of(new SystemMessage("react prompt")));
+        ModelCallInputs inputs1 = ModelCallInputs.builder().messages(messages1).tools(List.of()).build();
+        rail.beforeModelCall(AgentCallbackContext.builder().inputs(inputs1).build());
+
+        // Second iteration — rebuilds the prompt fresh, same content as before
+        List<Object> messages2 = new ArrayList<>(List.of(new SystemMessage("react prompt")));
+        ModelCallInputs inputs2 = ModelCallInputs.builder().messages(messages2).tools(List.of()).build();
+        rail.beforeModelCall(AgentCallbackContext.builder().inputs(inputs2).build());
+
+        // Each iteration's message list must contain the memory block exactly once
+        String content1 = ((SystemMessage) inputs1.getMessages().get(0)).getContentAsString();
+        String content2 = ((SystemMessage) inputs2.getMessages().get(0)).getContentAsString();
+        assertThat(content1).containsOnlyOnce("remembered ping");
+        assertThat(content2).containsOnlyOnce("remembered ping");
+        // Memory was searched once (not per iteration)
+        assertThat(memoryProvider.searchCount).isEqualTo(1);
+    }
+
     @Test
     void openJiuwenExternalMemoryProviderAdapterDelegatesToRuntimeMemoryProvider() {
         AgentExecutionContext context = context(Map.of(AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, "order-42"));
@@ -511,6 +584,7 @@ class OpenJiuwenAgentRuntimeHandlerTest {
         private String searchedQuery;
         private List<MemoryRecord> savedRecords = List.of();
         private Double score = 0.9;
+        private int searchCount;
 
         @Override
         public void init(AgentExecutionContext context) {
@@ -520,6 +594,7 @@ class OpenJiuwenAgentRuntimeHandlerTest {
         @Override
         public List<MemoryHit> search(AgentExecutionContext context, String query, int limit) {
             searchedQuery = query;
+            searchCount++;
             return List.of(new MemoryHit("m1", "remembered " + query, score, Map.of()));
         }
 
