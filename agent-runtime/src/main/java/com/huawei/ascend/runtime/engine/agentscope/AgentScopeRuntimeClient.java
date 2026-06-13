@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huawei.ascend.runtime.common.RuntimeMessage;
 import com.huawei.ascend.runtime.engine.SseEventDecoder;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -108,7 +109,14 @@ public final class AgentScopeRuntimeClient implements AutoCloseable {
     }
 
     private HttpResponse<Stream<String>> send(HttpRequest request) {
-        return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofLines()).join();
+        try {
+            return httpClient.send(request, HttpResponse.BodyHandlers.ofLines());
+        } catch (IOException ex) {
+            throw new UncheckedIOException(ex);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("HTTP send interrupted", ex);
+        }
     }
 
     private static Map<String, Object> ioFailure(RuntimeException ex) {
@@ -125,10 +133,10 @@ public final class AgentScopeRuntimeClient implements AutoCloseable {
         body.put("id", invocation.taskId());
         body.put("session_id", invocation.sessionId());
         body.put("user_id", invocation.userId());
-        Map<String, Object> metadata = new LinkedHashMap<>(invocation.metadata());
-        metadata.put("tenantId", invocation.tenantId());
-        metadata.put("agentId", invocation.agentId());
-        metadata.put("taskId", invocation.taskId());
+        Map<String, Object> metadata = new LinkedHashMap<>(
+                AgentScopeMessageAdapter.invocationMetadata(
+                        invocation.tenantId(), invocation.userId(), invocation.sessionId(),
+                        invocation.taskId(), invocation.agentId()));
         metadata.put("inputType", invocation.inputType());
         body.put("metadata", metadata);
         if (!invocation.variables().isEmpty()) {
@@ -148,7 +156,10 @@ public final class AgentScopeRuntimeClient implements AutoCloseable {
     }
 
     private static String toAgentScopeRole(RuntimeMessage.Role role) {
-        return role == RuntimeMessage.Role.AGENT ? "assistant" : "user";
+        return switch (role) {
+            case USER -> "user";
+            case AGENT -> "assistant";
+        };
     }
 
     private String toJson(Map<String, Object> body) {

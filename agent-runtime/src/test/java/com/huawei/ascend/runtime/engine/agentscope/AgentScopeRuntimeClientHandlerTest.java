@@ -209,6 +209,100 @@ class AgentScopeRuntimeClientHandlerTest {
         assertThat(httpClient.request.timeout()).contains(Duration.ofSeconds(60));
     }
 
+    // --- A3: full role mapping ---
+
+    @Test
+    void roleUserMapsToUserString() {
+        CapturingHttpClient httpClient = new CapturingHttpClient(200, List.of(
+                "data: {\"status\":\"completed\",\"output\":\"ok\"}"));
+        AgentScopeRuntimeClientHandler handler = handler(httpClient);
+        RuntimeIdentity scope = new RuntimeIdentity("t", "u", "s", "task", "agentscope-rest");
+        AgentExecutionContext ctx = new AgentExecutionContext(
+                scope, "USER_MESSAGE", List.of(RuntimeMessage.user("hello")), Map.of());
+
+        handler.resultAdapter().adapt(handler.execute(ctx)).toList();
+
+        JsonNode input = bodyJson(httpClient).get("input");
+        assertThat(input.get(0).get("role").asText()).isEqualTo("user");
+    }
+
+    @Test
+    void roleAgentMapsToAssistantString() {
+        CapturingHttpClient httpClient = new CapturingHttpClient(200, List.of(
+                "data: {\"status\":\"completed\",\"output\":\"ok\"}"));
+        AgentScopeRuntimeClientHandler handler = handler(httpClient);
+        RuntimeIdentity scope = new RuntimeIdentity("t", "u", "s", "task", "agentscope-rest");
+        AgentExecutionContext ctx = new AgentExecutionContext(
+                scope, "USER_MESSAGE", List.of(RuntimeMessage.agent("hi")), Map.of());
+
+        handler.resultAdapter().adapt(handler.execute(ctx)).toList();
+
+        JsonNode input = bodyJson(httpClient).get("input");
+        assertThat(input.get(0).get("role").asText()).isEqualTo("assistant");
+    }
+
+    // --- A6: requestBody metadata single-source ---
+
+    @Test
+    void requestBodyMetadataEqualsInvocationMetadataPlusInputType() throws Exception {
+        CapturingHttpClient httpClient = new CapturingHttpClient(200, List.of(
+                "data: {\"status\":\"completed\",\"output\":\"ok\"}"));
+        AgentScopeRuntimeClientHandler handler = handler(httpClient);
+
+        handler.resultAdapter().adapt(handler.execute(context())).toList();
+
+        JsonNode body = bodyJson(httpClient);
+        JsonNode metadata = body.get("metadata");
+        assertThat(metadata.get("tenantId").asText()).isEqualTo("tenant");
+        assertThat(metadata.get("userId").asText()).isEqualTo("user");
+        assertThat(metadata.get("sessionId").asText()).isEqualTo("session");
+        assertThat(metadata.get("taskId").asText()).isEqualTo("task");
+        assertThat(metadata.get("agentId").asText()).isEqualTo("agentscope-rest");
+        assertThat(metadata.get("inputType").asText()).isEqualTo("USER_MESSAGE");
+        // exactly the 5 identity fields + inputType; no extra keys
+        assertThat(metadata.size()).isEqualTo(6);
+    }
+
+    // --- A4: IOException from blocking send maps to AGENTSCOPE_RUNTIME_IO ---
+
+    @Test
+    void ioExceptionFromSendMapsToAgentscopeRuntimeIoError() {
+        IOException cause = new IOException("connection timed out");
+        HttpClient throwingOnSend = new TestHttpClient() {
+            @Override
+            public <T> HttpResponse<T> send(HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler)
+                    throws IOException {
+                throw cause;
+            }
+
+            @Override
+            public <T> CompletableFuture<HttpResponse<T>> sendAsync(
+                    HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler) {
+                throw new UnsupportedOperationException("not used");
+            }
+        };
+        AgentScopeRuntimeClient client = new AgentScopeRuntimeClient(
+                throwingOnSend,
+                new ObjectMapper(),
+                new AgentScopeRuntimeClientProperties("http://agentscope-runtime.local", "/process"));
+        AgentScopeRuntimeClientHandler handler = new AgentScopeRuntimeClientHandler("agentscope-rest", client);
+
+        List<AgentExecutionResult> results = handler.resultAdapter().adapt(handler.execute(context())).toList();
+
+        assertThat(results).hasSize(1);
+        assertThat(results.getFirst().type()).isEqualTo(AgentExecutionResult.Type.FAILED);
+        assertThat(results.getFirst().errorCode()).isEqualTo("AGENTSCOPE_RUNTIME_IO");
+        assertThat(results.getFirst().errorMessage()).contains("connection timed out");
+    }
+
+    private static JsonNode bodyJson(CapturingHttpClient httpClient) {
+        try {
+            return new ObjectMapper().readTree(httpClient.body);
+        } catch (IOException ex) {
+            throw new UncheckedIOException(ex);
+        }
+    }
+
     /**
      * stop() must release the SSE transport when the client owns it (created it
      * itself); a borrowed transport belongs to its injector and survives.
@@ -261,7 +355,8 @@ class AgentScopeRuntimeClientHandlerTest {
     private abstract static class TestHttpClient extends HttpClient {
 
         @Override
-        public <T> HttpResponse<T> send(HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler) {
+        public <T> HttpResponse<T> send(HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler)
+                throws IOException, InterruptedException {
             return sendAsync(request, responseBodyHandler).join();
         }
 
