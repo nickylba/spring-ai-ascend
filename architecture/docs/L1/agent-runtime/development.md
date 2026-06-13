@@ -25,9 +25,20 @@ agent-runtime/
     │   └── package-info.java
     │
     ├── boot/                         # Spring Boot 自动配置 + HTTP 控制器
-    │   ├── RuntimeAutoConfiguration.java  # 装配所有 A2A SDK 组件 + AgentCard bean
-    │   ├── A2aJsonRpcController.java      # /a2a JSON-RPC 端点 (SendMessage/GetTask/CancelTask/Stream)
-    │   └── AgentCardController.java       # /.well-known/agent-card.json 端点
+    │   ├── RuntimeAutoConfiguration.java       # 顶层装配入口
+    │   ├── A2aInfrastructureConfiguration.java # A2A SDK 基础设施 Bean
+    │   ├── RuntimeLifecycleConfiguration.java  # 运行时生命周期 Bean
+    │   ├── A2aExecutionConfiguration.java      # A2A 执行 Bean
+    │   ├── A2aJsonRpcController.java           # /a2a JSON-RPC 端点
+    │   ├── AgentCardController.java            # /.well-known/agent-card.json 端点
+    │   ├── AgentCardProperties.java            # @ConfigurationProperties: Agent Card 元数据（从 engine.a2a 迁入）
+    │   ├── RemoteAgentProperties.java          # @ConfigurationProperties: 远端 Agent 部署配置（从 engine.a2a 迁入）
+    │   ├── RuntimeAccessProperties.java        # @ConfigurationProperties: 接入配置
+    │   ├── TrajectoryProperties.java           # @ConfigurationProperties: 轨迹观测配置
+    │   ├── AgentRuntimeHealthIndicator.java    # Actuator 健康检查
+    │   ├── AgentRuntimeLifecycle.java          # SmartLifecycle handler start/stop
+    │   ├── RuntimeReadiness.java               # 就绪门控
+    │   └── TrajectoryOtelConfiguration.java    # OTel 轨迹导出配置
     │
     ├── common/                       # 共享类型
     │   └── RuntimeIdentity.java      # record(tenantId, userId, sessionId, taskId, agentId)
@@ -42,31 +53,45 @@ agent-runtime/
         │   ├── AgentRuntimeProviderChain.java  # Handler + providers 编排 + 失败隔离
         │   ├── AgentExecutionResult.java       # 中立执行结果: OUTPUT/COMPLETED/FAILED/INTERRUPTED
         │   ├── StreamAdapter.java              # 函数式接口: Stream<?> → Stream<AgentExecutionResult>
-        │   ├── AgentCardProvider.java          # A2A Agent Card 供应接口
-        │   ├── AgentCards.java                 # 默认 Agent Card 工厂方法
         │   ├── StateProvider.java              # 框架状态桥接标记（继承 AgentRuntimeProvider）
+        │   ├── ErrorCategory.java              # OTel-aligned 错误分类枚举（轨迹 error.category 字段）
+        │   ├── Redactor.java                   # 可观测性扩展点: 载荷脱敏接口
+        │   ├── ValueRecognizingRedactor.java   # Redactor 实现: 按值内容识别脱敏
+        │   ├── PayloadRefStore.java            # 可观测性扩展点: 超阈值载荷引用化存储接口
+        │   ├── LocalFsPayloadRefStore.java     # PayloadRefStore 实现: 本地文件系统
+        │   ├── TenantContract.java             # 租户隔离键名常量
         │   └── package-info.java
+        │   # 注: AgentCardProvider / AgentCards 属于 A2A 协议元数据，位于 engine.a2a（见下）
         │
         ├── a2a/                      # A2A SDK 桥接层
         │   └── A2aAgentExecutor.java # 实现 A2A SDK AgentExecutor，桥接 A2A 协议与 SPI
         │
         ├── openjiuwen/               # openJiuwen ReAct Agent 适配器
-        │   ├── OpenJiuwenAgentRuntimeHandler.java  # 抽象基类
-        │   ├── OpenJiuwenMessageAdapter.java       # AgentExecutionContext → openJiuwen 输入
-        │   └── OpenJiuwenStreamAdapter.java        # openJiuwen 结果 → AgentExecutionResult
+        │   ├── OpenJiuwenAgentRuntimeHandler.java       # 抽象基类
+        │   ├── OpenJiuwenMessageAdapter.java            # AgentExecutionContext → openJiuwen 输入
+        │   ├── OpenJiuwenStreamAdapter.java             # openJiuwen 结果 → AgentExecutionResult
+        │   ├── OpenJiuwenReActHandler.java              # ReAct 模式 handler 实现
+        │   ├── MemoryRuntimeRail.java                   # memory rail 集成（顶层类）
+        │   ├── OpenJiuwenCheckpointerConfigurer.java    # Checkpointer 配置适配
+        │   ├── OpenJiuwenExternalMemoryProviderAdapter.java  # 外部 MemoryProvider 适配器
+        │   ├── OpenJiuwenMemoryMessageAdapter.java      # memory 消息格式适配
+        │   ├── OpenJiuwenRemoteAgentInterruptRail.java  # 远端 agent 中断 rail
+        │   ├── OpenJiuwenRemoteToolInstaller.java       # 远端工具安装器
+        │   └── OpenJiuwenTrajectoryRail.java            # 轨迹 rail 集成
         │
         ├── agentscope/               # AgentScope 适配器
         │   ├── AbstractAgentScopeRuntimeHandler.java   # 抽象基类
         │   ├── AgentScopeAgentRuntimeHandler.java      # 本地 AgentScope Agent 处理器
         │   ├── AgentScopeRuntimeClientHandler.java     # 远程 AgentScope runtime client 处理器
-        │   ├── AgentScopeHarnessRuntimeHandler.java    # AgentScope Harness 处理器
+        │   ├── AgentScopeHarnessRuntimeHandler.java    # AgentScope Harness 处理器（前 AgentScopeHarnessAgent 已合入）
         │   ├── AgentScopeStreamAdapter.java            # AgentScope 结果 → AgentExecutionResult
         │   ├── AgentScopeMessageAdapter.java           # AgentExecutionContext → AgentScope 输入
         │   ├── AgentScopeInvocation.java               # AgentScope 调用 DTO
         │   ├── AgentScopeAgent.java                    # AgentScope Agent 接口
         │   ├── AgentScopeRuntimeClient.java            # AgentScope runtime client 接口
         │   ├── AgentScopeEvent.java                    # AgentScope 事件类型
-        │   ├── AgentScopeHarnessAgent.java             # AgentScope Harness Agent 接口
+        │   ├── AgentScopeStatus.java                   # AgentScope 状态枚举/常量
+        │   ├── AgentScopeErrorCategories.java          # AgentScope 错误分类常量
         │   └── AgentScopeRuntimeClientProperties.java  # Client 配置属性
         │
         └── service/                  # 引擎侧服务（运行时 API，非 SPI）
@@ -132,7 +157,7 @@ agent-runtime/
 
 ### 3.1 最小接口原则
 
-`engine.spi` 包只包含 8 个类型：
+`engine.spi` 包的核心 SPI 类型（4 个 shipped SPI 接口 + 辅助类型）：
 
 | 类型 | 种类 | 语义 |
 |---|---|---|
@@ -141,9 +166,13 @@ agent-runtime/
 | `AgentRuntimeProviderChain` | final class | 统一编排 handlers + providers 的执行和失败隔离 |
 | `AgentExecutionResult` | final class | 中立执行结果，5 种类型（OUTPUT/COMPLETED/FAILED/INTERRUPTED/REMOTE_INVOCATION） |
 | `StreamAdapter` | @FunctionalInterface | 框架结果 → 中立结果流的类型转换 |
-| `AgentCardProvider` | interface | 将 Agent 执行与 A2A 元数据描述分离 |
-| `AgentCards` | final class | 默认 Agent Card 工厂，减少样板代码 |
 | `StateProvider` | interface | 继承 AgentRuntimeProvider，框架需要手动状态桥接时使用 |
+| `ErrorCategory` | enum | OTel-aligned 错误分类（轨迹 `error.category` 字段） |
+| `Redactor` / `ValueRecognizingRedactor` | interface / class | 可观测性管道扩展点：载荷脱敏（非 shipped SPI，见注） |
+| `PayloadRefStore` / `LocalFsPayloadRefStore` | interface / class | 可观测性管道扩展点：超阈值载荷引用化存储（非 shipped SPI，见注） |
+| `TenantContract` | final class | 租户隔离键名常量 |
+
+> `AgentCardProvider` 与 `AgentCards` 属于 A2A 协议元数据，位于 `engine.a2a`，不属于本 SPI 包。`Redactor` 与 `PayloadRefStore` 因包边界原因位于 `engine.spi`，是可观测性管道扩展点，不计入核心 shipped SPI 数量（核心 shipped SPI 仍为 `AgentRuntimeHandler` + `MemoryProvider` + `StreamAdapter` + `AgentCardProvider` 共 4 个）。
 
 ### 3.2 扩展原则：组合优于继承
 

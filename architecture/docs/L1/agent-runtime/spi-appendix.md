@@ -32,6 +32,19 @@ Agent Card 供应接口 `AgentCardProvider` 与默认工厂 `AgentCards` 属于 
 | `com.huawei.ascend.runtime.engine.spi.AgentExecutionResult` | final class | 引擎中立的执行结果值对象，4 种语义：`OUTPUT` / `COMPLETED` / `FAILED` / `INTERRUPTED` |
 | `com.huawei.ascend.runtime.engine.spi.AgentRuntimeProviderChain` | final class | 工具类：按序执行所有 providers 的 `beforeExecute` → handler.execute() → 逆序执行 `afterExecute`，保证失败隔离 |
 | `com.huawei.ascend.runtime.common.RuntimeMessage` | record | 协议中立的消息载体（`role` / `text` / `metadata`），SPI 输入模型的唯一消息类型；`AgentExecutionContext.lastUserText()` 提供规范的文本抽取 |
+| `com.huawei.ascend.runtime.engine.spi.ErrorCategory` | enum | OTel-aligned 错误分类，用于轨迹事件 `error.category` 字段；never null（无映射时用 `UNKNOWN`） |
+| `com.huawei.ascend.runtime.engine.spi.TenantContract` | final class | 租户隔离键名常量 |
+
+### 1.3 可观测性管道扩展点（属于 SPI 包，非 shipped SPI）
+
+因包边界约束位于 `engine.spi`，但属于可观测性管道扩展点，不计入核心 shipped SPI 数量：
+
+| FQN | 类型 | 语义 |
+|---|---|---|
+| `com.huawei.ascend.runtime.engine.spi.Redactor` | interface | 载荷脱敏扩展点：对轨迹载荷字段执行脱敏/遮蔽 |
+| `com.huawei.ascend.runtime.engine.spi.ValueRecognizingRedactor` | class | `Redactor` 实现：按值内容识别并脱敏 |
+| `com.huawei.ascend.runtime.engine.spi.PayloadRefStore` | interface | 超阈值载荷引用化存储扩展点 |
+| `com.huawei.ascend.runtime.engine.spi.LocalFsPayloadRefStore` | class | `PayloadRefStore` 实现：本地文件系统存储 |
 
 ## 2. 接口详细规范
 
