@@ -9,7 +9,6 @@ import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.LocalFsPayloadRefStore;
 import com.huawei.ascend.runtime.engine.spi.PayloadRefStore;
 import com.huawei.ascend.runtime.engine.spi.Redactor;
-import com.huawei.ascend.runtime.engine.spi.TrajectoryMasking;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySettings;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySinkFactory;
 import java.nio.file.Path;
@@ -19,7 +18,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.regex.Pattern;
 import org.a2aproject.sdk.server.agentexecution.AgentExecutor;
 import org.a2aproject.sdk.server.config.A2AConfigProvider;
 import org.a2aproject.sdk.server.config.DefaultValuesConfigProvider;
@@ -161,13 +159,6 @@ public class RuntimeAutoConfiguration {
     }
 
     static TrajectorySettings toTrajectorySettings(TrajectoryProperties properties, Redactor redactor) {
-        if (!properties.isEnabled()) {
-            return TrajectorySettings.off();
-        }
-        Pattern maskPattern = compileMaskPattern(properties.getMask().getKeyPattern());
-        int truncate = properties.getMask().getTruncateChars();
-        double sampleRate = properties.getSampleRate();
-
         TrajectoryProperties.PayloadRef refCfg = properties.getPayloadRef();
         PayloadRefStore store = null;
         int refThreshold = 0;
@@ -178,23 +169,9 @@ public class RuntimeAutoConfiguration {
             refThreshold = refCfg.getThreshold();
             refFields = new HashSet<>(refCfg.getFields());
         }
-        return new TrajectorySettings(true, maskPattern, truncate, sampleRate, redactor,
+        return TrajectorySettings.from(properties.isEnabled(), properties.getMask().getKeyPattern(),
+                properties.getMask().getTruncateChars(), properties.getSampleRate(), redactor,
                 store, refThreshold, refFields);
-    }
-
-    /**
-     * Compiles the configured mask pattern, falling back to the default on a bad regex. A masking
-     * typo must never crash boot, and must never degrade to a null pattern (which would silently
-     * disable key redaction) — it fails safe toward the default pattern, with a WARN.
-     */
-    private static Pattern compileMaskPattern(String pattern) {
-        try {
-            return Pattern.compile(pattern);
-        } catch (RuntimeException e) {
-            log.warn("invalid app.trajectory.mask.key-pattern '{}'; falling back to default ({})",
-                    pattern, e.getMessage());
-            return Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN);
-        }
     }
 
     @Bean @ConditionalOnMissingBean

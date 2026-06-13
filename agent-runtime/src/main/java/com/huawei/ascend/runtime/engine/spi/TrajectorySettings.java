@@ -2,6 +2,9 @@ package com.huawei.ascend.runtime.engine.spi;
 
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Resolved per-invocation trajectory settings handed to a {@link TrajectorySource}.
@@ -27,6 +30,8 @@ import java.util.regex.Pattern;
 public record TrajectorySettings(boolean enabled, Pattern maskKeyPattern, int truncateChars,
         double sampleRate, Redactor redactor,
         PayloadRefStore payloadRefStore, int payloadRefThreshold, Set<String> payloadRefFields) {
+
+    private static final Logger log = LoggerFactory.getLogger(TrajectorySettings.class);
 
     /**
      * Canonical constructor — validates that {@code payloadRefFields} is never null so
@@ -58,5 +63,33 @@ public record TrajectorySettings(boolean enabled, Pattern maskKeyPattern, int tr
      */
     public static TrajectorySettings basic(boolean enabled, Pattern maskKeyPattern, int truncateChars) {
         return new TrajectorySettings(enabled, maskKeyPattern, truncateChars, 1.0, null, null, 0, Set.of());
+    }
+
+    /**
+     * Single config→settings conversion seam. Accepts primitive configuration values so
+     * this SPI record stays independent of any boot or properties layer.
+     *
+     * <p>When {@code enabled} is {@code false}, returns {@link #off()} immediately.
+     * When {@code maskKeyPattern} is an invalid regex, falls back to
+     * {@link TrajectoryMasking#DEFAULT_KEY_PATTERN} and logs a WARN — a masking typo must
+     * never crash boot, and must never degrade to a {@code null} pattern (which would
+     * silently disable key redaction).
+     */
+    public static TrajectorySettings from(boolean enabled, String maskKeyPattern, int truncateChars,
+            double sampleRate, Redactor redactor, PayloadRefStore payloadRefStore,
+            int payloadRefThreshold, Set<String> payloadRefFields) {
+        if (!enabled) {
+            return off();
+        }
+        Pattern compiled;
+        try {
+            compiled = Pattern.compile(maskKeyPattern);
+        } catch (PatternSyntaxException | NullPointerException e) {
+            log.warn("invalid app.trajectory.mask.key-pattern '{}'; falling back to default ({})",
+                    maskKeyPattern, e.getMessage());
+            compiled = Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN);
+        }
+        return new TrajectorySettings(true, compiled, truncateChars, sampleRate, redactor,
+                payloadRefStore, payloadRefThreshold, payloadRefFields);
     }
 }
