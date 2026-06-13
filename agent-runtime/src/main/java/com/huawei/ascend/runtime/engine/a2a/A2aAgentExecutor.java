@@ -7,6 +7,7 @@ import com.huawei.ascend.runtime.engine.a2a.A2aResultRouter.RouteDecision;
 import com.huawei.ascend.runtime.engine.a2a.A2aTrajectorySupport.TrajectoryFlow;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.spi.TenantContract;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySettings;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySinkFactory;
 import java.util.Iterator;
@@ -49,7 +50,7 @@ public final class A2aAgentExecutor implements AgentExecutor {
      * re-injects the header after authenticating the caller. Without such a
      * gateway every wire client chooses its own tenant.
      */
-    public static final String TENANT_STATE_KEY = "tenantId";
+    public static final String TENANT_STATE_KEY = TenantContract.TENANT_STATE_KEY;
 
     /**
      * Call-context metadata keys carrying the calling agent's task/context id into a remote
@@ -142,7 +143,7 @@ public final class A2aAgentExecutor implements AgentExecutor {
         String agentId = handler.agentId();
         MDC.put(MDC_CONTEXT_ID, sessionId != null ? sessionId : "");
         MDC.put(MDC_TASK_ID, taskId != null ? taskId : "");
-        MDC.put(MDC_TENANT_ID, metadata(ctx, TENANT_STATE_KEY, "default"));
+        MDC.put(MDC_TENANT_ID, metadata(ctx, TENANT_STATE_KEY, TenantContract.DEFAULT_TENANT_ID));
         MDC.put(MDC_AGENT_ID, agentId != null ? agentId : "");
         // Per-task local state (this bean is a shared singleton - never hoist to a field).
         // A continuation leg (task parked on remote INPUT_REQUIRED) re-enters execute with
@@ -367,7 +368,7 @@ public final class A2aAgentExecutor implements AgentExecutor {
         String sessionId = ctx.getContextId() != null ? ctx.getContextId() : ctx.getTaskId();
         AgentExecutionContext context = new AgentExecutionContext(
                 new RuntimeIdentity(
-                        metadata(ctx, "tenantId", "default"),
+                        metadata(ctx, TenantContract.TENANT_STATE_KEY, TenantContract.DEFAULT_TENANT_ID),
                         metadata(ctx, "userId", "system"),
                         sessionId,
                         ctx.getTaskId(),

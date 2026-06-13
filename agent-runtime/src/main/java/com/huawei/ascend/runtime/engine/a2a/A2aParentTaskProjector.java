@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
+import com.huawei.ascend.runtime.engine.spi.TenantContract;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -127,7 +128,7 @@ final class A2aParentTaskProjector {
                 AgentExecutionContext.REMOTE_TOOL_RESULT_VARIABLE, toolResult);
         AgentExecutionContext context = new AgentExecutionContext(
                 new RuntimeIdentity(
-                        A2aAgentExecutor.metadata(requestContext, A2aAgentExecutor.TENANT_STATE_KEY, "default"),
+                        A2aAgentExecutor.metadata(requestContext, A2aAgentExecutor.TENANT_STATE_KEY, TenantContract.DEFAULT_TENANT_ID),
                         A2aAgentExecutor.metadata(requestContext, "userId", "system"),
                         invocation.parentContextId(),
                         invocation.parentTaskId(),

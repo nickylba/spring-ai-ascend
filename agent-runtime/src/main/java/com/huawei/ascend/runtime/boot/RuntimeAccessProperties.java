@@ -1,5 +1,6 @@
 package com.huawei.ascend.runtime.boot;
 
+import com.huawei.ascend.runtime.engine.spi.TenantContract;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -20,7 +21,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties("agent-runtime.access.a2a")
 public class RuntimeAccessProperties {
 
-    private String defaultTenantId = "default";
+    private String defaultTenantId = TenantContract.DEFAULT_TENANT_ID;
 
     private String defaultAgentId;
 
