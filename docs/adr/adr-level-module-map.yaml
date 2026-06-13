@@ -293,3 +293,21 @@ entries:
   level: L2
   view: logical
   module: cross-cutting-domain
+- id: '0161'
+  slug: agent-runtime-handler-lifecycle
+  path: docs/adr/0161-agent-runtime-handler-lifecycle.yaml
+  level: L1
+  view: development
+  module: agent-runtime
+- id: '0162'
+  slug: runtime-autoconfig-data-model-config-ownership-decomposition
+  path: docs/adr/0162-runtime-autoconfig-data-model-config-ownership-decomposition.yaml
+  level: L1
+  view: development
+  module: agent-runtime
+- id: '0163'
+  slug: neutral-agent-card-descriptor-adoption
+  path: docs/adr/0163-neutral-agent-card-descriptor-adoption.yaml
+  level: L1
+  view: development
+  module: agent-runtime

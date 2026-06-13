@@ -60,6 +60,9 @@ When a new ADR is added, its row MUST be added here in the same PR (Rule G-1 sub
 | 0066 | independent-module-evolution | L0 | development | Per-module module-metadata.yaml |
 | 0067 | spi-dfx-tck-codesign | L0 | development | SPI + DFX + TCK co-design |
 | 0068 | layered-4plus1-and-architecture-graph | L0 | scenarios | Layered 4+1 + Graph as twin sources of truth |
+| 0161 | agent-runtime-handler-lifecycle | L1 | development | AgentRuntimeHandler three-scope lifecycle (service/execution/middleware) |
+| 0162 | runtime-autoconfig-data-model-config-ownership-decomposition | L1 | development | RuntimeAutoConfiguration config-ownership decomposition (P1 AgentCardDescriptor deferred; P2-P6 accepted) |
+| 0163 | neutral-agent-card-descriptor-adoption | L1 | development | Adopt neutral AgentCardDescriptor in engine.spi — reverses ADR-0162 P1 deferral based on #229-#241 concrete requirements |
 
 ## Cutover procedure
 

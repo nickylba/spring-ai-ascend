@@ -54,6 +54,8 @@ Active ADRs cover:
 - Phase L/M reviewer remediation (0040, 0042-0049, 0058, 0060)
 - L0 ironclad rules + engine contract (0069-0079)
 - ResilienceContract + GraphMemoryRepository alignment (0080-0082)
+- agent-runtime handler lifecycle + config decomposition (0161, 0162)
+- agent-runtime A2A card neutral descriptor adoption — reversal of ADR-0162 P1 deferral (0163)
 
 ## Policy
 

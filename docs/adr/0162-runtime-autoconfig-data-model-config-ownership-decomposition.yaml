@@ -1,0 +1,155 @@
+id: ADR-0162
+title: "RuntimeAutoConfiguration data-model & config-ownership decomposition — AgentCardDescriptor
+  deferral (P1), boot-package property ownership (P2), behaviorless data carriers (P3),
+  TrajectorySettings conversion seam (P4), TenantContract (P5), auto-config split (P6)"
+status: accepted
+date: 2026-06-13
+level: L1
+view: development
+affects_level: L1
+affects_view: [development, process]
+authors:
+  - chao
+extends:
+  - ADR-0159    # agent-runtime consolidation — established engine.spi SPI surface and boot package wiring; this ADR governs config-ownership and data-model abstraction within that structure
+relates_to:
+  - ADR-0161    # AgentRuntimeHandler lifecycle — shares RuntimeAutoConfiguration as the composition root being decomposed here
+supersedes: []
+context: |
+  GitHub issue #228 identified two classes of structural debt in agent-runtime's
+  RuntimeAutoConfiguration (~300 lines, ~13 beans across 5 unrelated concerns):
+
+    ISSUE A — DATA-MODEL ABSTRACTION MISSING (P1 deferred).
+    `engine.a2a.AgentCardProvider` returns `org.a2aproject.sdk.spec.AgentCard` —
+    an A2A SDK type. `AgentCards` and `AgentCardProperties` build A2A cards.
+    This forces card concerns to carry an A2A SDK dependency, preventing an
+    A2A-free framework adapter (`engine.agentscope`, `engine.openjiuwen`) from
+    supplying custom card metadata without violating the ArchUnit
+    `protocolNeutralPackagesAreA2aSdkFree` constraint.
+    A neutral `AgentCardDescriptor` in `engine.spi` (zero A2A dep) plus an
+    `engine.a2a`-side descriptor→AgentCard mapper would remove the coupling.
+    However, the existing javadoc on `AgentCardProvider` DELIBERATELY places it
+    in the protocol bridge: "The Agent Card is A2A protocol metadata by nature,
+    so this supplier lives in the protocol bridge package rather than the neutral
+    SPI." The ONLY current implementer (`engine.versatile.VersatileAgentRuntimeHandler`)
+    is A2A-aware; no A2A-free adapter currently needs custom card metadata.
+    Introducing the neutral descriptor would overturn a documented design decision
+    on a speculative (YAGNI) basis.
+    The issue also notes a doc/impl discrepancy: ARCHITECTURE.md §2.A refers to
+    `AgentCardProvider` as an `engine.spi` type, whereas the implementation
+    correctly places it in `engine.a2a`. The L1 doc update to reflect the actual
+    placement is part of P1's implementation wave.
+
+    ISSUE B — CONFIG SCATTERED ACROSS WRONG PACKAGES (P2-P6 accepted).
+    `AgentCardProperties` and `RemoteAgentProperties` live in `engine.a2a` —
+    an engine sub-package — rather than the `boot` package where
+    `@ConfigurationProperties` access/wiring belongs.
+    `AgentCardProperties.createAgentCard(...)` embeds domain-object construction
+    inside a data-carrier class.
+    TrajectorySettings regex-compile and fallback logic lives inline in
+    RuntimeAutoConfiguration rather than in a dedicated conversion seam.
+    Tenant call-context state-key (`"tenantId"`) and default tenant id
+    (`"default"`) are duplicated as string literals across
+    `A2aAgentExecutor` and `RuntimeAccessProperties` with no single source.
+    RuntimeAutoConfiguration itself is a 300-line, 13-bean catch-all spanning
+    A2A infrastructure, runtime lifecycle, A2A execution, northbound controllers,
+    and trajectory-otel — five concerns with no structural separation.
+decision: |
+  P1 — NEUTRAL AgentCardDescriptor: PROPOSED BUT DEFERRED.
+    Proposed shape: a neutral record `engine.spi.AgentCardDescriptor` (zero A2A
+    dependency) carrying the descriptor fields needed by any framework adapter,
+    plus `engine.a2a.A2aAgentCardMapper` converting a descriptor into an
+    `org.a2aproject.sdk.spec.AgentCard`. `AgentCardProvider` would then return
+    `AgentCardDescriptor` and live in `engine.spi`.
+    Deferral rationale:
+      (a) `AgentCardProvider`'s own javadoc DELIBERATELY places it in the
+          protocol-bridge package. The neutral descriptor overturns that
+          documented decision.
+      (b) No A2A-free adapter currently needs custom card metadata. The neutral
+          abstraction is speculative (YAGNI). Premature abstraction here adds
+          indirection with no current consumer.
+    Decision: DEFER until a concrete A2A-free adapter requires custom card
+    metadata. The proposed shape above is recorded so it can be adopted without
+    re-researching the design. Until then the documented "card is A2A protocol
+    metadata" placement stands. The ARCHITECTURE.md §2.A doc/impl discrepancy
+    (doc says engine.spi, code says engine.a2a) is corrected as part of P1's
+    implementation wave: the doc should reflect the actual `engine.a2a`
+    placement until the neutral descriptor is adopted.
+
+  P2 — CONFIG-PROPERTY OWNERSHIP CONVENTION: ACCEPTED.
+    `@ConfigurationProperties` classes are an access/wiring concern and live in
+    the `boot` package. `AgentCardProperties` and `RemoteAgentProperties`,
+    currently in `engine.a2a`, relocate to `boot`. Engine sub-packages (`engine.*`)
+    must not own `@ConfigurationProperties` types; they receive configuration
+    via constructor injection from the `boot` layer. This extends the existing
+    `bootIsFlat` ArchUnit constraint (boot stays flat, no sub-packages).
+
+  P3 — CONFIG CLASSES ARE BEHAVIORLESS DATA CARRIERS: ACCEPTED.
+    A `@ConfigurationProperties` class holds configuration fields only; it must
+    not contain domain-object construction methods. `AgentCardProperties.
+    createAgentCard(...)` moves to the dedicated factory (`AgentCards`) or to
+    the auto-configuration class itself, giving card construction a single home.
+    A data-carrier with an embedded factory violates the single-responsibility
+    principle and makes the construction path non-obvious to future readers.
+
+  P4 — TrajectorySettings CONVERSION SEAM: ACCEPTED.
+    `TrajectorySettings.from(...)` (SPI, primitive params) is the single
+    config-to-settings conversion seam; the regex-compile and safe-fallback logic
+    live there, not inline in the auto-configuration. This includes the
+    `sampleRate`, `redactor`, `payloadRefRequest`, and `payloadRefResponse`
+    fields added by the trajectory workstream of this PR; `from(...)` maps boot
+    properties onto the complete `TrajectorySettings` record. Inline conversion
+    logic in auto-configuration is fragile (test coverage limited to full-context
+    integration tests) and non-reusable (other boot paths cannot share the logic).
+
+  P5 — TenantContract TYPE: ACCEPTED.
+    A `TenantContract` type in `engine.spi` is the single source of the tenant
+    call-context state-key (`"tenantId"`) and the default tenant id (`"default"`).
+    `A2aAgentExecutor` and `RuntimeAccessProperties` reference `TenantContract`
+    constants instead of duplicating string literals. Duplicated string literals
+    for cross-component conventions create a silent convention-coupling failure
+    mode: a rename on one side breaks the other side with no compiler or test
+    signal.
+
+  P6 — AUTO-CONFIG DECOMPOSITION: ACCEPTED.
+    `RuntimeAutoConfiguration` splits into focused top-level `@Configuration`
+    classes per concern, composed via `@Import` from a thin
+    `RuntimeAutoConfiguration` shell:
+      - `A2aInfrastructureConfiguration`  — A2A server and protocol infrastructure
+      - `RuntimeLifecycleConfiguration`   — handler lifecycle, readiness gate, health
+      - `A2aExecutionConfiguration`       — A2A executor and task handling
+      - `NorthboundControllerConfiguration` — northbound REST controllers
+      - `TrajectoryOtelConfiguration`     — trajectory + OpenTelemetry wiring
+    `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`
+    retains its single `RuntimeAutoConfiguration` entry; `boot` stays flat
+    (ArchUnit `bootIsFlat` constraint unaffected). The decomposition improves
+    testability (each focused config class can be loaded in isolation) and
+    readability (each file has one clearly-named concern).
+consequences: |
+  POSITIVE.
+    * P2+P3: `engine.*` packages become free of `@ConfigurationProperties`
+      and factory methods; wiring and data-model concerns separate cleanly.
+    * P4: TrajectorySettings construction is tested via unit tests against
+      `from(...)` rather than only through full-context integration tests.
+    * P5: Any future rename of the tenant key produces a compile error at all
+      callers immediately.
+    * P6: Each focused configuration class is independently loadable in tests;
+      the 300-line monolith becomes five smaller, reviewable files.
+    * P1 deferral: no speculative abstraction is introduced; the proposed shape
+      is recorded for future adoption without re-research.
+  NEGATIVE / accepted.
+    * P2: Relocating `AgentCardProperties` and `RemoteAgentProperties` requires
+      updating all `@EnableConfigurationProperties` and import references.
+    * P6: Five files instead of one requires navigating multiple files to
+      understand the full auto-configuration picture; the `@Import` chain in
+      the shell class makes the composition explicit.
+    * P1 deferral: the ARCHITECTURE.md §2.A discrepancy must be corrected in
+      the same implementation wave (doc update is part of the implementation
+      deliverable, not a follow-up).
+  NON-DECISIONS, recorded to avoid re-litigation.
+    * NO new engine SPI method added — P2-P6 are wiring/packaging changes only;
+      the `engine.spi.AgentRuntimeHandler` surface is unchanged by this ADR.
+    * NO change to `bootIsFlat` constraint — `boot` remains flat; the five
+      focused config classes are top-level `@Configuration` types in `boot`,
+      not in sub-packages.
+    * `AgentCardProvider` remains in `engine.a2a` until P1 is adopted.

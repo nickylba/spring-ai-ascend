@@ -1,0 +1,156 @@
+id: ADR-0163
+title: "Adopt the neutral AgentCardDescriptor — handler-declared A2A card metadata (reverses ADR-0162 P1 deferral)"
+status: accepted
+date: 2026-06-13
+level: L1
+view: development
+affects_level: L1
+affects_view: [development, process]
+authors:
+  - chao
+extends:
+  - ADR-0159    # agent-runtime consolidation — established engine.spi SPI surface; this ADR promotes AgentCardDescriptor from deferred-YAGNI to accepted within that surface
+relates_to:
+  - ADR-0162    # RuntimeAutoConfiguration decomposition — ADR-0162 P1 PROPOSED the neutral descriptor but DEFERRED it as speculative; this ADR REVERSES that deferral based on concrete evidence from 13 filed issues (#229-#241)
+  - ADR-0161    # AgentRuntimeHandler lifecycle — shares the engine.spi SPI surface extended here by the new neutral metadata methods
+supersedes: []
+context: |
+  ADR-0162 P1 proposed a neutral `engine.spi.AgentCardDescriptor` (zero A2A SDK
+  dependency) but DEFERRED it as speculative / YAGNI with two stated rationales:
+    (a) `AgentCardProvider`'s own javadoc deliberately places it in the
+        protocol-bridge package ("The Agent Card is A2A protocol metadata by
+        nature, so this supplier lives in the protocol bridge package rather
+        than the neutral SPI").
+    (b) "No A2A-free adapter currently needs custom card metadata."
+
+  Both rationales are now FALSIFIED by concrete filed work.
+
+  The hotel dogfood team filed 13 agent-card issues (#229-#241) that collectively
+  require framework adapters to declare card metadata that the current
+  `engine.a2a.AgentCardProvider` (returning `org.a2aproject.sdk.spec.AgentCard`)
+  cannot service from A2A-free engine sub-packages without violating the ArchUnit
+  `protocolNeutralPackagesAreA2aSdkFree` constraint:
+
+    #229 — handlers must declare `capabilities.streaming` (boolean flag on the card)
+    #230 — `pushNotifications` durability derived from backing store capability
+    #231 — handlers declare their `skills` list (`AgentSkill` in A2A SDK)
+    #232 — `version` / `protocolVersion` fields per handler
+    #233 — `defaultOutputModes` list per handler
+    #234 — `securitySchemes` map (a `SecurityScheme` in A2A SDK)
+    #235 — multi-transport `interfaces` list per handler
+    #236 — YAML overlay of all of the above via `AgentCardProperties`
+
+  Issues #231 and #234 specifically require A2A SDK types (`AgentSkill`,
+  `SecurityScheme`) that are forbidden in `engine.spi` by the existing ArchUnit
+  constraint — confirming that a NEUTRAL descriptor layer is required, not merely
+  convenient.
+
+  The premise of ADR-0162 P1's deferral — "no A2A-free adapter currently needs
+  custom card metadata" — is no longer true. The neutral `AgentCardDescriptor`
+  is now JUSTIFIED by concrete requirements, not speculative.
+
+  This ADR formally reverses the ADR-0162 P1 deferral and records the adopted
+  shape. The "card is A2A protocol metadata by nature" javadoc rationale is
+  REVERSED: the neutral DESCRIPTOR is framework-neutral; only the A2A
+  *projection* (the mapper) stays in `engine.a2a`. The descriptor's fields are
+  A2A-aligned but carry no A2A SDK import.
+decision: |
+  ADOPT the neutral AgentCardDescriptor model. The ADR-0162 P1 deferral is
+  REVERSED. Specifically:
+
+  1. NEUTRAL DESCRIPTOR TYPE.
+     Adopt `engine.spi.AgentCardDescriptor` as a pure-Java record (zero
+     `org.a2aproject` dependency) covering the full A2A AgentCard field set
+     neutrally. Nested neutral types co-located in `engine.spi`:
+       - `AgentSkillDescriptor`          — mirrors A2A `AgentSkill`
+       - `AgentCapabilitiesDescriptor`   — mirrors A2A `AgentCapabilities`
+       - `AgentInterfaceDescriptor`      — mirrors A2A `AgentInterface`
+       - `SecuritySchemeDescriptor`      — mirrors A2A `SecurityScheme`
+       - `SignatureDescriptor`           — mirrors A2A signature metadata
+     All nested types are plain Java (records or final classes); no A2A SDK
+     import crosses into `engine.spi`.
+
+  2. AgentCardProvider MOVES TO engine.spi.
+     `AgentCardProvider` relocates from `engine.a2a` to `engine.spi` and its
+     contract becomes: `describe(): AgentCardDescriptor`.
+     The previous `agentCard(): org.a2aproject.sdk.spec.AgentCard` signature in
+     `engine.a2a` is removed. This is a pre-1.0 source-breaking SPI change;
+     the sole current implementer is `engine.versatile.VersatileAgentRuntimeHandler`.
+     That class is migrated as part of the implementation wave.
+
+  3. SINGLE A2A PROJECTION POINT.
+     A new `engine.a2a.A2aAgentCardMapper` is the ONLY place that converts a
+     neutral `AgentCardDescriptor` into an `org.a2aproject.sdk.spec.AgentCard`.
+     The existing `AgentCards` builder logic is absorbed into the mapper.
+     ArchUnit may assert: the A2A `AgentCard` constructor/builder is called
+     exclusively from `engine.a2a.A2aAgentCardMapper`.
+
+  4. NEUTRAL HANDLER METADATA METHODS.
+     `AgentRuntimeHandler` (engine.spi) gains default neutral metadata methods
+     so any framework adapter — including the A2A-free `engine.agentscope` and
+     `engine.openjiuwen` — can participate in card metadata without touching the
+     A2A SDK:
+       - `supportsStreaming(): boolean`                     — default false
+       - `supportsPushNotifications(): boolean`             — default false (derived from store durability by adapter; handlers override)
+       - `defaultOutputModes(): List<String>`               — default ["text"]
+       - `skills(): List<AgentSkillDescriptor>`             — default empty list
+       - `interfaces(): List<AgentInterfaceDescriptor>`     — default empty list
+       - `securitySchemes(): Map<String,SecuritySchemeDescriptor>` — default empty map
+       - `agentVersion(): String`                           — default empty string
+       - `protocolVersion(): String`                        — default empty string
+     All defaults are fail-safe (opt-in): a handler that does not override
+     signals no streaming, no push, text-only output, no custom skills.
+
+  5. YAML OVERLAY VIA AgentCardProperties.
+     `AgentCardProperties` (boot package, per ADR-0162 P2) overlays the
+     descriptor produced by `AgentCardProvider.describe()`. Field precedence:
+     YAML overlay wins over handler-declared defaults, enabling operations teams
+     to tune card metadata without recompiling handlers.
+
+  6. CAPABILITY HONESTY — FAIL-SAFE DEFAULTS.
+     All capability flags default to the conservative / fail-safe value:
+       - `streaming = false`          — handler opts in if it supports streaming
+       - `pushNotifications = false`  — handler/store opts in based on durability
+       - `defaultOutputModes = ["text"]` — handler adds modes it genuinely supports
+     This prevents the A2A registry from advertising capabilities a handler
+     does not actually provide.
+consequences: |
+  POSITIVE.
+    * Any engine adapter (`engine.agentscope`, `engine.openjiuwen`,
+      `engine.versatile`, future adapters) can declare rich card metadata
+      without taking an A2A SDK compile dependency — satisfying the
+      `protocolNeutralPackagesAreA2aSdkFree` ArchUnit constraint.
+    * Issues #229-#236 have a clear implementation path: each maps to a
+      method on `AgentRuntimeHandler` or a field in `AgentCardDescriptor`.
+    * `engine.a2a.A2aAgentCardMapper` becomes the single A2A card construction
+      point — simpler to audit, test, and evolve the A2A projection separately
+      from the neutral descriptor.
+    * Capability honesty: fail-safe defaults ensure the A2A registry never
+      over-promises on handler capability.
+    * YAML overlay (point 5) decouples operations tuning from handler source code.
+
+  NEGATIVE / accepted.
+    * Pre-1.0 SPI break: `AgentCardProvider.agentCard()` signature changes.
+      The sole current implementer (`VersatileAgentRuntimeHandler`) must be
+      migrated in the same wave. New signature must be adopted before any
+      external consumers exist — acceptable at pre-1.0.
+    * L1 §2.A / §2.B architecture docs must be updated to reflect the new
+      `engine.spi` placement of `AgentCardProvider` and the descriptor model.
+      The ADR-0162 P1 doc/impl discrepancy note (doc said engine.spi, code said
+      engine.a2a) is now resolved: both doc and code say engine.spi.
+    * `AgentRuntimeHandler` gains ~8 default methods — small API surface
+      increase on an already-growing SPI interface; mitigated by all having
+      safe defaults that require no action from existing implementers.
+
+  NON-DECISIONS, recorded to avoid re-litigation.
+    * NO change to the `bootIsFlat` ArchUnit constraint — `AgentCardProperties`
+      stays in `boot` (ADR-0162 P2); this ADR does not touch package placement
+      of properties classes.
+    * `engine.spi.AgentCardDescriptor` is a NEUTRAL descriptor, not an A2A
+      type. Handlers that need to express A2A-specific semantics do so via the
+      neutral field set; the mapper handles A2A SDK construction. Handlers do
+      NOT receive or return `org.a2aproject.*` types via the SPI.
+    * The `AgentCards` utility class in `engine.a2a` is ABSORBED by the mapper;
+      it is not kept as a separate utility if all its logic moves to the mapper.
+    * No distributed or multi-runtime card registry is introduced here; card
+      metadata is per-handler, per-deployment, assembled at runtime boot.
