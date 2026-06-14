@@ -97,6 +97,7 @@ Stage 7 按 Stage 6 裁决采用 **C3（database outbox / inbox）** 作为类 M
 - Stage 4 评审与 Stage 5 计划：[`../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage4-review-and-stage5-plan.md`](../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage4-review-and-stage5-plan.md)。
 - Stage 5 评审与 Stage 6 计划：[`../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage5-review-and-stage6-plan.md`](../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage5-review-and-stage6-plan.md)。
 - Stage 6 评审与 Stage 7 大批次计划：[`../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage6-review-and-stage7-plan.md`](../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage6-review-and-stage7-plan.md)。
+- Stage 7 评审与 Stage 8 计划：[`../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage7-review-and-stage8-plan.md`](../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage7-review-and-stage8-plan.md)。
 
 ## 后续工作
 
@@ -104,5 +105,6 @@ Stage 7 按 Stage 6 裁决采用 **C3（database outbox / inbox）** 作为类 M
 - 为 ingress、federation、reflection 增加契约测试计划。
 - 为本目录生成 graphify 输入和漂移检查 manifest。
 - Stage 5 运行态候选方案评审：见 [`../../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-candidates.md`](../../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-candidates.md)（候选评审，不绑定产品；Stage 4 设计态契约见上方「类 MQ 转发契约」章节）。
-- Stage 6 运行态候选裁决：见 [`../../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md`](../../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md)（H2/H3 裁决记录，draft 待裁决；裁决前不写生产代码，实现等待裁决；Stage 6 计划见上方「阶段记录」）。
+- Stage 6 运行态候选裁决：见 [`../../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md`](../../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md)（已默认采用 C3，仍待 H2/H3 最终确认；Stage 7 已按受限范围落地最小骨架）。
 - Stage 7 C3 转发运行态最小骨架已落地（领域模型 + 端口 + 状态机 + in-memory 测试替身 + harness，115 tests green）；真实持久化 / 交付绑定 deferred 到 Stage 8。
+- Stage 8 建议进入 C3 真实持久化准备 / 初始实现：先收口 record / schema / Java 类型一致性，再推进 claim / lease、migration 草案、dispatcher worker skeleton 和 harness；计划见上方「阶段记录」。
