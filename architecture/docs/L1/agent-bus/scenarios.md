@@ -159,8 +159,8 @@ status: draft
 | 参与者 | 调用方 `agent-runtime`、真 bus（转发底座）、接收方 `agent-runtime` |
 | 入口 | forwarding（设计态） |
 | 契约 | [`ICD-Agent-Bus-Forwarding`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding.md) |
-| 流程 | 调用方据 Stage 3 discovery 返回的 route handle 构造 forwarding envelope（`tenantId`、`traceId`、`correlationId`、`idempotencyKey`、`routeHandle`、`capability`、`payloadRef`、`deadline`），转发底座投递，接收方按自身 Task/Run lifecycle 处理。 |
+| 流程 | 调用方据 Stage 3 discovery 返回的 route handle 构造 forwarding envelope（`tenantId`、`traceId`、`correlationId`、`idempotencyKey`、`routeHandle`、`capability`、`deadline`；`payloadRef` 条件必填），转发底座投递，接收方按自身 Task/Run lifecycle 处理。 |
 | 成功结果 | 同步 ack（已落队）或异步完成（接收方处理后回传 outcome）。 |
 | 失败结果 | `route_not_found`、`tenant_mismatch`、`delivery_timeout`、`receiver_unavailable`、`backpressure_rejected`、`duplicate_suppressed`。 |
-| 不变量 | 不改变远端 Task lifecycle owner；envelope 只携带 `payloadRef`，不携带 payload body / token stream / Task execution state；大载荷走 data reference path。 |
+| 不变量 | 不改变远端 Task lifecycle owner；envelope 有载荷时只携带 `payloadRef`（条件必填，MI5-003 方案 B）、不携带 payload body / token stream / Task execution state；纯控制消息可省略 `payloadRef`；大载荷走 data reference path。 |
 | 缺口 | broker / MQ 产品选择 deferred（Stage 5）；运行态转发底座、queue / DLQ / replay 存储未实现。 |

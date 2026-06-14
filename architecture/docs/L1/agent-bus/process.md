@@ -118,9 +118,9 @@ Mailbox、admission、backpressure、sleep、wakeup、tick 当前只保留设计
 当前状态：
 
 - 以上内容都是设计态。
-- 类 MQ 转发底座仍为设计态；broker 产品选择与 runtime 实现 deferred。Stage 4 起草 broker-agnostic 转发语义 ICD 与设计态 harness（见 [`ICD-agent-bus-forwarding`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding.md)），不绑定具体产品 runtime。
+- 类 MQ 转发底座仍为设计态；broker 产品选择与 runtime 实现 deferred。Stage 4 起草 broker-agnostic 转发语义 ICD 与设计态 harness（见 [`ICD-agent-bus-forwarding`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding.md)），不绑定具体产品 runtime。Stage 5 对运行态承载候选（in-memory / runtime-local queue / DB outbox-inbox / external broker / hybrid）做了 broker-agnostic 候选评审，不实现运行态（见 [`agent-bus-forwarding-runtime-candidates`](../../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-candidates.md)）。
 - 进入实现前需要独立 H2/H3 决策和 harness 计划。
-- forwarding envelope 只携带 `payloadRef`（不携带 payload body / token stream / Task execution state），通过 `routeHandle` 消费 Stage 3 discovery，不改变远端 Task lifecycle owner（见 forwarding ICD）。
+- forwarding envelope 有载荷时只携带 `payloadRef`（条件必填，MI5-003 方案 B；纯控制消息可省略；不携带 payload body / token stream / Task execution state），通过 `routeHandle` 消费 Stage 3 discovery，不改变远端 Task lifecycle owner（见 forwarding ICD）。
 
 ## 8. 真 bus 目标态流程：Agent 注册与发现
 

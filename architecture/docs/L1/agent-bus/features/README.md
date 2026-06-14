@@ -46,8 +46,8 @@ status: draft
 | AB-F06 | 真 bus | SC-005 | cloud 到 edge | `ReflectionEnvelopeRouter` | SC-005 |
 | AB-F07 | 中立边界 | SC-003 | compute_control 内部边界 | `bus.spi.engine` | SC-003 |
 | AB-F08 | 真 bus | SC-006 | bus_state future runtime | 待定 | SC-006 |
-| AB-F11 | 真 bus | 后续 Stage | bus_state future runtime | 待定 | 待补 |
-| AB-F12 | 真 bus | 后续 Stage | bus_state registry/discovery | 待定 | 待补 |
+| AB-F11 | 真 bus | SC-012 | bus_state future runtime | 待定 | SC-012 |
+| AB-F12 | 真 bus | SC-007..SC-011 | bus_state registry/discovery | 待定 | SC-007..SC-011 |
 
 ## 4. 不进入当前实现的能力
 
@@ -58,7 +58,7 @@ status: draft
 - backpressure runtime。
 - tick engine。
 - DLQ / replay store。
-- 类 MQ 转发底座（运行态实现 deferred；Stage 4 转发语义见 [`ICD-Agent-Bus-Forwarding`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding.md)）。
+- 类 MQ 转发底座（运行态实现 deferred；Stage 4 转发语义见 [`ICD-Agent-Bus-Forwarding`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding.md)；Stage 5 运行态候选评审见 [`agent-bus-forwarding-runtime-candidates`](../../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-candidates.md)）。
 - agent/service/capability registry runtime。
 - service discovery API。
 - runtime-side S2C construction binding / schema validation runtime（契约层迁移已完成）。

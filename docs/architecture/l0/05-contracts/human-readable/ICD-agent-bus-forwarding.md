@@ -32,7 +32,7 @@ status: draft
 - 转发语义 **broker-agnostic**：本 ICD 不绑定具体 broker / MQ 产品；产品选择 deferred 到 Stage 5。
 - forwarding envelope 必须携带 `tenantId`（延续 registry key 强制 tenantId，HD3-003 / Rule R-C.c）。
 - forwarding envelope 通过 `routeHandle` 消费 Stage 3 discovery result；**禁止绕过 route handle 直接使用物理 endpoint**。
-- forwarding envelope **只携带 `payloadRef`，不携带 payload body**：大载荷走 data reference path，event / control channel 不承载大对象正文或 token stream。
+- forwarding envelope **有载荷时只携带 `payloadRef`、不携带 payload body**：`payloadRef` 条件必填（MI5-003 方案 B），有外部数据 / 大载荷时必填，纯控制消息可省略；一旦出现载荷，一律走 data reference path，event / control channel 不承载大对象正文或 token stream。
 - runtime-to-runtime 消息 **不改变远端 Task lifecycle owner**；`agent-bus` 不写 Task execution state（与 registry / discovery 边界一致）。
 - Stage 4 不新增 mailbox / queue / DLQ / replay 运行态存储、不实现 service discovery API runtime、不改 Maven module 名或目录名。
 
@@ -41,7 +41,7 @@ status: draft
 | ICD ID | ICD-Agent-Bus-Forwarding |
 | Participating Modules | `agent-bus`（forwarding view owner）；`agent-runtime`、`agent-core`、`agent-client` / edge、`agent-middleware`（转发参与者 / 消费者）；gateway + 真 bus（分发与转发执行点）。 |
 | Interaction Purpose | 为 gateway 入口分发与真 bus runtime-to-runtime 异步控制消息提供 tenant-scoped、broker-agnostic、route-handle-driven 的转发语义；明确 ack / retry / timeout / DLQ / ordering / backpressure / correlation 的契约表达，把产品选择留给 Stage 5。 |
-| Forwarding Envelope Required Fields | `tenantId`、`traceId`、`correlationId`、`idempotencyKey`、`routeHandle`、`capability`、`payloadRef`、`deadline`。`tenantId` 强制；`routeHandle` 来自 Stage 3 discovery。 |
+| Forwarding Envelope Required Fields | `tenantId`、`traceId`、`correlationId`、`idempotencyKey`、`routeHandle`、`capability`、`deadline`。`tenantId` 强制；`routeHandle` 来自 Stage 3 discovery。`payloadRef` **条件必填**（MI5-003 方案 B 裁决）：有外部数据或大载荷时必填，纯控制消息可省略（envelope 只携带控制语义）；省略 `payloadRef` 不豁免 Forbidden Payload 约束（仍不携带 payload body / token stream / Task execution state）。 |
 | Route Handle (HD4) | `routeHandle` 来自 `ICD-Agent-Registry-Discovery` 的 discovery result，内部封装 endpoint / topic / serviceId / routeKey。转发方只持 route handle，**不直接暴露或操作物理 endpoint**；route handle 是转发与发现的唯一关联点（discovery result 与 forwarding envelope 通过 route handle 关联）。 |
 | Delivery Model | 区分 **同步 ack**（转发底座确认已接收并落队，不等处理完成）与 **异步完成**（接收方处理后回传 outcome）。两者用不同 envelope / response 状态表达，不混用。 |
 | Retry | 只有转发底座或明确授权的重试者允许重试；重试依据是 failure mode + `idempotencyKey`；接收方据 `idempotencyKey` 抑制重复（`duplicate_suppressed`）。业务层自发重试不算转发语义。 |

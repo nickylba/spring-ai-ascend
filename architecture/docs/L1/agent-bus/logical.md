@@ -116,6 +116,6 @@ Agent 注册与发现的完整设计态契约见 [`ICD-Agent-Registry-Discovery`
 
 - 转发语义 broker-agnostic：不绑定具体 broker / MQ 产品，产品选择 deferred 到 Stage 5。
 - forwarding envelope 通过 `routeHandle` 消费 Stage 3 的 discovery result，不直接暴露或绕过物理 endpoint。
-- forwarding envelope 只携带 `payloadRef`，不携带 payload body；大载荷走 data reference path，不进 event / control channel。
+- forwarding envelope 有载荷时只携带 `payloadRef`（条件必填，MI5-003 方案 B；纯控制消息可省略）、不携带 payload body；大载荷走 data reference path，不进 event / control channel。
 - runtime-to-runtime 消息不改变远端 Task lifecycle owner；`agent-bus` 不写 Task execution state。
 - Stage 4 只定义转发语义和 harness 断言，不实现运行态转发底座、不新增 mailbox / queue / DLQ / replay 运行态存储。

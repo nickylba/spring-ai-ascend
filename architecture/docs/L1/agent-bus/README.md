@@ -72,7 +72,7 @@ Agent / Service / Capability 注册与发现的完整设计态契约见 [`ICD-Ag
 
 - 转发语义 broker-agnostic：不绑定具体 broker / MQ 产品，产品选择 deferred 到 Stage 5。
 - forwarding envelope 通过 `routeHandle` 消费 Stage 3 discovery result，不直接暴露或绕过物理 endpoint。
-- forwarding envelope 只携带 `payloadRef`，不携带 payload body / token stream / Task execution state；大载荷走 data reference path。
+- forwarding envelope 有载荷时只携带 `payloadRef`（条件必填，MI5-003 方案 B；纯控制消息可省略）、不携带 payload body / token stream / Task execution state；大载荷走 data reference path。
 - runtime-to-runtime 消息不改变远端 Task lifecycle owner；`agent-bus` 不写 Task execution state。
 - Stage 4 只定义转发语义和 harness 断言，不实现运行态转发底座、不新增 mailbox / queue / DLQ / replay 运行态存储。
 
@@ -91,4 +91,4 @@ Agent / Service / Capability 注册与发现的完整设计态契约见 [`ICD-Ag
 - 补齐 S2C tenant 迁移后的 runtime-side construction binding / schema validation / downstream 文档同步。
 - 为 ingress、federation、reflection 增加契约测试计划。
 - 为本目录生成 graphify 输入和漂移检查 manifest。
-- Stage 4 类 MQ 转发语义：见 [`../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding.md`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding.md)（设计态，broker-agnostic）。
+- Stage 5 运行态候选方案评审：见 [`../../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-candidates.md`](../../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-candidates.md)（候选评审，不绑定产品；Stage 4 设计态契约见上方「类 MQ 转发契约」章节）。

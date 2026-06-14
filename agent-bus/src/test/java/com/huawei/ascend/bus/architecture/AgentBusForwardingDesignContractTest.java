@@ -30,7 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * <p>The document assertions read the ICD and the L1 README as plain text and
  * anchor on stable phrases. The Stage 4 boundary assertion uses ArchUnit to
- * prove no production package under {@code com.huawei.ascend.bus.spi} is named
+ * prove no production package under {@code com.huawei.ascend.bus} is named
  * {@code broker}/{@code queue}/{@code mailbox}/{@code dlq}/{@code replay} — the
  * trip-wire that forces an explicit decision when Stage 5 admits a broker
  * runtime.
@@ -104,9 +104,13 @@ class AgentBusForwardingDesignContractTest {
         assertThat(icdText)
                 .as("ICD must define payloadRef as the envelope payload reference (HD4)")
                 .contains("payloadRef")
+                .as("ICD must adjudicate payloadRef as conditional required (MI5-003 方案 B) — "
+                  + "present when there is external data / a large payload, optional for "
+                  + "pure control messages")
+                .contains("条件必填")
                 .as("ICD must forbid payload body on the forwarding envelope (control/data "
                   + "separation — large payloads take the data reference path, never the "
-                  + "event/control channel)")
+                  + "event/control channel; omitting payloadRef does NOT exempt this)")
                 .contains("不携带 payload body");
     }
 
@@ -128,7 +132,7 @@ class AgentBusForwardingDesignContractTest {
 
     @Test
     void stage4_adds_no_broker_runtime_package() {
-        JavaClasses classes = new ClassFileImporter().importPackages("com.huawei.ascend.bus.spi");
+        JavaClasses classes = new ClassFileImporter().importPackages("com.huawei.ascend.bus");
         assertThat(classes)
                 .as("sanity — ArchUnit must import agent-bus SPI classes from the test classpath")
                 .isNotEmpty();
@@ -141,7 +145,7 @@ class AgentBusForwardingDesignContractTest {
                 .collect(Collectors.toSet());
         assertThat(brokerRuntimePackages)
                 .as("Stage 4 boundary: no broker / queue / mailbox / DLQ / replay runtime package "
-                  + "may exist under com.huawei.ascend.bus.spi yet — ICD-Agent-Bus-Forwarding is "
+                  + "may exist under com.huawei.ascend.bus yet — ICD-Agent-Bus-Forwarding is "
                   + "design-level only (broker-agnostic). When Stage 5 admits a broker runtime, "
                   + "this assertion is the trip-wire that forces an explicit decision.")
                 .isEmpty();
