@@ -322,7 +322,7 @@ Harness 断言把架构主张连接到可执行或可评审的证据。
 
 ### 已接受的自动化边界
 
-尚未接受。草案建议：
+已接受。当前自动化边界如下：
 
 - 自动化可以生成完整 `agent-bus` L1 架构文档、graph 投影，以及现有 SPI records/interfaces 的测试。
 - 自动化不得直接执行 S2C `tenantId` 迁移；该迁移必须先完成冲突通知并进入独立契约迁移切片。
@@ -351,7 +351,7 @@ Harness 断言把架构主张连接到可执行或可评审的证据。
 
 ### 后续产物
 
-- Delivery projection：`docs/architecture/l0/10-governance/delivery-projections/agent-bus-l1-draft-2026-06-14.md`
+- Delivery projection：`docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage1-harness.md`
 - Verification matrix update：H2 后增加 `agent-bus` contract/harness 行
 - 实现切片：
 - 已生成：`architecture/docs/L1/agent-bus/**`
