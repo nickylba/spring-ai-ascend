@@ -66,9 +66,9 @@ Provider adapter 不得成为独立且唯一的遥测写入源。跨模块执行
 
 每个核心场景都应定义期望产生的 trace、event 和 audit 证据。当运行时绑定存在时，LLM generation span 必须携带模型、token、cost 和 latency 证据。
 
-平台 cost attribution 覆盖 LLM 使用、模型路由和平台运行时成本证据。客户内部工具成本和业务系统成本仍属于客户/业务关注点，除非单独 accepted contract 委托平台上报。
+平台 cost attribution 覆盖 LLM 使用、模型路由和平台运行时成本证据。客户内部工具成本和业务系统成本仍属于客户/业务关注点，除非单独 active contract 委托平台上报。
 
-重放表面必须具备租户作用域，并在租户不匹配时 fail closed。MCP-only replay 是当前 L0 遥测重放方向，除非 accepted ADR 改变该方向。
+重放表面必须具备租户作用域，并在租户不匹配时 fail closed。MCP-only replay 是当前 L0 遥测重放方向，除非 active ADR 改变该方向。
 
 严格态势下，原始 prompt、completion、tool input 或 tool output 不得作为 span attribute 直接记录。
 
@@ -90,14 +90,15 @@ Provider adapter 不得成为独立且唯一的遥测写入源。跨模块执行
 
 脚手架、mock、stub、断言、场景证据和可重放材料应服务于架构约束验证，不应只作为实现阶段的临时材料。
 
-## 设计状态和验证期望
+## 架构状态和验证期望
 
-### 设计状态约束
+### 架构状态约束
 
-- `draft`、`candidate_promote`、`design_only`、`accepted` 和 `shipped` 必须按真实状态使用。
-- design-only 契约不得描述成运行时已强制执行的行为。
+- `draft`、`proposal`、`active` 和 `archive` 必须按当前存活状态使用。
+- 状态用于描述材料在当前架构体系中的存活状态，而不是记录材料经历过的历史阶段。
+- `proposal` 契约不得描述成当前 `active` 架构事实或运行时已强制执行的行为。
 - 历史文档可以提供决策证据，但不得覆盖当前架构事实权威。
-- `docs/architecture/l0/05-contracts/` 下的草案契约 YAML 在提升到 accepted contract system 前，不得驱动生产行为。
+- `docs/architecture/l0/05-contracts/` 下的草案契约 YAML 在提升到 active contract system 前，不得驱动生产行为。
 
 ### 验证期望
 

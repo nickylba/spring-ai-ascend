@@ -19,7 +19,7 @@ dependency:
 
 ## 目的
 
-本文档描述 L0 架构中定义的六个 L1 层级逻辑模块边界：`agent-client`、`agent-runtime`、`agent-core`、`agent-bus`、`agent-middleware` 和 `agent-evolve`。
+本文档描述 L0 架构中定义的六个逻辑模块边界：`agent-client`、`agent-runtime`、`agent-core`、`agent-bus`、`agent-middleware` 和 `agent-evolve`。这些 L0 逻辑模块是后续 L1 高阶设计展开的边界。
 
 本文档只回答 L0 层面的边界问题：每个逻辑模块负责什么业务逻辑，拥有或维护哪些数据对象与状态对象，以及在系统行为中承担什么边界职责。具体 SPI、API、包结构、部署单元、数据库表、消息主题、错误码和重试参数由 L1/L2 架构或实现设计承载。
 
