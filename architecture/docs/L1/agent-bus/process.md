@@ -122,25 +122,33 @@ Mailbox、admission、backpressure、sleep、wakeup、tick 当前只保留设计
 
 ## 8. 真 bus 目标态流程：Agent 注册与发现
 
-Agent 注册与发现是 service-to-service 路由的前置能力。它回答“某个 tenant 下，哪个 service/agent/capability 可以处理这个 envelope，应路由到哪里”。
+Agent 注册与发现是 service-to-service 路由的前置能力。它回答“某个 tenant 下，哪个 service/agent/capability 可以处理这个 envelope，应路由到哪里”。完整设计态契约见 [`ICD-Agent-Registry-Discovery`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-registry-discovery.md)。
 
-目标态注册元数据至少应覆盖：
+目标态流程（HD3 裁决方向）：
 
-- `tenantId`
-- agent id / capability id
-- service id / instance id
-- endpoint / topic / route key
-- version
-- region / deployment plane
-- health / readiness
-- load / capacity signal
-- supported contract version
+| 步骤 | 操作 | 参与者 | 说明 |
+|---|---|---|---|
+| 1 | register | service/agent → registry | 注册 `(tenantId, agentId|serviceId, capability, routeKey, contractVersion, capabilityVersion, endpoint, lease)`。`tenantId` 强制。 |
+| 2 | renew-lease / heartbeat | owner → registry | 续 lease/TTL；到期则 entry 从可见集移除。 |
+| 3 | discover | gateway/真 bus → registry | query 必须携带 `tenantId` + `capability`（+ 可选 version/health 过滤）。跨 tenant 查询显式失败。 |
+| 4 | route result | registry → caller | 返回 opaque route handle + health + contractVersion/capabilityVersion；不携带 Task execution state。 |
+| 5 | deregister | owner → registry | owner 主动注销（可选）。 |
+
+注册 entry 必填字段（与 ICD 对齐）：
+
+- `tenantId`、`agentId`/`serviceId`、`capability`、`routeKey`
+- `contractVersion`、`capabilityVersion`
+- `endpoint`/`routeTarget`（logical）、`leaseId`/`expiryEpoch`
+
+可选字段：`health`、`region`/`deploymentVariant`、`weight`。
 
 边界：
 
-- 注册发现只拥有运行时路由索引。
-- agent 的业务定义、代码实现、Task/Run 状态仍由对应 owner 管理。
-- 如果注册发现需要持久化，需要单独定义状态 owner、写入者、租户隔离和漂移检查。
+- 注册发现只拥有运行时路由索引，不拥有 agent 业务定义或 Task/Run 状态。
+- discovery result 不得携带 Task execution state。
+- 跨 tenant 查询必须显式失败（`tenant_isolation_violation`），禁止跨 tenant fallback。
+- version mismatch、unhealthy target、lease expired 都必须有显式 result 状态。
+- Stage 3 只定义接口和 harness 断言，不实现 runtime registry（durable/memory 选择 deferred）。
 
 ## 9. 进程断言
 
@@ -152,4 +160,4 @@ Agent 注册与发现是 service-to-service 路由的前置能力。它回答“
 | Engine terminal event 必须唯一且最后发出。 | `EnginePort` 契约和后续 harness。 |
 | S2C tenant 目标态必须进入 envelope。 | H2 决策和冲突通知记录。 |
 | 真 bus 转发底座进入实现前必须先定义 ack/retry/DLQ/ordering/backpressure。 | 后续 H2/H3 评审。 |
-| Agent 注册发现进入实现前必须先定义 owner、租户隔离、health 和 contract version 语义。 | 后续 H2/H3 评审。 |
+| Agent 注册发现的 owner、租户隔离、health 和 contract version 语义已在 [`ICD-Agent-Registry-Discovery`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-registry-discovery.md) 设计态定义。 | runtime 物理实现仍待后续波次；Stage 3 只定义接口和 harness 断言。 |

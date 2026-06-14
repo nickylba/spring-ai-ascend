@@ -13,8 +13,8 @@ status: draft
 |---|---|---|---|---|
 | AB-F01 | C2S Ingress Gateway | Gateway | SPI 已存在，测试待补 | 外部 client 到内部 service 的入口治理。 |
 | AB-F02 | Ingress Envelope / Response | Gateway | Java record 已存在，测试待补 | 请求/确认 envelope，包含 tenant、trace、幂等。 |
-| AB-F03 | S2C Callback Transport | Gateway / 真 bus 交界 | SPI 已存在，tenant 迁移待做 | service 到 client 的 capability callback。 |
-| AB-F04 | S2C Envelope / Response | Gateway / 真 bus 交界 | Java record 已存在，tenant 迁移待做 | 请求/响应 envelope；目标态需要 `tenantId`。 |
+| AB-F03 | S2C Callback Transport | Gateway / 真 bus 交界 | SPI 已存在，tenant 已迁移，runtime 构造点待补 | service 到 client 的 capability callback。 |
+| AB-F04 | S2C Envelope / Response | Gateway / 真 bus 交界 | Java record 已存在，tenant 已迁移，runtime 构造点待补 | 请求/响应 envelope；`tenantId` 已为 required in-band 字段（Stage 2）。 |
 | AB-F05 | Federation Gateway | 真 bus | SPI 已存在，runtime 未实现 | 跨部署、跨网络的 service 调用治理。 |
 | AB-F06 | Reflection Envelope Router | 真 bus | SPI 已存在，payload 类型待决策 | reflection update 路由。 |
 | AB-F07 | Engine Port SPI Home | 中立边界 | SPI 已存在 | service-engine 边界类型位置。 |
@@ -30,7 +30,7 @@ status: draft
 |---|---|
 | SPI 已存在 | 生产源码中已有接口或 record，但不代表 runtime 已完整实现。 |
 | 测试待补 | L1 接受该表面，但 harness 证据不足。 |
-| tenant 迁移待做 | H2 已接受目标态，但代码契约尚未改。 |
+| tenant 已迁移 | `tenantId` 已成为 required in-band 字段（Stage 2，Rule R-C.c）；runtime 构造点待后续波次。 |
 | runtime 未实现 | 只有 SPI 或契约，不包含 broker/transport/runtime binding。 |
 | 设计态 | 只允许文档和评审，不允许自动生成生产实现。 |
 
@@ -61,6 +61,6 @@ status: draft
 - 类 MQ 转发底座。
 - agent/service/capability registry runtime。
 - service discovery API。
-- S2C tenant 迁移代码改动。
+- runtime-side S2C construction binding / schema validation runtime（契约层迁移已完成）。
 
-S2C tenant 迁移虽然是已接受方向，但必须进入独立切片，并在通知冲突方后施工。
+契约层 S2C tenant 迁移已完成（Stage 2，已通知冲突方）；runtime-side construction binding 仍待后续波次，不进入当前实现。

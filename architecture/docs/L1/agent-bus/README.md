@@ -37,12 +37,21 @@ covers_views: [logical, process, development, physical, scenarios]
   - Gateway：负责外部到内部的转发、入口治理和调度。
   - 真 bus：负责 service 与 service 之间的相互调用、跨服务路由和跨服务治理。
 - W2 workflow primitives 继续保持设计态，直到具体版本意图定义 mailbox、admission、backpressure、tick 语义。
-- S2C envelope 需要增加 `tenantId`；该变更影响契约、代码、测试和上下游文档，必须在独立迁移切片中施工，并先通知冲突方。
+- S2C envelope 已增加 `tenantId`（Stage 2，Rule R-C.c）；runtime-side construction binding / schema validation integration 仍待后续波次补齐。
 - main 分支中的历史 L1 文档只作为结构参考，不作为当前分支事实源。
 
-## 待通知事项
+## 第二阶段后续同步事项
 
-- S2C tenant 迁移的冲突方需要通知并确认，包括 `agent-bus` 契约/测试、`agent-service` / runtime、`agent-execution-engine` callback suspension 路径、`agent-client` / edge capability、既有 L1 文档和治理模板。
+- 契约层 S2C `tenantId` 迁移已完成（Stage 2，已通知冲突方）；剩余事项为 runtime-side construction binding、schema validation integration 与 downstream 文档/模板同步，均在后续波次推进，不进入当前实现。
+
+## Agent 注册发现契约（Stage 3 设计态）
+
+Agent / Service / Capability 注册与发现的完整设计态契约见 [`ICD-Agent-Registry-Discovery`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-registry-discovery.md)。Stage 3 边界（HD3-001..007）：
+
+- `agent-bus` 只拥有 runtime route index，不拥有 agent 定义或 Task 状态。
+- registry key 强制包含 `tenantId`，禁止跨 tenant fallback。
+- discovery 返回 opaque route handle，不携带 Task execution state。
+- Stage 3 只定义接口和 harness 断言，不实现 runtime registry（持久化选择 deferred）。
 
 ## 后续工作
 
@@ -50,6 +59,6 @@ covers_views: [logical, process, development, physical, scenarios]
 - Stage 1 评审与 Stage 2 计划：[`../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage1-review-and-stage2-plan.md`](../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage1-review-and-stage2-plan.md)。
 - Stage 2 评审与 Stage 3 计划：[`../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage2-review-and-stage3-plan.md`](../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage2-review-and-stage3-plan.md)。
 - Stage 1 follow-up 评审与 Stage 3 执行计划：[`../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage1-followups-review-and-stage3-plan.md`](../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage1-followups-review-and-stage3-plan.md)。
-- 把 S2C tenant 迁移通知记录转成独立 delivery projection。
+- 补齐 S2C tenant 迁移后的 runtime-side construction binding / schema validation / downstream 文档同步。
 - 为 ingress、federation、reflection 增加契约测试计划。
 - 为本目录生成 graphify 输入和漂移检查 manifest。

@@ -35,7 +35,7 @@ status: draft
 | 边界 | 当前策略 |
 |---|---|
 | 网络边界 | federation/reflection 仅有 SPI，不选择 broker 或网络协议。 |
-| 租户边界 | ingress envelope 已携带 `tenantId`；S2C envelope 目标态需要增加 `tenantId`。 |
+| 租户边界 | ingress 与 S2C envelope 均已携带 `tenantId`（S2C 为 Stage 2 迁移）；Agent 注册发现 registry key 强制包含 `tenantId`，禁止跨 tenant fallback（见 [`ICD-Agent-Registry-Discovery`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-registry-discovery.md)）。 |
 | 凭证边界 | 当前没有物理 credential 绑定。 |
 | 存储边界 | bus 不拥有 Task state store。 |
 | 队列边界 | mailbox/backpressure/tick 仍是设计态。 |
@@ -77,6 +77,8 @@ status: draft
 - service 与 capability 的版本兼容如何表达。
 - region / deployment plane 是否参与路由选择。
 - 注册发现是否和 broker topic / route key 绑定。
+
+Stage 3 已在 [`ICD-Agent-Registry-Discovery`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-registry-discovery.md) 设计态回答了 owner（agent-bus 只拥有 route index）、tenant 隔离（registry key 强制 `tenantId`）、health（lease/TTL）和 contract version 语义。但上表中的持久化实现、写入者细节、region 路由选择、broker topic 绑定仍是 runtime 物理决策，Stage 3 不实现。
 
 这些问题没有回答前，不能把注册发现实现为 production runtime。
 

@@ -28,6 +28,13 @@
 product_claim: "PC-004"
 
 schema: s2c-callback/v1
+# Compatibility posture (MI-005 decision, 2026-06-14): 方案 A — pre-GA contract.
+# The Stage 2 tenant_id addition is a breaking change to a required field, which
+# is acceptable ONLY because s2c-callback/v1 has no external consumers yet (it is
+# an internal cross-plane control surface). The version is intentionally NOT
+# bumped to v1.1/v2; the migration note above is the single record of this
+# pre-GA break. When the first external consumer is admitted, re-decide: either
+# freeze v1 and emit v2, or open a formal compatibility window.
 # Post-review status label (plan G / §5): S2C protocol is runtime_enforced --
 # SyncOrchestrator catches SuspendSignal once and branches on isClientCallback()
 # (the checked-suspension variant introduced at v2.0.0-rc3 — see ADR-0074
@@ -39,8 +46,9 @@ status: runtime_enforced
 authority: ADR-0074
 
 # REQUEST envelope -- server to client.
-# Six mandatory fields per the Phase 3a cross-rule audit (response doctrine §5.2)
-# to prevent the SpawnEnvelope 11-dim propagation gap (Class 3 hidden defects).
+# Seven mandatory fields per the Phase 3a cross-rule audit (response doctrine §5.2):
+# the original six plus tenant_id added in Stage 2 (Rule R-C.c). Prevents the
+# SpawnEnvelope 11-dim propagation gap (Class 3 hidden defects).
 request:
   required_fields:
     - callback_id            # UUID -- primary correlation key (present on every log line)

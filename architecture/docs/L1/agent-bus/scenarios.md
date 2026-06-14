@@ -84,3 +84,68 @@ status: draft
 | 失败结果 | 尚未定义 |
 | 不变量 | 当前只保留设计态，不进入自动实现范围。 |
 | 缺口 | 需要版本意图、状态 owner、失败语义和 harness。 |
+
+## SC-007：agent/service/capability 注册
+
+| 项目 | 内容 |
+|---|---|
+| 参与者 | service/agent、registry（agent-bus view） |
+| 入口 | registry register（设计态） |
+| 契约 | [`ICD-Agent-Registry-Discovery`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-registry-discovery.md) |
+| 流程 | service 上线时把可路由能力注册到 registry，entry 含 `tenantId`、`agentId`/`serviceId`、`capability`、`routeKey`、`contractVersion`/`capabilityVersion`、`endpoint`、`lease`。 |
+| 成功结果 | entry 可见，持有有效 lease。 |
+| 失败结果 | 必填字段缺失（尤其 `tenantId`）→ register rejected。 |
+| 不变量 | registry 只拥有 route index，不接管 agent 定义或 Task 状态。 |
+| 缺口 | Stage 3 不实现 runtime；lease/TTL 具体值待定。 |
+
+## SC-008：基于 tenant + capability 的服务发现
+
+| 项目 | 内容 |
+|---|---|
+| 参与者 | gateway/真 bus、registry |
+| 入口 | registry discover（设计态） |
+| 契约 | [`ICD-Agent-Registry-Discovery`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-registry-discovery.md) |
+| 流程 | gateway/真 bus 用 `tenantId` + `capability`（+ 可选 version/health 过滤）查询 registry，拿到候选 route handle + health + version。 |
+| 成功结果 | 返回零或多个候选；调用方据 health/weight 选择，用 route handle 路由。 |
+| 失败结果 | `entry_not_found`、`registry_unavailable`。 |
+| 不变量 | discovery result 不携带 Task execution state。 |
+| 缺口 | 多候选选择责任在调用方，registry 只返回候选集。 |
+
+## SC-009：目标不可用（health / lease）
+
+| 项目 | 内容 |
+|---|---|
+| 参与者 | gateway/真 bus、registry |
+| 入口 | registry discover（设计态） |
+| 契约 | [`ICD-Agent-Registry-Discovery`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-registry-discovery.md) |
+| 流程 | 目标 entry 存在但 health degraded/unhealthy，或 lease 已过期。 |
+| 成功结果 | unhealthy target 仍可见但显式标注 health 状态；调用方据 health 决策（降级、重试、放弃）。 |
+| 失败结果 | `lease_expired`（entry 不可见）、`health_unavailable`（entry unhealthy）。 |
+| 不变量 | registry 不替调用方做放弃决策，只表达 health。 |
+| 缺口 | health metadata schema 待定。 |
+
+## SC-010：版本不匹配
+
+| 项目 | 内容 |
+|---|---|
+| 参与者 | gateway/真 bus、registry |
+| 入口 | registry discover（设计态） |
+| 契约 | [`ICD-Agent-Registry-Discovery`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-registry-discovery.md) |
+| 流程 | 调用方查询要求某 `contractVersion`/`capabilityVersion`，但无匹配 entry。 |
+| 成功结果 | 无匹配时显式返回 `version_unavailable`，不静默返回错误版本。 |
+| 失败结果 | `version_unavailable`。 |
+| 不变量 | 版本由注册方声明；version mismatch 有显式 result 状态。 |
+| 缺口 | version downgrade 策略待定。 |
+
+## SC-011：跨 tenant 查询拒绝
+
+| 项目 | 内容 |
+|---|---|
+| 参与者 | gateway/真 bus、registry |
+| 入口 | registry discover（设计态） |
+| 契约 | [`ICD-Agent-Registry-Discovery`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-registry-discovery.md) |
+| 流程 | 调用方 tenant 上下文与 query `tenantId` 不一致，或试图发现他 tenant 的 capability。 |
+| 成功结果 | 不适用。 |
+| 失败结果 | `tenant_isolation_violation`（cross-tenant query rejected），禁止跨 tenant fallback。 |
+| 不变量 | registry 不扩大权限；只返回调用方 tenant 范围内的 entry。 |
+| 缺口 | runtime enforcement 待后续波次（Stage 3 harness-level）。 |

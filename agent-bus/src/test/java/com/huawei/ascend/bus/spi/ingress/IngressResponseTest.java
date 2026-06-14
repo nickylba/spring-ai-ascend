@@ -99,7 +99,7 @@ class IngressResponseTest {
                         IngressResponse.IngressStatus.DEFERRED);
     }
 
-    // ---- characterisation of current behaviour (待确认项) -------------------
+    // ---- characterisation of resolved behaviour (MI-003 方案 A) -------------
 
     /**
      * Characterisation test — records the CURRENT behaviour that
@@ -113,7 +113,7 @@ class IngressResponseTest {
      * this test should be replaced, surfacing the contract change.
      */
     @Test
-    void accepted_currently_does_not_enforce_non_null_cursor_pending_owner_decision() {
+    void accepted_allows_null_cursor_because_cursor_requirement_is_gateway_context_rule() {
         UUID requestId = UUID.randomUUID();
         // No exception today — documented behaviour, not an endorsement.
         IngressResponse r = IngressResponse.accepted(requestId, null);
