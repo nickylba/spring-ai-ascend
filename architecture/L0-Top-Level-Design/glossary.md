@@ -6,108 +6,99 @@ TAG:
   - logical-view
   - forbidden-conflations
   - architecture-fact
-status: 架构事实
+status: active
 dependency:
   - README.md
   - overview.md
   - boundaries.md
   - constraints.md
+  - governance.md
 ---
 
-# L0 Glossary
+# L0 架构术语表
 
-## Purpose
+## 目的
 
-This glossary constrains shared project vocabulary. It prevents architecture
-authors, AI agents, and module owners from using similar names for different
-layers, states, or responsibilities.
+本文档记录当前 L0 架构中使用的全局术语，约束人和 AI 在架构文档、设计材料、代码注释、契约和评审讨论中对同一概念使用一致的名称。
 
-When a term is defined by an accepted ADR, module metadata, architecture fact,
-code fact, or accepted contract, that source wins. This glossary records the
-current L0 reading and flags pending vocabulary decisions.
+术语保留中英双语：中文用于解释架构语义，英文用于对照代码、接口、元数据、测试和历史材料中的命名。若某个术语已由 accepted ADR、模块元数据、架构事实、代码事实或 accepted contract 定义，则以对应权威来源为准。
 
-## Terms
+## 术语使用规则
 
-| Term | Meaning | Owner / Home | Do Not Confuse With | Status |
-|---|---|---|---|---|
-| Architecture fact system | L0/L1/L2 + 4+1 architecture facts used to guide and constrain architecture. | `architecture/` | Version scope backlog | accepted |
-| Version scope system | Requirements, business scenarios, feature use cases, function points, delivery slices, and acceptance scope for a release. | `version-scope/` | Architecture fact system | accepted_direction |
-| openJiuwen implementation project | Future official community project that implements one or more L0 logical modules. For this architecture, openJiuwen `agent-runtime-java` maps to `agent-runtime`, and openJiuwen `agent-core-java` maps to `agent-core`. | openJiuwen community | L0 logical module name | accepted |
-| Task | Unified server-side authoritative execution lifecycle state for V1. It aligns with A2A protocol task semantics and can be created or bound by a client-to-server request or by an `agent-runtime` instance A2A/federation request to another `agent-runtime` instance. | `agent-runtime` instance | Session, Memory, client invocation, engine-internal execution state | accepted |
-| Run | Historical or implementation-compatibility term for execution/invocation vocabulary. It is not the V1 L0 canonical server-side lifecycle state and must not introduce a second state owner. | Archived docs or implementation history | Task, Session, business order | compatibility_only |
-| Client invocation | Client-side call reference or SDK invocation handle that may map to a server-side Task. | `agent-client` + `agent-runtime` query surface | Independent server lifecycle state | accepted |
-| TaskStateStore / Historical RunRepository | Controlled read/write entry for Task lifecycle state. If current code or historical documents still use names such as `RunRepository`, read them as implementation-compatible names for the Task owner path, not as a second Run state owner. | `agent-runtime` Task lifecycle owner | Generic DAO, arbitrary state writer, independent Run state model | compatibility_only |
-| Session | Context state for conversation, variables, and context projection continuity. | `agent-runtime` session boundary | Task lifecycle, Memory | accepted_direction |
-| Memory | Knowledge or experience state exposed through memory SPI or external memory adapters. | `agent-middleware` and configured memory providers | Session temporary context | accepted_direction |
-| Checkpoint | Resume/recovery payload saved before suspend or long-horizon interruption. | Checkpointer SPI / runtime owner | Business state snapshot | accepted_direction |
-| Agent | Registered entity binding model, skills, memory, planner, prompt, and advisors for execution. | `agent-runtime` agent SPI | Orchestrator | accepted_direction |
-| Orchestrator | Runtime component that dispatches work, handles suspend/resume, and emits execution/state intent. | `agent-core` for Task execution; `agent-runtime` for Task lifecycle coordination | Lifecycle state owner | accepted_direction |
-| Engine-internal execution state | Finer-grained execution state below the Task lifecycle boundary, such as workflow node execution state or ReAct loop state. | `agent-core` | Task lifecycle state | accepted |
-| Execution Engine SPI | Service-to-engine invocation boundary used by `agent-runtime` to ask `agent-core` to execute a Task and return execution results, suspend requests, tool intents, context requests, child-work intents, or terminal results. | `agent-core` | Bus control, model gateway SPI, lifecycle state writer | accepted |
-| Official execution engine | The project-owned openJiuwen execution engine implementation behind the `agent-core` boundary. | `agent-core` | Heterogeneous execution engine adapter | accepted |
-| Heterogeneous execution engine | A non-openJiuwen agent framework implementation adapted to the Execution Engine SPI, including workflow-style and agent-loop-style frameworks. | `agent-core` adapter domain | Independent lifecycle owner or service core dependency | accepted |
-| Engine adapter | Anti-corruption adapter that translates a heterogeneous execution engine to the Execution Engine SPI. The service provides extension and assembly entry points, while framework-specific translation belongs to the execution-engine adapter domain. | `agent-core` adapter domain + `agent-runtime` extension assembly | Service-owned framework implementation, bus control | accepted |
-| Heterogeneous framework compatibility | Official openJiuwen execution and heterogeneous framework execution can both participate through the `agent-core` boundary without rewriting Task lifecycle ownership or forcing changes to already-running agent implementations. | `agent-core` + `agent-runtime` extension assembly | Closed single-framework runtime or lifecycle-owner rewrite | accepted |
-| RuntimeMiddleware | Cross-cutting middleware hook listener and dispatch surface. | `agent-middleware` | Provider implementation | accepted_current |
-| ModelGateway | Platform model invocation boundary. | `agent-middleware` model SPI | Direct Spring AI `ChatModel` use | accepted_direction |
-| Skill | Governed tool/skill execution unit. | `agent-middleware` skill SPI | Ungoverned business function call | accepted_direction |
-| Tool Gateway | Capability aggregate for skill authorization, capacity, audit, idempotency, and tool-call governance. | `agent-middleware` + `agent-runtime` integration | Independent reactor module | candidate_promote |
-| Context Engine | Capability aggregate for session, context projection, memory, retrieval, vector, and context package assembly. | `agent-runtime` + `agent-middleware` | Independent reactor module | candidate_promote |
-| Platform Gateway | Platform-level ingress governance capability for authentication pre-check, tenant routing, cross-service routing, traffic governance, A2A/S2C ingress, and permission mediation. It may be realized as an L1/L2 runtime unit under `agent-bus`. | `agent-bus` L1/L2 candidate | Service Task API, service stream, business orchestration | accepted_direction |
-| Service Task API | Service-owned create task, query task, stream task, cancel task, and related Task lifecycle HTTP/API surfaces. | `agent-runtime` | Platform Gateway, bus event channel, engine pull queue | accepted |
-| Agent Bus | Broad platform interaction governance domain for S2C, A2A/federation, routing, permission mediation, rhythm, data-reference envelopes, and narrower event/control transport units. It is not synonymous with a single MQ or event bus implementation. | `agent-bus` | Narrow event bus, service SSE stream, gateway ingress | accepted |
-| Event/control channel | Narrow transport or signaling channel under the `agent-bus` domain, possibly backed by MQ or another messaging middleware. It carries control commands, references, routing metadata, and rhythm signals, not large object bodies or token-by-token external streams. | `agent-bus` L1/L2 runtime unit | Broad Agent Bus domain, data path, service stream | accepted |
-| Integrating developer | Direct platform user who integrates `agent-client`, defines agents, connects business tools, and owns application rollout outcomes inside a business system. | business application team | End business user, platform-internal module owner | accepted_direction |
-| C-Side | Business application/client side that owns business goals, rules, facts, local tools, local context, and authorization references. | business application side | Platform runtime state | accepted_direction |
-| S-Side | Platform runtime side that owns execution trajectory, governance, observability, audit, capacity, and platform middleware. | platform runtime side | Business facts owner | accepted_direction |
-| Digital employee application | Enterprise application pattern where an agent performs long-horizon work under business-owned goals, permissions, and approval rules. | business application + platform runtime | Platform-owned business process | candidate_promote |
-| Capability placement | Decision of where a tool, context, memory, retriever, approval UI, adapter, or A2A action executes and which data boundary it crosses. | architecture + contracts | Module placement only | candidate_promote |
-| Client-mediated local capability | Capability placement pattern where the platform uses S2C/Yield handoff to ask the client side to execute sensitive tools, local context, local retrieval, local memory, or approval UI, then returns a governed result. | `agent-client` endpoint + `agent-bus` S2C + service integration | Platform directly reading core business data, ungoverned client callback | candidate_promote |
-| Local capability | Capability executed on the business/client side, such as local tool, local context, local memory, local retriever, or approval UI. | `agent-client` endpoint | Platform-hosted capability | candidate_promote |
-| S2C callback | Server-to-client callback or handoff for local capability, approval, or external input. | `agent-bus` S2C + `agent-client` endpoint | A2A federation | accepted_direction |
-| A2A control command | Agent-to-Agent control instruction for child work, federation, completion, failure, timeout, or join. | `agent-bus` for cross-instance or cross-boundary control; `agent-runtime` instance for same-instance relationship | Large data payload or token stream | accepted_direction |
-| Federation | Cross-instance, cross-department, cross-deployment, or cross-trust-boundary A2A collaboration. | `agent-bus` + local and remote `agent-runtime` relationship owners | Same-instance child work | accepted_direction |
-| Task tree | Parent-child execution relationship used to trace delegation, join, failure, and cost attribution. Same-instance child work is owned by the local `agent-runtime` instance; federated child references are mediated through bus/federation control and owned by the participating service instances. | `agent-runtime` instance + observability | Single trace span, engine-internal state, or bus-owned lifecycle | accepted |
-| Rhythm signal | Timing, wakeup, retry, timeout, or schedule signal used for cross-instance or cross-boundary coordination. It may be governed or routed by `agent-bus`, but Task-level suspend/resume state remains owned by the relevant `agent-runtime` instance. | `agent-bus` governance + `agent-runtime` Task owner | Bus-owned Task sleep state, engine pull loop | accepted_direction |
-| Data reference path | Large or sensitive payload path where control messages carry URI/object reference/metadata and data is fetched by authorized consumers. `agent-bus` may govern the reference envelope and permission handoff, while the data body stays outside narrow event/control channels. | external storage owner + `agent-bus` envelope governance | Event/control channel payload transport | accepted_direction |
-| Service SSE stream | `agent-runtime` realtime external output surface. Concrete stream technologies belong below L0, but the L0 boundary treats external realtime content streams as service surfaces by default. | `agent-runtime` | Event/control channel token stream | accepted_direction |
-| Customer auth reference | Authorization reference from a customer-owned identity or permission system that the platform may use to access customer data sources without owning or redefining the customer's fine-grained business permission model. | C-Side authorization owner + service/middleware integration | Platform-owned business permission model, copied customer credentials | candidate_promote |
-| Tenant Vertical | Cross-cutting tenant identity propagation and isolation concern. | platform runtime | Per-module tenant reinvention | accepted |
-| Posture Vertical | Cross-cutting dev/research/prod behavior and fail-closed startup concern. | platform runtime | Runtime feature flag | accepted |
-| Telemetry Vertical | Cross-cutting trace/span/event/LLM call/cost evidence concern. | platform observability | Provider-local logging | accepted |
-| TraceContext | Runtime telemetry carrier companion to runtime context. | bus/service runtime SPI per accepted placement | HTTP-only header | accepted_current |
-| Audit record | Append-only platform evidence for important runtime decisions and side effects. | platform audit writer | Business record | accepted_direction |
-| LLM cost attribution | Platform aggregation of token usage, model route, and model-call cost by tenant/app/agent/tree dimensions. | observability + governance | Customer internal tool cost | candidate_promote |
-| Platform-hosted service | Platform-managed runtime for weak department/PaaS tenants. | platform operations | Business-owned service | candidate_promote |
-| Business-centric deployment | Deployment where the business side may host `agent-client`, `agent-runtime`, and `agent-core`, while the platform may retain shared bus, middleware, and federation governance. | deployment architecture | New module boundary | candidate_promote |
-| Hybrid capability placement | One business activity uses both local and platform capabilities. | capability placement | Single deployment mode | candidate_promote |
-| Development-time debug evidence | Evidence used by an integrating developer or module owner to understand one agent execution path, including Task timeline, context evidence, model evidence, tool decision evidence, and failure evidence. | observability + harness + `agent-runtime` query surface | Platform-only logs, runtime operations aggregate | candidate_promote |
-| Runtime operations insight | Operational and business-operations evidence for running agent capabilities, including request volume, success rate, latency, cost, errors, capacity, trace, and audit dimensions. | observability capability | Single execution debug log, customer-owned business state | candidate_promote |
-| Replay-safe fixture | Sanitized evidence fixture for reproducing behavior without leaking tenant/business data. | harness + observability governance | Production data backup | candidate_promote |
-| Scenario spec | Scenario description that distinguishes BA-* business activity scenarios from technical sub-scenarios and records expected assertions before promotion into architecture facts or version scope. | version scope system + architecture stress scenarios | Flow diagram only, accepted architecture truth before promotion | candidate_promote |
-| Evolution data flywheel | Governed export and analysis loop for runtime evidence, scoring, learning, and optimization outside the main request path. | `agent-evolve` candidate boundary | Synchronous online execution dependency | candidate_promote |
-| Invariant | Checkable architecture rule. | L0 constraints and verification | Slogan | accepted |
-| Harness | Mocks, stubs, fixtures, contract tests, scenario assertions, and failure injection used to drive development and validation. | verification/scope system | Production implementation | candidate_promote |
-| `draft` | Work material that is not accepted architecture truth. | draft docs | Accepted or shipped | accepted |
-| `design_only` | Shape exists but runtime enforcement is not present. | ADR/contract/status ledgers | Shipped | accepted |
-| `accepted` | Architecture decision or design fact accepted by governance, even if not shipped. | ADRs/workspace | Runtime enforced | accepted |
-| `shipped` | Runtime behavior or artifact exists and is verified by current evidence. | code/tests/generated facts | Design-only | accepted |
+- 英文术语可直接出现在代码、包名、契约、测试和架构图中；中文术语用于解释语义，不强制要求出现在代码中。
+- 同一概念不得在 L0/L1/L2 中使用多个互相冲突的名称。
+- 历史术语可以保留为兼容说明，但不得引入新的状态 owner、模块边界或运行时职责。
+- `candidate_promote`、`accepted_direction`、`compatibility_only` 等状态表示当前术语的稳定程度，不等同于运行时实现状态。
 
-## Forbidden Conflations
+## 当前术语表
 
-- Do not treat Run as canonical V1 lifecycle vocabulary; use Task for
-  server-side execution lifecycle state.
-- Do not treat openJiuwen implementation project names such as
-  `agent-runtime-java` or `agent-core-java` as replacements for L0 logical module
-  names.
-- Do not treat client invocation as a second server-side lifecycle state.
-- Do not treat Context Engine or Tool Gateway as independent modules.
-- Do not treat Platform Gateway, Service Task API, broad Agent Bus, narrow
-  event/control channels, and service SSE as one communication channel.
-- Do not let `agent-core` directly pull Tasks from bus, broker, or
-  external queues; Task dispatch enters through `agent-runtime`.
-- Do not treat A2A control messages or narrow event/control channels as
-  large-payload or token-stream transport.
-- Do not treat business state as platform runtime state.
-- Do not treat draft ICD/YAML material as accepted contract authority.
-- Do not treat version scope scenarios as architecture truth unless promoted.
+| 中文术语 | English Term | 含义 | Owner / Home | 不要混淆为 | 状态 |
+|---|---|---|---|---|---|
+| 架构事实系统 | Architecture fact system | 用于指导和约束架构的 L0/L1/L2 与 4+1 架构事实体系。 | `architecture/` | version scope backlog | accepted |
+| 版本范围系统 | Version scope system | 一个版本的需求、业务场景、特性用例、功能点、交付切片和验收范围。 | `version-scope/` | architecture fact system | accepted_direction |
+| openJiuwen 实现项目 | openJiuwen implementation project | 未来官方社区实现项目，可实现一个或多个 L0 逻辑模块；当前 `agent-runtime-java` 映射 `agent-runtime`，`agent-core-java` 映射 `agent-core`。 | openJiuwen community | L0 logical module name | accepted |
+| 任务 | Task | V1 统一的服务端权威执行生命周期状态。它与 A2A task 语义对齐，可由 client-to-server 请求创建/绑定，也可由一个 `agent-runtime` 实例通过 A2A/federation 请求另一个 `agent-runtime` 实例创建/绑定。 | `agent-runtime` instance | Session、Memory、client invocation、engine-internal execution state | accepted |
+| 运行 | Run | 历史或实现兼容术语，用于描述 execution/invocation 相关语义。它不是 V1 L0 标准服务端生命周期状态，不得引入第二个状态 owner。 | archived docs or implementation history | Task、Session、business order | compatibility_only |
+| 客户端调用 | Client invocation | 客户端侧调用引用或 SDK 本地句柄，可映射到服务端 Task。 | `agent-client` + `agent-runtime` query surface | independent server lifecycle state | accepted |
+| Task 状态存储 / 历史 RunRepository | TaskStateStore / Historical RunRepository | Task 生命周期状态的受控读写入口。若当前代码或历史文档仍使用 `RunRepository` 等名称，应理解为 Task owner path 的实现兼容名，而不是第二个 Run 状态 owner。 | `agent-runtime` Task lifecycle owner | generic DAO、arbitrary state writer、independent Run state model | compatibility_only |
+| 会话 | Session | 对话、变量和上下文投影连续性的上下文状态。 | `agent-runtime` session boundary | Task lifecycle、Memory | accepted_direction |
+| 记忆 | Memory | 通过 memory SPI 或外部 memory adapter 暴露的知识或经验状态。 | `agent-middleware` and configured memory providers | Session temporary context | accepted_direction |
+| 检查点 | Checkpoint | 在挂起或长周期中断前保存的恢复/重建 payload。 | Checkpointer SPI / runtime owner | business state snapshot | accepted_direction |
+| 智能体 | Agent | 绑定模型、技能、记忆、规划器、提示词和 advisor 的注册实体，用于执行。 | `agent-runtime` agent SPI | Orchestrator | accepted_direction |
+| 编排器 | Orchestrator | 分派工作、处理挂起/恢复并产生执行/状态意图的运行时组件。 | `agent-core` for Task execution; `agent-runtime` for Task lifecycle coordination | lifecycle state owner | accepted_direction |
+| 执行组件内部状态 | Engine-internal execution state | Task 生命周期边界以下的细粒度执行状态，例如 workflow node execution state 或 ReAct loop state。 | `agent-core` | Task lifecycle state | accepted |
+| 执行引擎调用边界 | Execution Engine SPI | `agent-runtime` 请求 `agent-core` 执行 Task 并返回执行结果、挂起请求、工具意图、上下文请求、子工作意图或终态结果的调用边界。 | `agent-core` | bus control、model gateway SPI、lifecycle state writer | accepted |
+| 官方执行引擎 | Official execution engine | `agent-core` 边界后的 openJiuwen 官方执行引擎实现。 | `agent-core` | heterogeneous execution engine adapter | accepted |
+| 异构执行引擎 | Heterogeneous execution engine | 被适配到 Execution Engine SPI 的非 openJiuwen 智能体框架实现，包括 workflow-style 和 agent-loop-style 框架。 | `agent-core` adapter domain | independent lifecycle owner or service core dependency | accepted |
+| 执行引擎适配器 | Engine adapter | 将异构执行引擎翻译到 Execution Engine SPI 的反腐适配器。服务侧提供扩展和装配入口，框架相关翻译属于执行组件适配领域。 | `agent-core` adapter domain + `agent-runtime` extension assembly | service-owned framework implementation、bus control | accepted |
+| 异构框架兼容 | Heterogeneous framework compatibility | 官方 openJiuwen 执行和异构框架执行都可通过 `agent-core` 边界参与，而不重写 Task 生命周期归属，也不强制改造已运行智能体实现。 | `agent-core` + `agent-runtime` extension assembly | closed single-framework runtime or lifecycle-owner rewrite | accepted |
+| 运行时中间件 | RuntimeMiddleware | 横切 middleware hook listener 和 dispatch surface。 | `agent-middleware` | provider implementation | accepted_current |
+| 模型网关 | ModelGateway | 平台模型调用边界。 | `agent-middleware` model SPI | direct Spring AI `ChatModel` use | accepted_direction |
+| 技能 | Skill | 受治理的工具/技能执行单元。 | `agent-middleware` skill SPI | ungoverned business function call | accepted_direction |
+| 工具网关 | Tool Gateway | 面向 skill 授权、容量、审计、幂等和工具调用治理的能力聚合。 | `agent-middleware` + `agent-runtime` integration | independent reactor module | candidate_promote |
+| 上下文引擎 | Context Engine | 面向 session、context projection、memory、retrieval、vector 和 context package assembly 的能力聚合。 | `agent-runtime` + `agent-middleware` | independent reactor module | candidate_promote |
+| 平台网关 | Platform Gateway | 平台级入口治理能力，涵盖认证预检查、租户路由、跨服务路由、流量治理、A2A/S2C ingress 和权限中介；可在 L1/L2 中作为 `agent-bus` 下的运行时单元实现。 | `agent-bus` L1/L2 candidate | Service Task API、service stream、business orchestration | accepted_direction |
+| 服务任务 API | Service Task API | 服务侧拥有的 create task、query task、stream task、cancel task 和相关 Task 生命周期 HTTP/API 表面。 | `agent-runtime` | Platform Gateway、bus event channel、engine pull queue | accepted |
+| 智能体总线 | Agent Bus | 面向 S2C、A2A/federation、路由、权限中介、节奏、数据引用信封和窄事件/控制传输单元的广义平台交互治理领域；不等同于单一 MQ 或 event bus。 | `agent-bus` | narrow event bus、service SSE stream、gateway ingress | accepted |
+| 事件/控制通道 | Event/control channel | `agent-bus` 领域下的窄传输或信号通道，可由 MQ 或其他消息中间件承载；只传控制命令、引用、路由元数据和节奏信号，不承载大对象正文或 token-by-token 外部流。 | `agent-bus` L1/L2 runtime unit | broad Agent Bus domain、data path、service stream | accepted |
+| 集成开发者 | Integrating developer | 直接集成 `agent-client`、定义智能体、连接业务工具并负责业务系统内应用发布结果的平台用户。 | business application team | end business user、platform-internal module owner | accepted_direction |
+| C 侧 | C-Side | 拥有业务目标、规则、事实、本地工具、本地上下文和授权引用的业务应用/客户端侧。 | business application side | platform runtime state | accepted_direction |
+| S 侧 | S-Side | 拥有执行轨迹、治理、可观测、审计、容量和平台中间件的平台运行时侧。 | platform runtime side | business facts owner | accepted_direction |
+| 能力放置 | Capability placement | 决定 tool、context、memory、retriever、approval UI、adapter 或 A2A action 在哪里执行，以及跨越什么数据边界。 | architecture + contracts | module placement only | candidate_promote |
+| 本地能力 | Local capability | 在业务/客户端侧执行的能力，例如 local tool、local context、local memory、local retriever 或 approval UI。 | `agent-client` endpoint | platform-hosted capability | candidate_promote |
+| S2C 回调 | S2C callback | 面向本地能力、审批或外部输入的 Server-to-Client callback 或 handoff。 | `agent-bus` S2C + `agent-client` endpoint | A2A federation | accepted_direction |
+| A2A 控制命令 | A2A control command | 面向子工作、联邦、完成、失败、超时或 join 的 Agent-to-Agent 控制指令。 | `agent-bus` for cross-instance or cross-boundary control; `agent-runtime` instance for same-instance relationship | large data payload or token stream | accepted_direction |
+| 联邦协作 | Federation | 跨实例、跨部门、跨部署或跨信任边界的 A2A 协作。 | `agent-bus` + local and remote `agent-runtime` relationship owners | same-instance child work | accepted_direction |
+| 任务树 | Task tree | 用于追踪委派、join、失败传播和成本归因的父子执行关系。同实例子工作由本地 `agent-runtime` 拥有；联邦子引用通过 bus/federation control 中介，并由参与服务实例拥有。 | `agent-runtime` instance + observability | single trace span、engine-internal state、bus-owned lifecycle | accepted |
+| 节奏信号 | Rhythm signal | 用于跨实例或跨边界协调的 timing、wakeup、retry、timeout 或 schedule signal。它可由 `agent-bus` 治理或路由，但 Task 级 suspend/resume 状态仍由对应 `agent-runtime` 实例拥有。 | `agent-bus` governance + `agent-runtime` Task owner | bus-owned Task sleep state、engine pull loop | accepted_direction |
+| 数据引用路径 | Data reference path | 大载荷或敏感 payload 路径：控制消息携带 URI/object reference/metadata，数据由授权消费者获取；`agent-bus` 可治理引用信封和权限交接，数据正文不进入窄事件/控制通道。 | external storage owner + `agent-bus` envelope governance | event/control channel payload transport | accepted_direction |
+| 服务 SSE 流 | Service SSE stream | `agent-runtime` 实时外部输出表面。具体流技术低于 L0，但 L0 默认将外部实时内容流视为服务表面。 | `agent-runtime` | event/control channel token stream | accepted_direction |
+| 客户授权引用 | Customer auth reference | 来自客户拥有的身份或权限系统的授权引用，平台可用它访问客户数据源，但不拥有或重定义客户细粒度业务权限模型。 | C-Side authorization owner + service/middleware integration | platform-owned business permission model、copied customer credentials | candidate_promote |
+| 租户纵向能力 | Tenant Vertical | 横切租户身份传播和隔离关注点。 | platform runtime | per-module tenant reinvention | accepted |
+| 遥测纵向能力 | Telemetry Vertical | 横切 trace/span/event/LLM call/cost 证据关注点。 | platform observability | provider-local logging | accepted |
+| Trace 上下文 | TraceContext | runtime context 的运行时遥测载体伴随对象。 | bus/service runtime SPI per accepted placement | HTTP-only header | accepted_current |
+| 审计记录 | Audit record | 重要运行时决策和副作用的 append-only 平台证据。 | platform audit writer | business record | accepted_direction |
+| 平台托管服务 | Platform-hosted service | 面向弱部门/PaaS 租户的平台托管运行时。 | platform operations | business-owned service | candidate_promote |
+| 业务中心部署 | Business-centric deployment | 业务侧可托管 `agent-client`、`agent-runtime` 和 `agent-core`，平台保留共享 bus、middleware 和 federation governance 的部署形态。 | deployment architecture | new module boundary | candidate_promote |
+| 运行运营洞察 | Runtime operations insight | 智能体能力运行中的运维和业务运营证据，包括请求量、成功率、延迟、成本、错误、容量、trace 和 audit 维度。 | observability capability | single execution debug log、customer-owned business state | candidate_promote |
+| 场景规格 | Scenario spec | 区分 BA-* 业务活动场景和技术子场景，并在提升为架构事实或版本范围前记录期望断言的场景描述。 | version scope system + architecture stress scenarios | flow diagram only、accepted architecture truth before promotion | candidate_promote |
+| 演进数据飞轮 | Evolution data flywheel | 在主请求路径之外，面向运行证据、评分、学习和优化的受治理导出与分析循环。 | `agent-evolve` candidate boundary | synchronous online execution dependency | candidate_promote |
+| 不变量 | Invariant | 可检查的架构规则。 | L0 constraints and verification | slogan | accepted |
+| 验证脚手架 | Harness | 用于驱动开发和验证的 mocks、stubs、fixtures、contract tests、scenario assertions 和 failure injection。 | verification/scope system | production implementation | candidate_promote |
+| 草案 | `draft` | 尚不是 accepted architecture truth 的工作材料。 | draft docs | accepted or shipped | accepted |
+| 仅设计 | `design_only` | 形态已存在，但运行时未强制执行。 | ADR/contract/status ledgers | shipped | accepted |
+| 已接受 | `accepted` | 已被治理接受的架构决策或设计事实，即使尚未 shipped。 | ADRs/workspace | runtime enforced | accepted |
+| 已交付 | `shipped` | 已存在且可由当前证据验证的运行时行为或制品。 | code/tests/generated facts | design-only | accepted |
+
+## 禁止混淆
+
+- 不要把 Run 当作 V1 标准生命周期术语；服务端执行生命周期状态使用 Task。
+- 不要把 `agent-runtime-java` 或 `agent-core-java` 等 openJiuwen 实现项目名当作 L0 逻辑模块名的替代。
+- 不要把 client invocation 当作第二个服务端生命周期状态。
+- 不要把 Context Engine 或 Tool Gateway 当作独立模块。
+- 不要把 Platform Gateway、Service Task API、广义 Agent Bus、窄 event/control channel 和 service SSE 混成同一个通信通道。
+- 不要让 `agent-core` 直接从 bus、broker 或 external queues 拉取 Task；Task dispatch 必须经由 `agent-runtime`。
+- 不要把 A2A control messages 或窄 event/control channel 当作大载荷或 token-stream transport。
+- 不要把 business state 当作 platform runtime state。
+- 不要把 draft ICD/YAML 材料当作 accepted contract authority。
+- 不要把 version scope scenarios 当作 architecture truth，除非它们已经被提升。

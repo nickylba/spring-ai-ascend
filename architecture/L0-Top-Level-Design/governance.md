@@ -2,11 +2,11 @@
 level: L0-TLD
 TAG:
   - governance
-  - promotion
+  - authority
   - traceability
   - layer-update
   - architecture-fact
-status: 架构事实
+status: active
 dependency:
   - README.md
   - overview.md
@@ -16,158 +16,106 @@ dependency:
   - glossary.md
 ---
 
-# L0 Governance
+# L0 架构治理
 
-## Purpose
+## 目的
 
-This document defines how L0 architecture facts are governed, how draft material
-from `docs/` is promoted, how L0/L1/L2 updates are sequenced, and which gaps
-remain open after the initial L0 consolidation.
+本文档记录当前 L0 架构治理状态，说明人在修改架构、设计、代码、测试时，以及 AI 在辅助分析、生成或重构材料时，必须理解并遵守的当前事实体系。
 
-## Fact Governance
+本文档不记录历史提升过程，也不作为 backlog 管理文档。它只描述当前仓库中架构事实、代码事实、版本范围事实和非权威材料之间的关系，以及维护这些事实一致性的基本规则。
 
-The current branch does not keep a separate workspace authority system. The
-repository stores accepted facts in two families:
+## 当前权威关系
 
-- Architecture facts under `architecture/`.
-- Code facts in source code, module metadata, tests, contract files, generated
-  runtime evidence, and other verifiable project artifacts.
+当前仓库中的架构与实现事实按以下关系理解：
 
-Drafts, proposals, review notes, and archives live under `docs/`. They are not
-architecture facts until promoted into `architecture/`, and they are not code
-facts until represented by implementation, tests, metadata, or contracts.
-
-## Fact and Draft Zones
-
-| Zone | Rule |
+| 材料 | 当前权威含义 |
 |---|---|
-| Architecture facts under `architecture/` | Accepted architecture material only. |
-| Code facts | Source code, module metadata, tests, contracts, and runtime-verifiable artifacts. |
-| Draft docs under `docs/architecture/` | Proposal material only until promoted into architecture facts. |
-| Contract/interface docs | Not owned by L0; accepted contracts live in the contract system. |
-| Review proposals under `docs/logs/reviews/` | Source material for promotion only after conflict review. |
+| `architecture/` | 当前 accepted architecture facts。L0/L1/L2 架构设计以这里为准。 |
+| 源码、测试、模块元数据、契约、生成证据 | 当前 code facts。它们描述已经实现、可检查或可运行验证的事实。 |
+| `version-scope/` | 当前版本范围事实。它描述版本目标、业务场景、验收和交付切片，不自动成为架构事实。 |
+| `docs/architecture/` | 草案或提案材料。除非被吸收到 `architecture/`，否则不覆盖当前架构事实。 |
+| `docs/logs/reviews/` | 评审过程材料。它可以作为决策证据，但不是当前架构权威。 |
+| `docs/archive/` | 历史材料。它可以解释来源，不约束当前实现。 |
 
-## Promotion States
+当这些材料发生冲突时，不能用历史文档、草案或评审记录覆盖当前架构事实与代码事实。若当前架构事实与代码事实冲突，应显式记录并向相应架构层级反馈，而不是在下层静默绕过。
 
-| State | Meaning |
+## 分层一致性状态
+
+当前架构采用 L0/L1/L2 分层事实结构：
+
+| 层级 | 当前职责 |
 |---|---|
-| `pending_triage` | Needs comparison against current architecture facts and code facts. |
-| `candidate_promote` | Useful material that can be rewritten into canonical architecture or scope docs. |
-| `conflict` | Cannot be promoted until resolved. |
-| `archive_candidate` | Useful history, not a future implementation source. |
+| L0 | 定义系统目标、4+1 顶层视图、六大逻辑模块、顶层约束、治理状态和全局术语。 |
+| L1 | 围绕 L0 逻辑模块展开高阶设计，描述模块内部结构、能力边界、关键运行路径和验证场景。 |
+| L2 | 承载具体技术设计、契约、接口、状态机、数据结构、测试 harness 和实现约束。 |
+| Code | 通过源码、测试、元数据、契约和运行证据表达已实现事实。 |
 
-## Promotion Targets
+L0 约束 L1，L1 约束 L2，L2 与代码实现必须向上对齐。实现或 L2 设计发现与 L1/L0 冲突时，应向上反馈冲突；不得通过局部实现绕过上层架构边界。
 
-| Draft Material | Likely Target |
+当前 L0 文档分工如下：
+
+| 文档 | 当前职责 |
 |---|---|
-| L0 overview and glossary facts | `architecture/L0-Top-Level-Design/overview.md` or `glossary.md`. |
-| Module and state boundaries | `architecture/L0-Top-Level-Design/boundaries.md` or L1 module docs. |
-| Cross-cutting constraints and invariants | `architecture/L0-Top-Level-Design/constraints.md` or governance rules. |
-| BA business activity scenarios | Version scope system for release scope and development tracking. |
-| Technical scenarios | Selected architecture stress scenarios promoted into `views.md`. |
-| Capabilities and feature/use-case mapping | Architecture fact documents for accepted facts, version scope docs for release commitment. |
-| Harness and verification matrix | Test docs, code facts, or version acceptance plan. |
-| Contract and interface sketches | Accepted contract catalog and contract documentation, not this L0 package. |
-| A2D process material | Governance docs after alignment with active rules. |
-| Trustworthy/DFX material | Split between trustworthy/DFX architecture, governance, and evidence docs after SPI alignment. |
+| `README.md` | L0 文档入口、文档地图、阅读路径和文档规范。 |
+| `overview.md` | 系统目标、受众、问题领域、核心架构原则、六大逻辑模块概览和质量属性。 |
+| `views.md` | L0 4+1 视图：逻辑、开发、运行、物理和场景视图。 |
+| `boundaries.md` | 六大 L1 层级逻辑模块的业务职责、数据/状态对象归属和行为界面。 |
+| `constraints.md` | L0 核心不变量、切面约束、设计状态和验证期望。 |
+| `governance.md` | 当前架构治理状态、权威关系、分层一致性、人与 AI 必须遵守的规则。 |
+| `glossary.md` | 当前全局术语和禁止混淆的概念。 |
 
-## Layer Update Protocol
+## 设计状态标签
 
-When a change affects multiple architecture layers, update from the highest
-affected layer downward.
+以下状态词在当前仓库中具有固定语义：
 
-```text
-L0 change
-  -> describe L1 impacts
-  -> update affected L1 module docs
-  -> describe L2 impacts
-  -> update affected L2 designs, contracts, harnesses, or tests
-```
+| 状态 | 当前含义 | 使用约束 |
+|---|---|---|
+| `draft` | 草案材料，尚未成为当前架构事实或代码事实。 | 不得用来约束实现。 |
+| `candidate_promote` | 有提升价值，但尚未与当前事实完成冲突审查和吸收。 | 不得描述为 accepted。 |
+| `design_only` | 设计形态已记录，但运行时未必强制执行。 | 不得描述为 shipped 或 runtime-enforced。 |
+| `accepted` | 架构决策或设计事实已被接受，即使可能尚未完全实现。 | 必须能追溯到对应事实来源。 |
+| `shipped` | 行为或制品已经存在，并能由当前代码、测试、元数据或运行证据验证。 | 不得只凭设计文档标注为 shipped。 |
 
-When implementation or L2 design discovers a contradiction with L1 or L0,
-stop and raise the issue upward. Do not silently change the lower layer to
-violate the upper layer.
+人与 AI 在生成、修改或总结架构材料时，必须保留这些状态差异。尤其不能把 `draft`、`candidate_promote` 或 `design_only` 写成已经落地的当前实现。
 
-Each cross-layer update should record:
+## 人与 AI 必须遵守的治理规则
 
-- Source layer and source change.
-- Target layer and affected modules.
-- Affected contracts or verification edges.
-- Constraints inherited from the upper layer.
-- Open questions requiring human or architecture-owner decision.
+- 不得用历史文档、归档材料、评审记录或草案覆盖当前 `architecture/` 下的架构事实。
+- 不得从代码目录、Maven reactor、Java 包、starter、adapter 或未来仓库名反推 L0 逻辑模块。
+- 不得把 `version-scope/` 中的版本范围、业务场景或交付切片直接当作 L0 架构事实。
+- 不得把 `design_only`、`draft` 或 `candidate_promote` 描述为已运行时强制执行。
+- 不得在 L1/L2 或代码实现中静默违反 L0 模块边界、状态 owner 或核心不变量。
+- 修改 L0 时，必须检查是否影响 L1/L2、契约、测试、版本范围和代码事实。
+- 修改 L1/L2 或代码时，如发现上层架构不准确，应显式反馈上层，而不是只在下层局部修补。
+- AI 生成架构文本时，必须优先使用当前仓库事实，不得凭历史草案或外部记忆补写当前状态。
+- AI 发现事实冲突时，应指出冲突来源和影响范围，不应擅自选择一个事实覆盖另一个事实。
+- 新增架构事实时，应能追溯到原则、约束、模块 owner、决策记录、下游设计或验证方式。
 
-## Traceability Rule
+## 当前验证状态
 
-New accepted architecture facts should be traceable to:
+当前 L0 架构事实采用“显式验证或显式未验证”的原则。每条重要约束、模块边界或技术场景最终应至少对应以下一种验证形态：
 
-- Principle or constraint.
-- Module or capability owner.
-- ADR or decision record.
-- L1/L2 document when applicable.
-- Verification method or explicit unverified status.
+- 静态架构检查。
+- 状态机测试。
+- 契约测试。
+- 场景测试。
+- golden trace 测试。
+- 故障注入测试。
+- 安全评审。
+- 人工架构评审。
 
-If this chain is incomplete, mark the item as missing traceability and do not
-call it fully accepted.
+尚未具备自动化验证或运行证据的事实，可以保持 accepted，但必须避免描述为 shipped。若某项事实需要验证但当前验证缺失，应在相关文档中标注未验证状态或纳入当前开放治理事项。
 
-## Principle Delivery Mapping
+## 当前开放治理事项
 
-| ID | Principle | L0 Location | Expected Evidence |
+当前 L0 仍保留以下少量治理关注点，用于维护架构事实与实现事实的一致性：
+
+| ID | 当前事项 | 影响 | 当前处理方向 |
 |---|---|---|---|
-| PR-001 | Business / Platform Decoupling | `constraints.md`, `boundaries.md` | Static architecture check or architecture review. |
-| PR-002 | Capability Before Module | `boundaries.md` | Capability-to-module mapping review. |
-| PR-003 | Single State Owner | `boundaries.md` state matrix | State-machine test, static check, or architecture review. |
-| PR-004 | Contract-first Interaction | `README.md`, `governance.md` | Accepted contract or explicit contract-gap record. |
-| PR-005 | Scenario-first Verification | `views.md`, `version-scope/` | Technical scenario test or version-scope acceptance tracking. |
-| PR-006 | Harness-first Development | `constraints.md`, `governance.md` | Harness, fixture, contract test, failure injection, or explicit unverified status. |
-| PR-007 | Design-only Honesty | `constraints.md`, `glossary.md` | Review checklist and status labels. |
-| PR-008 | Runtime-owned Governance | `constraints.md`, `boundaries.md` | Runtime governance scenario, static check, or manual review. |
-| PR-009 | Cursor / Suspend Instead of Hold | `constraints.md`, `boundaries.md` | State-machine or suspend/resume scenario test. |
-| PR-010 | Trace and Audit Everywhere | `constraints.md` | Golden trace, audit assertion, or manual evidence review. |
-| PR-011 | Explicit Capability Placement | `overview.md`, `glossary.md` | Capability placement contract, scenario test, or security review. |
-| PR-012 | Platform LLM Cost Governance | `constraints.md`, `glossary.md` | Metrics assertion or governance review. |
-| PR-013 | Boundary-mediated A2A | `boundaries.md`, `constraints.md` | Technical S6 evidence or architecture review. |
-| PR-014 | Control / Data / Stream Separation | `overview.md`, `views.md`, `constraints.md` | Scenario assertion or architecture review. |
+| L0-GOV-001 | L1 下游影响同步 | L0 六大逻辑模块命名和边界更新后，部分 L1 文档、路径或历史引用可能仍使用旧命名。 | 后续逐模块检查 L1 文档与代码事实，必要时分层更新。 |
+| L0-GOV-002 | S1-S6 技术场景验证状态 | `views.md` 中的技术场景用于验证架构形态，但部分场景可能尚未绑定测试或证据。 | 为 accepted 技术场景补充测试、fixture、trace 或人工评审状态。 |
+| L0-GOV-003 | 能力聚合到模块 owner 映射 | Platform Gateway、Context Engine、Tool Gateway、Observability 等能力聚合可能跨模块出现。 | 在 L1/L2 或专门能力映射中明确 owner，避免能力聚合变成新 L0 模块。 |
+| L0-GOV-004 | 约束到验证的映射 | `constraints.md` 中部分不变量和切面约束可能仍缺少自动化或可追溯验证。 | 补充静态检查、场景测试、契约测试或显式人工评审记录。 |
+| L0-GOV-005 | 草案契约与当前契约系统对齐 | 历史 ICD/YAML 草案不能直接驱动运行时行为。 | 逐项审查后，只将 accepted 契约提升到当前契约系统。 |
 
-## Conflict Register
-
-No open L0 conflicts remain after the current consolidation pass. New conflicts
-should be added here only when they require an L0 architecture decision.
-
-## Missing Point Register
-
-| ID | Missing Point | Impact | Proposed Next Action |
-|---|---|---|---|
-| L0-GAP-002 | Version scope ownership and acceptance discipline. | `version-scope/` exists, but BA scenarios, feature use cases, function points, harnesses, and delivery slices still need consistent ownership and acceptance rules. | Continue moving scope-facing drafts into `version-scope/` and link only architecture constraints back to L0. |
-| L0-GAP-003 | Promotion decision for S1-S6 technical scenarios. | Technical scenarios are useful but not accepted architecture verification facts yet. | Classify each as architecture stress scenario or archive, then promote accepted technical scenarios into `views.md` and verification evidence. |
-| L0-GAP-004 | Capability Placement accepted contract and verification chain. | C-Side/S-Side, local capability, weak department, and federated modes remain under-specified. | Promote CAP-12 semantics into architecture features plus accepted contract docs and tests. |
-| L0-GAP-004A | Capability-to-module mapping. | Capability-first design is accepted, but accepted capability aggregates do not yet have a complete mapping to L0/L1 owners and verification edges. | Create or promote a capability-to-module map and keep capability aggregates from becoming modules by accident. |
-| L0-GAP-005 | Harness-first verification mapping. | Draft verification matrix is not wired into code facts or CI gates. | Map accepted invariants/scenarios to tests, harness docs, or verification evidence. |
-| L0-GAP-006 | Trustworthy/DFX home. | AI risk, trust boundary, and evidence material remains candidate_promote and may drift. | Decide whether to split into L2 trustworthy architecture, governance, and DFX evidence. |
-| L0-GAP-007 | Contract catalog promotion of old ICD/YAML drafts. | Draft contracts cannot drive runtime behavior. | Review each ICD/YAML and move accepted items to the contract system. |
-| L0-GAP-008 | Regenerated visual views. | Draft PlantUML/SVG/PNG views may not reflect current architecture facts. | Regenerate views from accepted architecture facts after conflicts settle. |
-| L0-GAP-009 | L0 verification status for each consolidated constraint. | Some constraints remain manual-review only or unverified. | Add verification rows or explicit unverified statuses. |
-| L0-GAP-010 | L1 downstream impact list for this L0 split. | New L0 package may leave old references pointing to `ARCHITECTURE.md`. | Add follow-up L1/doc reference update after user approves skeleton. |
-| L0-GAP-011 | Interrupt and rollback semantics. | The proposal calls for user/agent interrupts at trajectory or context granularity, including abort and safe rollback, but current L0 only has suspend/resume, cancellation, callback, and governed control-command language. | Decide the accepted granularity and whether rollback is checkpoint restore, compensation, cancellation, or a separate L1/L2 mechanism. |
-| L0-GAP-012 | Skill topology scheduler and capability bidding detail. | The proposal describes tenant x global skill capacity arbitration and permission alignment; current L0 has capacity/backpressure and sandbox constraints but not a full scheduler contract. | Promote only after capability placement, skill capacity, and sandbox contract ownership are settled. |
-| L0-GAP-013 | Evolution data-flywheel contract. | The proposal describes offline scoring, reinforcement learning, knowledge graph construction, and prompt optimization; current L0 only accepts a governed evolution-plane boundary. | Define export contract, privacy controls, and whether any online feedback path is allowed. |
-| L0-GAP-014 | Developer lifecycle tooling scope. | The proposal asks for development/debugging tools, operations observability, and visualization; current L0 promotes evidence/harness but not tool inventory. | Decide which tooling belongs in L0, version scope, or product roadmap. |
-
-## Current Non-Goals
-
-- This consolidation archives the legacy `ARCHITECTURE.md`; it does not treat
-  the archived file as current authority.
-- This consolidation does not promote contract schemas.
-- This consolidation does not resolve L1 merge conflicts.
-- This consolidation does not complete version scope ownership, acceptance, or
-  delivery tracking rules.
-
-## Review Checklist
-
-Before promoting any draft into this package:
-
-- Does it contradict accepted ADRs or generated facts?
-- Is it architecture fact or version scope?
-- Does it introduce a new module, state owner, writer, or bus responsibility?
-- Does it require contract catalog changes?
-- Does it require L1 or L2 downstream updates?
-- Does it have verification or explicit unverified status?
+该表只记录仍影响 L0 当前一致性的治理事项。版本交付 backlog、产品路线图、模块实现任务和历史归档清理不应长期放在本文档中。

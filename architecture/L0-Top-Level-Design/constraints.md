@@ -7,7 +7,7 @@ TAG:
   - posture
   - telemetry
   - architecture-fact
-status: 架构事实
+status: active
 dependency:
   - README.md
   - overview.md
@@ -16,169 +16,100 @@ dependency:
   - glossary.md
 ---
 
-# L0 Constraints
+# L0 架构约束
 
-## Purpose
+## 目的
 
-This document summarizes L0 architectural constraints and invariants. The
-archived `docs/archive/ARCHITECTURE.md` remains historical source material
-during consolidation; this document groups promoted constraints into a
-reviewable shape.
+本文档定义 L0 顶层架构必须长期遵守的约束与不变量，用于约束后续 L1/L2 架构设计、运行时路径、模块边界、代码实现和验证材料。
 
-## Cross-Cutting Verticals
+L0 约束回答“系统无论如何实现都不能违反什么”。它不定义具体数据库表、字段、消息 topic、方法签名、超时时间、重试次数、线程池参数、API schema 或 SPI 细节；这些内容由 L1/L2 架构、契约、代码和运维材料承载。
 
-### Tenant Vertical
+本文档不重复 `boundaries.md` 中的模块边界、系统范围、数据对象归属和运行协作边界。涉及六大逻辑模块职责、数据/状态对象 owner、跨模块行为界面的内容，以 `boundaries.md` 为准；本文档只保留跨边界长期生效的架构红线和切面约束。
 
-Tenant identity must be carried from the edge into runtime and persistence.
-Every persisted platform row that belongs to a tenant must carry tenant identity.
-Runtime production code must not rely on HTTP-edge ThreadLocal tenant state
-outside the sanctioned boundary.
+## 核心不变量
 
-### Posture Vertical
-
-`APP_POSTURE` is read at boot and controls fail-closed defaults. Development,
-research, and production posture behavior must be explicit. Missing required
-configuration in stricter postures fails closed.
-
-### Telemetry Vertical
-
-Telemetry is a first-class vertical. Trace, span, LLM call, runtime event, audit,
-and cost evidence must be emitted through approved carriers such as
-`TraceContext` or hook surfaces. Provider adapters must not become independent
-telemetry sinks.
-
-### Audit and Policy Vertical
-
-Security decisions, irreversible tool calls, approval decisions, cross-boundary
-handoffs, and lifecycle transitions require audit evidence. Policy refusal must
-be observable and must not create hidden side effects.
-
-### Capacity and Backpressure Vertical
-
-Long-running work is admitted through bounded runtime resource claims. Resource
-pressure is represented as admission decisions, backpressure signals, suspension,
-or yield, not unbounded sockets, threads, or in-flight work.
-
-External I/O that may wait for LLM generation, vector retrieval, sandbox
-execution, or third-party services must release scarce compute resources through
-reactive, virtual-thread, suspend/resume, or equivalent non-holding execution
-patterns. The L0 rule is resource release; specific libraries or timeout values
-belong below L0.
-
-### Developer Lifecycle Vertical
-
-Developer experience is an architecture concern, not only documentation. Core
-runtime behavior should expose enough trace, debug timeline, harness fixture,
-operations evidence, and failure explanation for external Spring developers and
-module contributors to integrate agents without platform-team intervention.
-
-## Core Invariants
-
-| Invariant | Constraint |
+| 不变量 | 约束 |
 |---|---|
-| Platform/business decoupling | Business code extends via SPI and configuration; it does not patch platform internals. |
-| Single lifecycle writer | Runtime execution lifecycle state has one owner and one sanctioned writer path. |
-| Governed tool calls | Tool/skill calls pass through authorization, capacity, idempotency, audit, and observability boundaries. |
-| Governed interruption | User, agent, approval, cancellation, and direction-change interrupts must enter through sanctioned service-owned suspend/resume, callback, or control-command paths. |
-| Context through context boundary | Context packages are produced through service/middleware context and memory/retrieval surfaces, not hidden engine logic. |
-| Business state externality | Business systems own business facts; platform records references, traces, and controlled results. |
-| Suspend instead of hold | Long waits use service-owned suspend/resume, cursor, callback, or cross-boundary rhythm signals rather than retained physical resources. |
-| Trace context propagation | Cross-module execution propagates tenant, trace, Task identity, runtime identity, and necessary client invocation references. |
-| Side-effect safety | Irreversible side effects require idempotency or duplicate protection plus audit. |
-| Child work visibility | Child execution is correlated under the parent Task tree or explicit cross-workflow handoff. |
-| Control/data/stream separation | Platform Gateway governance, Service Task API, service realtime streams, `agent-bus` governance, narrow event/control channels, and object-reference data paths remain separate. |
+| 业务与平台解耦 | 业务代码通过声明式配置、扩展机制或适配方式接入，不修改平台核心内部逻辑来满足单个业务定制。 |
+| 单一生命周期 writer | 服务端执行生命周期状态必须只有一个语义 owner 和一个受认可写入路径。 |
+| 工具调用受治理 | 工具/技能调用必须经过授权、容量、幂等、审计和可观测性边界。 |
+| 中断受治理 | 用户、智能体、审批、取消和方向变更等中断必须通过服务侧拥有的挂起/恢复、回调或控制命令路径进入。 |
+| 上下文经由上下文边界 | Context package 必须通过服务/中间件上下文、记忆和检索表面生成，不得隐藏在执行组件内部逻辑中。 |
+| 业务状态外部化 | 业务系统拥有业务事实；平台只记录引用、轨迹、审计证据和受控结果。 |
+| 挂起而非占用 | 长等待使用服务侧挂起/恢复、游标、回调或跨边界节奏信号，不保留昂贵物理资源。 |
+| Trace 上下文传播 | 跨模块执行传播 tenant、trace、Task identity、runtime identity 和必要的 client invocation reference。 |
+| 副作用安全 | 不可逆副作用必须具备幂等或重复保护，并留下审计证据。 |
+| 子工作可见 | 子执行必须关联到父 Task tree，或通过显式跨 workflow / 跨实例交接记录关系。 |
+| 控制/数据/流分离 | Platform Gateway 治理、Service Task API、服务实时流、`agent-bus` 治理、窄事件/控制通道和对象引用数据路径必须保持机制分离。 |
 
-## System Boundary Constraints
+## 切面约束
 
-- The platform is self-hostable and targets Spring Boot 4 + Java 21.
-- Admin UI, multi-region replication, on-device models, and Python sidecars are
-  out of current L0 scope unless accepted ADRs reintroduce them.
-- In-process polyglot is treated differently from out-of-process sidecars.
-- Vertical examples in historical documents are not product identity unless
-  accepted architecture decisions make them so.
-- L0 documents must not define concrete database tables, keys, topics, method
-  signatures, timeout values, retry counts, or equivalent implementation
-  constants. Those belong in contract, L1/L2, code, or operations artifacts.
+### 租户纵向约束
 
-## Module Constraints
+租户身份必须从入口边界传播到运行时、网络传输和持久化边界。任何属于租户的平台持久化记录都必须携带租户身份。
 
-- Each reactor module must have module metadata and obey allowed dependency
-  direction.
-- Domain modules must expose SPI packages where required by module metadata and
-  DFX/TCK co-design rules.
-- Generated architecture fragments are not hand-edited.
-- Capability aggregates do not become modules without module admission and ADR
-  support.
-- Heterogeneous execution frameworks are integrated through `agent-core`
-  adapters and the Execution Engine SPI; they do not redefine lifecycle state
-  ownership or bypass platform governance.
+生产运行时代码不得在受控边界之外依赖 HTTP 边缘的 ThreadLocal 租户状态。跨模块调用、跨边界协作和重放验证都必须显式携带或校验租户上下文。
 
-## Runtime Control Constraints
+### 安全态势纵向约束
 
-- Entry must bind tenant, actor, idempotency, posture, and trace.
-- Runtime lifecycle transition must go through the sanctioned service/runtime
-  owner path.
-- Task dispatch to `agent-core` must go through `agent-runtime`; the
-  engine must not pull Tasks directly from bus, broker, external queue, or
-  Platform Gateway surfaces.
-- Engine behavior returns intents or execution results; it does not bypass the
-  lifecycle owner.
-- Middleware surfaces enforce model, tool, memory, retrieval, prompt, and hook
-  governance.
-- Child work inside one `agent-runtime` instance is not outsourced to the bus.
-- Cross-instance, cross-department, cross-deployment, or cross-trust-boundary
-  A2A control is mediated by bus/federation contracts.
+`APP_POSTURE` 在启动阶段读取，用于控制开发、研究和生产等不同安全态势下的默认行为。更严格态势下缺失必要配置必须 fail closed。
 
-## Data and State Constraints
+态势差异必须显式表达，不能通过隐式默认值、环境偶然行为或未记录的调试开关改变运行时安全边界。
 
-- Tenant mismatch must fail closed at tenant-scoped surfaces.
-- Business facts remain owned by business systems or delegated business-side
-  stores.
-- Platform trajectory, checkpoint, trace, audit, and cost evidence are platform
-  runtime concerns.
-- Large payloads and multimodal artifacts use data-reference paths rather than
-  narrow event/control channel payloads.
-- Untrusted generated code and unverified third-party tools must route through
-  sandbox-governed capacity before stricter postures can treat them as allowed
-  execution.
-- Raw prompt, completion, tool input, or tool output must not appear as span
-  attributes in stricter postures.
+不可信生成代码和未验证第三方工具必须先经过沙箱治理和容量约束，严格态势下不得被默认视为允许执行。
 
-## Observability Constraints
+### 遥测纵向约束
 
-- Every core scenario should define expected trace/event/audit evidence.
-- LLM generation spans must carry model, token, cost, and latency evidence when
-  runtime binding exists.
-- Platform cost attribution covers LLM usage, model route, and platform runtime
-  cost evidence. Customer-owned internal tool cost and business-system cost
-  remain customer/business concerns unless a separate accepted contract delegates
-  reporting to the platform.
-- Replay surfaces must be tenant-scoped and fail closed on mismatch.
-- MCP-only replay remains the current L0 telemetry replay direction unless an
-  accepted ADR changes it.
+遥测是一等横切能力。Trace、span、LLM call、runtime event、audit 和 cost 证据必须通过受认可的上下文载体或运行时 hook 表面产生。
 
-## Design Honesty Constraints
+Provider adapter 不得成为独立且唯一的遥测写入源。跨模块执行必须传播 tenant、trace、Task identity、runtime identity 和必要的 client invocation reference。
 
-- `draft`, `candidate_promote`, `design_only`, `accepted`, and `shipped` must be
-  used honestly.
-- Design-only contracts must not be described as runtime-enforced behavior.
-- Historical documents may provide decision evidence, but they do not override
-  current architecture authority.
-- Draft contract YAML under `docs/architecture/l0/05-contracts/` must not drive
-  production behavior until promoted into the accepted contract system.
+每个核心场景都应定义期望产生的 trace、event 和 audit 证据。当运行时绑定存在时，LLM generation span 必须携带模型、token、cost 和 latency 证据。
 
-## Verification Expectations
+平台 cost attribution 覆盖 LLM 使用、模型路由和平台运行时成本证据。客户内部工具成本和业务系统成本仍属于客户/业务关注点，除非单独 accepted contract 委托平台上报。
 
-Each L0 constraint should eventually map to at least one of:
+重放表面必须具备租户作用域，并在租户不匹配时 fail closed。MCP-only replay 是当前 L0 遥测重放方向，除非 accepted ADR 改变该方向。
 
-- Static architecture check.
-- State-machine test.
-- Contract test.
-- Scenario test.
-- Golden trace test.
-- Failure injection test.
-- Security review.
-- Manual architecture review.
+严格态势下，原始 prompt、completion、tool input 或 tool output 不得作为 span attribute 直接记录。
 
-Unverified constraints must be listed in `governance.md` as missing verification
-or pending promotion.
+### 审计与策略纵向约束
+
+安全决策、不可逆工具调用、审批决策、跨边界交接和生命周期迁移都必须留下审计证据。
+
+策略拒绝必须可观测，并且不得产生隐藏副作用。任何涉及外部系统调用、状态修改、资源扣减或权限敏感行为的路径，都必须具备审计和重复保护预期。
+
+### 容量与背压纵向约束
+
+长周期工作必须通过有界运行时资源声明进入系统。资源压力应表达为准入决策、背压信号、挂起、让出或跨边界交接，而不是无限增长的 socket、线程或 in-flight work。
+
+可能等待大模型生成、向量检索、沙箱执行或第三方服务的外部 I/O，必须通过 reactive、virtual-thread、suspend/resume 或等价的非占用执行模式释放稀缺计算资源。L0 只规定释放资源这一原则，具体库、线程模型和超时值属于 L1/L2 或实现层。
+
+### 开发者生命周期纵向约束
+
+开发者体验是架构关注点，不只是文档工作。核心运行时行为必须暴露足够的 trace、debug timeline、harness fixture、运行证据和失败解释，使外部 Spring 开发者与模块贡献者能够独立集成和排障，而不依赖平台团队人工介入。
+
+脚手架、mock、stub、断言、场景证据和可重放材料应服务于架构约束验证，不应只作为实现阶段的临时材料。
+
+## 设计状态和验证期望
+
+### 设计状态约束
+
+- `draft`、`candidate_promote`、`design_only`、`accepted` 和 `shipped` 必须按真实状态使用。
+- design-only 契约不得描述成运行时已强制执行的行为。
+- 历史文档可以提供决策证据，但不得覆盖当前架构事实权威。
+- `docs/architecture/l0/05-contracts/` 下的草案契约 YAML 在提升到 accepted contract system 前，不得驱动生产行为。
+
+### 验证期望
+
+每条 L0 约束最终应至少映射到以下一种验证形态：
+
+- 静态架构检查。
+- 状态机测试。
+- 契约测试。
+- 场景测试。
+- golden trace 测试。
+- 故障注入测试。
+- 安全评审。
+- 人工架构评审。
+
+尚未验证的约束必须在 `governance.md` 中登记为缺失验证或待提升事项。
