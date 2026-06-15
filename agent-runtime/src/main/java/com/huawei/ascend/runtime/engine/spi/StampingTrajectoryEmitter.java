@@ -37,6 +37,7 @@ public final class StampingTrajectoryEmitter implements TrajectoryEmitter {
     private final String taskId;
     private final TrajectorySettings settings;
     private final Set<Kind> supportedKinds;
+    private final boolean sampled;
     private long seq;
     private final Deque<SpanFrame> spanStack = new ArrayDeque<>();
 
@@ -48,11 +49,16 @@ public final class StampingTrajectoryEmitter implements TrajectoryEmitter {
         this.taskId = scope != null ? scope.taskId() : null;
         this.settings = settings;
         this.supportedKinds = supportedKinds;
+        // Head sampling: one Bernoulli draw decides the whole invocation, so a sampled-out run
+        // drops every event (no torn span trees) and a kept run is complete. sampleRate >= 1.0
+        // short-circuits the RNG for the common full-trajectory case.
+        this.sampled = settings == null || settings.sampleRate() >= 1.0
+                || ThreadLocalRandom.current().nextDouble() < settings.sampleRate();
     }
 
     @Override
     public synchronized void emit(TrajectoryDraft draft) {
-        if (draft == null) {
+        if (draft == null || !sampled) {
             return;
         }
         Kind kind = draft.kind();

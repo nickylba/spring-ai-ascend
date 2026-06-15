@@ -175,4 +175,34 @@ class StampingTrajectoryEmitterTest {
         // durationMs carries the time-to-first-token measured from the run span start.
         assertThat(firstToken.durationMs()).isNotNull().isGreaterThanOrEqualTo(0L);
     }
+
+    @Test
+    void sampleRateZeroDropsTheWholeTrajectory() {
+        CapturingSink sink = new CapturingSink();
+        TrajectorySettings settings = new TrajectorySettings(true,
+                Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256, 0.0);
+        StampingTrajectoryEmitter emitter =
+                new StampingTrajectoryEmitter(sink, SCOPE, settings, EnumSet.allOf(Kind.class));
+
+        emitter.emit(TrajectoryDraft.runStart());
+        emitter.emit(TrajectoryDraft.toolCallStart("search", "q"));
+        emitter.emit(TrajectoryDraft.runEnd());
+
+        assertThat(sink.events).isEmpty();
+    }
+
+    @Test
+    void sampleRateOneKeepsEveryEvent() {
+        CapturingSink sink = new CapturingSink();
+        TrajectorySettings settings = new TrajectorySettings(true,
+                Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256, 1.0);
+        StampingTrajectoryEmitter emitter =
+                new StampingTrajectoryEmitter(sink, SCOPE, settings, EnumSet.allOf(Kind.class));
+
+        emitter.emit(TrajectoryDraft.runStart());
+        emitter.emit(TrajectoryDraft.runEnd());
+
+        assertThat(sink.events).extracting(TrajectoryEvent::kind)
+                .containsExactly(Kind.RUN_START, Kind.RUN_END);
+    }
 }
