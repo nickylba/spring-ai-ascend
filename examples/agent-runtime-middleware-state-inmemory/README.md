@@ -2,49 +2,27 @@
 
 本样例验证 OpenJiuwen Checkpointer 的 InMemory 形态。它代表短期状态或会话 checkpoint 的最小使用方式：用户启动常驻服务，通过 curl 保存、查询、释放 state。
 
-## 启动服务
+完整 step by step 教程见：[TUTORIAL.cn.md](TUTORIAL.cn.md)。
 
-在仓库根目录执行：
+## 快速启动
 
 ```bash
 ./mvnw -f examples/agent-runtime-middleware-state-inmemory/pom.xml spring-boot:run
 ```
 
-服务默认监听：
+默认监听：
 
 ```text
 http://localhost:18083
 ```
 
-## curl 验证
+## 主要接口
 
-1. 保存一次 state：
-
-```bash
-curl -s -X POST http://localhost:18083/sample/state/save \
-  -H 'Content-Type: application/json' \
-  -d '{"stateKey":"demo-state","input":"first turn","turn":1,"answer":"pong"}'
-```
-
-2. 查询 state 是否存在：
-
-```bash
-curl -s 'http://localhost:18083/sample/state/exists?stateKey=demo-state'
-```
-
-期望返回：
-
-```json
-{"stateKey":"demo-state","exists":true}
-```
-
-3. 释放 state：
-
-```bash
-curl -s -X DELETE http://localhost:18083/sample/state/demo-state
-```
-
-释放后再次查询应返回 `exists=false`。
+| 接口 | 用途 |
+|---|---|
+| `POST /sample/state/save` | 保存一次 OpenJiuwen session checkpoint |
+| `GET /sample/state/exists?stateKey=demo-state` | 查询 checkpoint 是否存在 |
+| `DELETE /sample/state/{stateKey}` | 释放 checkpoint |
 
 ## 设计要点
 
