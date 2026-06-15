@@ -11,22 +11,31 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+      group:
+        # Model reachability gates readiness (don't route traffic if the LLM is down),
+        # but not liveness (don't restart the pod for an upstream outage).
+        readiness:
+          include: readinessState,modelEndpoint
+        liveness:
+          include: livenessState
 
 # ── spring-ai-ascend A2A runtime (platform) access config ──
 agent-runtime:
   access:
     a2a:
       default-tenant-id: ${BANK_TENANT_ID:demo-bank}
-      default-agent-id: financial-advisor-agent
+      default-agent-id: ${FINANCIAL_AGENT:retail-wealth-advisor}
       # IMPORTANT (security): the runtime does NOT authenticate the X-Tenant-Id
       # header. In a real deployment this endpoint MUST sit behind an
       # authenticating gateway that strips the client header and re-injects a
       # verified tenant. Do not expose /a2a directly to untrusted clients.
-      agent-card:
-        name: financial-advisor-agent
-        description: Read-only bank financial advisor assistant hosted by spring-ai-ascend.
-        version: "0.1.0"
+      # Agent card is auto-derived from the hosted handler (see financial.agent).
 
 # ── Observability ──
 # Distributed tracing export (off by default). Turn on with OTEL_ENABLED=true and
@@ -47,8 +56,11 @@ logging:
     # Correlate every log line with the platform's per-request ids.
     console: "%d{HH:mm:ss.SSS} %-5level [trace=%X{runId:-} tenant=%X{tenantId:-}] %logger{36} - %msg%n"
 
-# ── LLM connection (override via env / -D) ──
+# ── Which agent this instance hosts (one agent per runtime instance) ──
+# Deploy multiple agents by running multiple instances with different values.
 financial:
+  agent: ${FINANCIAL_AGENT:retail-wealth-advisor}
+  # ── LLM connection (override via env / -D) ──
   llm:
     model-provider: ${BANK_LLM_PROVIDER:openai}
     api-key: ${BANK_LLM_API_KEY:sk-local-placeholder}

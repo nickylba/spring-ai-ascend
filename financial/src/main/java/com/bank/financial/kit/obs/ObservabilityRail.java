@@ -5,6 +5,8 @@ import com.openjiuwen.core.singleagent.rail.AgentCallbackContext;
 import com.openjiuwen.core.singleagent.rail.AgentRail;
 import com.openjiuwen.core.singleagent.rail.InvokeInputs;
 import com.openjiuwen.core.singleagent.rail.ToolCallInputs;
+import io.micrometer.core.instrument.Metrics;
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -42,6 +44,10 @@ public final class ObservabilityRail extends AgentRail {
             boolean ok = in.getToolResult() != null && !isError(in.getToolResult());
             FinancialAudit.event(tenantId, agentId, "tool.call",
                     field("tool", in.getToolName(), "ok", ok));
+            // metric: tool calls by tool + status (low cardinality; no tenant tag)
+            Metrics.counter("financial.agent.tool.calls",
+                    "agent", agentId, "tool", nz(in.getToolName()), "status", ok ? "ok" : "error")
+                    .increment();
         }
     }
 
@@ -49,11 +55,13 @@ public final class ObservabilityRail extends AgentRail {
     public void onToolException(AgentCallbackContext ctx) {
         String tool = ctx.getInputs() instanceof ToolCallInputs in ? in.getToolName() : "?";
         FinancialAudit.event(tenantId, agentId, "tool.error", field("tool", tool));
+        Metrics.counter("financial.agent.errors", "agent", agentId, "type", "tool").increment();
     }
 
     @Override
     public void onModelException(AgentCallbackContext ctx) {
         FinancialAudit.event(tenantId, agentId, "model.error", null);
+        Metrics.counter("financial.agent.errors", "agent", agentId, "type", "model").increment();
     }
 
     @Override
@@ -66,6 +74,13 @@ public final class ObservabilityRail extends AgentRail {
         long ms = (System.nanoTime() - startNanos) / 1_000_000L;
         FinancialAudit.event(tenantId, agentId, "turn.completed",
                 field("outcome", outcome, "durationMs", ms));
+        // metrics: turn count by outcome + latency timer (tagged by agent, not tenant)
+        Metrics.counter("financial.agent.turns", "agent", agentId, "outcome", outcome).increment();
+        Metrics.timer("financial.agent.turn.latency", "agent", agentId).record(Duration.ofMillis(ms));
+    }
+
+    private static String nz(String s) {
+        return s == null || s.isBlank() ? "unknown" : s;
     }
 
     private static boolean isError(Object result) {

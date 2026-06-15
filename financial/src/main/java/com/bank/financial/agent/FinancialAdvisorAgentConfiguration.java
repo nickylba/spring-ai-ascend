@@ -5,38 +5,26 @@ import com.bank.financial.kit.ModelConnection;
 import com.bank.financial.kit.compliance.ComplianceRail;
 import com.bank.financial.kit.compliance.KeywordScreeningBackend;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler;
 import com.openjiuwen.core.security.guardrail.GuardrailBackend;
 import com.openjiuwen.core.security.guardrail.RiskLevel;
 import com.openjiuwen.core.singleagent.rail.AgentRail;
 import java.util.List;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 /**
  * First agent — a read-only financial advisor — built on the workspace kit
- * ({@link AbstractFinancialAgentHandler}). It demonstrates the minimal shape:
- * supply a prompt + description, and (optionally) attach a compliance screen.
- * It moves no money, so it needs no approval rail.
+ * ({@link AbstractFinancialAgentHandler}): supply a prompt + description and
+ * (optionally) a compliance screen. It moves no money, so no approval rail.
  *
- * <p>Compare with the boilerplate this used to require — the kit now owns the
- * card/model/param wiring and the platform rail seam.
+ * <p>NOT a Spring {@code @Bean} itself: the platform hosts exactly ONE agent per
+ * runtime instance, so which agent is served is chosen centrally by
+ * {@code FinancialAgentServerConfiguration} (via {@code financial.agent}) from
+ * {@link FinancialAgentRegistry}. This class just provides the handler.
  */
-@Configuration(proxyBeanMethods = false)
-public class FinancialAdvisorAgentConfiguration {
+public final class FinancialAdvisorAgentConfiguration {
 
     static final String AGENT_ID = "financial-advisor-agent";
 
-    @Bean
-    OpenJiuwenAgentRuntimeHandler financialAdvisorAgentHandler(
-            @Value("${financial.llm.model-provider:${BANK_LLM_PROVIDER:openai}}") String modelProvider,
-            @Value("${financial.llm.api-key:${BANK_LLM_API_KEY:sk-local-placeholder}}") String apiKey,
-            @Value("${financial.llm.api-base:${BANK_LLM_API_BASE:http://localhost:4000/v1}}") String apiBase,
-            @Value("${financial.llm.model-name:${BANK_LLM_MODEL:gpt-5.4-mini}}") String modelName,
-            @Value("${financial.llm.ssl-verify:${BANK_LLM_SSL_VERIFY:true}}") boolean sslVerify) {
-        ModelConnection model = new ModelConnection(modelProvider, apiKey, apiBase, modelName, sslVerify);
-        return new FinancialAdvisorAgentHandler(model);
+    private FinancialAdvisorAgentConfiguration() {
     }
 
     public static final class FinancialAdvisorAgentHandler extends AbstractFinancialAgentHandler {
@@ -68,9 +56,6 @@ public class FinancialAdvisorAgentConfiguration {
             return SYSTEM_PROMPT;
         }
 
-        // Demonstrates the compliance asset: screen the user's input, block at
-        // HIGH+ risk, fail-closed. A real agent swaps KeywordScreeningBackend
-        // for a proper AML/suitability backend.
         @Override
         protected List<AgentRail> complianceRails(AgentExecutionContext context) {
             return List.of(new ComplianceRail(

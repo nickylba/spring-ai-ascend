@@ -53,11 +53,18 @@ OTEL_ENABLED=true OTEL_ENDPOINT=http://localhost:4317 \
 
 ---
 
-## 3. 健康与就绪
+## 3. 部署模型 & 健康就绪
 
-- `GET /actuator/health`、`/actuator/info`(已开启)。
+**一个 runtime 实例托管一个 agent**(平台约束)。用 `financial.agent`(env `FINANCIAL_AGENT`)选择本实例托管哪个:
+```bash
+FINANCIAL_AGENT=retail-wealth-advisor ./mvnw -f financial/pom.xml spring-boot:run   # 一个实例一个 agent
+```
+多个 agent = 部署多个实例(各自不同 `FINANCIAL_AGENT`),便于独立扩缩容/隔离故障。
+
+健康就绪:
+- `GET /actuator/health`(liveness)、`/actuator/health/readiness`、`/actuator/info`。
+- **就绪探针含模型端点可达性**(`modelEndpoint` HealthIndicator,TCP 探测 `financial.llm.api-base`):模型不可达 → readiness `DOWN`,编排器不再向该实例打流量;但 liveness 不受影响(不会因上游故障重启 Pod)。
 - A2A 探活:`GET /.well-known/agent-card.json` 应 200。
-- ⚠️ 当前就绪探针**未覆盖模型端点可达性**——见下"待补强"。
 
 ---
 
@@ -79,9 +86,38 @@ OTEL_ENABLED=true OTEL_ENDPOINT=http://localhost:4317 \
 
 ---
 
-## 6. 待补强(下一档,本手册只覆盖"核心可观测")
+## 6. 指标与告警(Prometheus)
 
-- **指标(Micrometer/Prometheus)**:按租户/agent 的 请求量、延迟、拦截率、待审数、**token 成本**、工具错误率 + Grafana 看板 + 告警规则。
-- **就绪探针**含模型端点探测;**限流/熔断**;审计事件落 SIEM 的标准化 schema。
+`/actuator/prometheus` 暴露指标;`ObservabilityRail` 自动产出以下业务指标(低基数标签 `agent`/`outcome`/`tool`/`type`,**不打 tenant 以免基数爆炸**——租户维度在审计日志/trace 里):
 
-> 选 `/goal` 里的"核心+指标告警"档我就把指标层补上。
+| 指标 | 类型 | 标签 | 含义 |
+|---|---|---|---|
+| `financial_agent_turns_total` | counter | agent, outcome | 每轮完成数(outcome=answer/blocked/interrupt/error) |
+| `financial_agent_turn_latency_seconds` | timer | agent | 每轮时延 |
+| `financial_agent_tool_calls_total` | counter | agent, tool, status | 工具调用(status=ok/error) |
+| `financial_agent_errors_total` | counter | agent, type | 错误(type=model/tool) |
+
+PromQL 告警示例:
+```promql
+# 合规拦截率突增(>10%)
+sum(rate(financial_agent_turns_total{outcome="blocked"}[5m])) by (agent)
+  / sum(rate(financial_agent_turns_total[5m])) by (agent) > 0.1
+
+# 模型错误率(LLM 不稳)
+sum(rate(financial_agent_errors_total{type="model"}[5m])) by (agent) > 0.05
+
+# 待人审积压(interrupt 速率)
+sum(rate(financial_agent_turns_total{outcome="interrupt"}[5m])) by (agent)
+
+# 时延 p99 > 8s
+histogram_quantile(0.99, sum(rate(financial_agent_turn_latency_seconds_bucket[5m])) by (le, agent)) > 8
+```
+Grafana:加 Prometheus 数据源,按上面指标建"每 agent 的吞吐/时延/拦截率/错误率"看板。
+
+> 注:业务指标在**首次有流量后**才注册出现;JVM/HTTP 标准指标启动即有。
+
+## 7. 待补强(再下一档)
+
+- **优雅降级**:`outcome=error` 时在网关/前端给用户安全话术(已记 `model.error`/`errors_total` 可告警);可在 agent 侧加兜底回复。
+- **token 成本**指标(需从 trajectory Usage 取 token 数,接入后按 agent 累计)。
+- **限流/熔断**;审计事件落 SIEM 的标准化 schema;OTel 指标(非仅 trace)导出。
