@@ -48,7 +48,7 @@ class MemoryInMemoryExampleTest {
                 .satisfies(hit -> assertThat(hit.content()).contains("green tea"));
         assertThat(provider.records(greenTeaUserContext))
                 .extracting(MemoryProvider.MemoryRecord::content)
-                .contains("the user prefers green tea", "green tea");
+                .contains("the user prefers green tea", "What drink does the user prefer?");
         assertThat(judgeAnswer(agentOutputs)).contains("PASS");
     }
 
