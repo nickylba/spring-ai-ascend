@@ -34,7 +34,7 @@ public final class PrivateBankingRmCopilotAgent extends AbstractFinancialAgentHa
 
     @Override
     protected int maxIterations() {
-        return 8;
+        return 5;
     }
 
     @Override
@@ -46,7 +46,8 @@ public final class PrivateBankingRmCopilotAgent extends AbstractFinancialAgentHa
     protected String systemPrompt() {
         return "你是私人银行客户经理的智能助手,使用者是客户经理本人(不是客户)。"
                 + "先用 get_customer_profile 了解客户的风险承受等级、资产规模与画像,"
-                + "再用 recommend_products 获取【已做投资者适当性匹配、且客户符合资格】的产品(可含私募/家族信托),"
+                + "再【一次性】调用 recommend_products(不传品类即返回全部可推荐产品,不要按品类多次调用)获取"
+                + "已做投资者适当性匹配、且客户符合资格的产品(可含私募/家族信托),"
                 + "你只能基于该工具返回的产品给建议,绝不超出客户风险承受等级,绝不编造业绩。"
                 + "输出面向客户经理:给出推荐组合、推荐理由、适当性与风险揭示要点、以及与客户面谈的话术建议。"
                 + "强调最终需客户经理与客户面谈并完成适当性确认/双录后方可办理。";

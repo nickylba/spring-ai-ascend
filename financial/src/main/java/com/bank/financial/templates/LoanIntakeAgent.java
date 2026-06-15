@@ -40,7 +40,7 @@ public final class LoanIntakeAgent extends AbstractFinancialAgentHandler {
 
     @Override
     protected int maxIterations() {
-        return 8; // multi-turn collection needs a few more steps
+        return 5; // per turn: ask-more / check / submit + answer (collection spans turns)
     }
 
     @Override

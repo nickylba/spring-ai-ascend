@@ -48,7 +48,7 @@ public final class WealthTools {
      */
     public static LocalFunction recommendTool(boolean rmChannel) {
         return LocalTool.of("recommend_products",
-                "按投资者适当性(产品风险≤客户承受等级)+资产分层+渠道,返回该客户【可推荐】的产品。只能推荐本工具返回的产品。",
+                "按投资者适当性(产品风险≤客户承受等级)+资产分层+渠道,一次性返回该客户【全部可推荐】产品(不传 category 即返回所有品类);只在需要单一品类时才传 category。只能推荐本工具返回的产品。",
                 Schemas.object()
                         .required("customerId", "string", "客户号")
                         .optional("category", "string", "可选品类:短期理财/公募基金/黄金/短期贷款/私募基金/家族信托")
@@ -76,16 +76,15 @@ public final class WealthTools {
                         items.add(pm);
                     }
 
+                    // Compact output to save tokens: no repeated disclaimer (the agent
+                    // states it once from its prompt), only fields the model needs.
                     Map<String, Object> out = new LinkedHashMap<>();
                     out.put("customerRiskLevel", c.risk().name() + "/" + c.risk().label);
                     out.put("tier", c.tier().label);
-                    out.put("channel", rmChannel ? "客户经理" : "手机银行自助");
                     out.put("recommendations", items);
-                    out.put("privateEligible", rec.privateEligible());
                     if (rec.rmNote() != null) {
                         out.put("rmNote", rec.rmNote());
                     }
-                    out.put("disclaimer", "理财非存款,产品有风险,投资须谨慎;过往业绩不代表未来,收益为示意非承诺。");
                     return out;
                 });
     }

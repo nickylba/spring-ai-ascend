@@ -41,7 +41,7 @@ public final class RetailWealthAdvisorAgent extends AbstractFinancialAgentHandle
 
     @Override
     protected int maxIterations() {
-        return 8;
+        return 5; // profile → recommend(one call) → (place_order) → answer
     }
 
     @Override
@@ -53,8 +53,8 @@ public final class RetailWealthAdvisorAgent extends AbstractFinancialAgentHandle
     protected String systemPrompt() {
         return "你是手机银行的零售理财顾问,服务个人客户。流程必须是:"
                 + "1) 先用 get_customer_profile 了解客户的风险承受等级(C1-C5)、资产规模与画像;"
-                + "2) 再用 recommend_products 获取【已做投资者适当性匹配】的可推荐产品,"
-                + "你只能推荐该工具返回的产品,绝不推荐高于客户风险承受等级的产品,绝不编造收益率;"
+                + "2) 再【一次性】调用 recommend_products(不传品类即返回全部可推荐产品,不要按品类多次调用)获取"
+                + "已做投资者适当性匹配的产品,你只能推荐该工具返回的产品,绝不推荐高于客户风险承受等级的产品,绝不编造收益率;"
                 + "3) 结合客户画像做千人千面的解释与配置建议,并做风险揭示(理财非存款,投资有风险)。"
                 + "若客户符合私行资格,引导其联系专属客户经理获取私募/家族信托等专属服务,不要在本渠道直接推荐这些产品。"
                 + "客户确认申购时调用 place_order,该操作需经风险揭示与人工确认。";

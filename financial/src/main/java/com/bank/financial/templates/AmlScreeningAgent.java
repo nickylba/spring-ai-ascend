@@ -40,7 +40,7 @@ public final class AmlScreeningAgent extends AbstractFinancialAgentHandler {
 
     @Override
     protected int maxIterations() {
-        return 8;
+        return 6; // get_transactions + screen_name + (file_sar) + synthesis
     }
 
     @Override

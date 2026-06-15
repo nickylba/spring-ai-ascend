@@ -37,6 +37,11 @@ public final class DepositAdvisorAgent extends AbstractFinancialAgentHandler {
     }
 
     @Override
+    protected int maxIterations() {
+        return 3; // quote_deposit → answer; no need for more
+    }
+
+    @Override
     protected String description() {
         return "定期存款顾问:介绍存款产品、按真实利率表测算利息";
     }
