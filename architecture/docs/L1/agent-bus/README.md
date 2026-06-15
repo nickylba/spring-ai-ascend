@@ -110,6 +110,7 @@ Stage 8 边界：补齐 record 模型（`ForwardingOutboxRecord` / `ForwardingIn
 - Stage 5 评审与 Stage 6 计划：[`../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage5-review-and-stage6-plan.md`](../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage5-review-and-stage6-plan.md)。
 - Stage 6 评审与 Stage 7 大批次计划：[`../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage6-review-and-stage7-plan.md`](../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage6-review-and-stage7-plan.md)。
 - Stage 7 评审与 Stage 8 计划：[`../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage7-review-and-stage8-plan.md`](../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage7-review-and-stage8-plan.md)。
+- Stage 8 评审与 Stage 9 计划：[`../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage8-review-and-stage9-plan.md`](../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage8-review-and-stage9-plan.md)。
 
 ## 后续工作
 
@@ -120,3 +121,4 @@ Stage 8 边界：补齐 record 模型（`ForwardingOutboxRecord` / `ForwardingIn
 - Stage 6 运行态候选裁决：见 [`../../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md`](../../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md)（已采用 C3，`adopted-c3`；Stage 8 最终确认，后续变更需 ADR / review packet）。
 - Stage 7 C3 转发运行态最小骨架已落地（领域模型 + 端口 + 状态机 + in-memory 测试替身 + harness）；115 tests green。
 - Stage 8 C3 持久化准备已落地：record 模型 + claim / lease 端口 + dispatcher worker skeleton + 抽象 delivery 端口 + schema / migration 草案（DDL 草稿未执行）+ in-memory lease harness；收口 MI8-001..005；122 tests green。真实 JDBC adapter / Flyway migration / 真实投递绑定 deferred Stage 9+（§6 护栏：数据库产品 / migration 归属未确认前不引入生产数据库依赖）。计划见上方「阶段记录」。
+- Stage 9 建议进入 lease-safe / persistence-ready 收口：状态变更必须带 lease owner，terminal / retry lease 生命周期闭环，record 条件不变量进入 Java / schema / DDL / harness，并裁决 DB / migration 归属；计划见上方「阶段记录」。
