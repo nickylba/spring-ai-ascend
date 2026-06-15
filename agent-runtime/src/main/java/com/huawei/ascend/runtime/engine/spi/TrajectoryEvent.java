@@ -73,7 +73,8 @@ public record TrajectoryEvent(
         TOOL_CALL_END,
         REASONING,
         ERROR,
-        PROGRESS
+        PROGRESS,
+        MODEL_CALL_FIRST_TOKEN
     }
 
     /**

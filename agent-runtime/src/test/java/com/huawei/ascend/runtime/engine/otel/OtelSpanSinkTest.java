@@ -28,6 +28,8 @@ class OtelSpanSinkTest {
     private static final AttributeKey<List<String>> GEN_AI_FINISH =
             AttributeKey.stringArrayKey("gen_ai.response.finish_reasons");
     private static final AttributeKey<String> GEN_AI_ERROR_TYPE = AttributeKey.stringKey("gen_ai.error.type");
+    private static final AttributeKey<Double> GEN_AI_TTFT =
+            AttributeKey.doubleKey("gen_ai.server.time_to_first_token");
 
     private static TrajectoryEvent ev(long seq, Kind kind, long ts, Long dur, String spanId, String parent,
             String name, Usage usage) {
@@ -113,6 +115,31 @@ class OtelSpanSinkTest {
         assertThat(run.getStatus().getStatusCode()).isEqualTo(StatusCode.ERROR);
         // gen_ai.error.type carries the stable ErrorCategory (lower-cased), aligned to the convention.
         assertThat(run.getAttributes().get(GEN_AI_ERROR_TYPE)).isEqualTo("timeout");
+    }
+
+    @Test
+    void firstTokenAddsSpanEventAndTtftAttributeOnParentSpan() {
+        InMemorySpanExporter exporter = InMemorySpanExporter.create();
+        SdkTracerProvider provider = SdkTracerProvider.builder()
+                .addSpanProcessor(SimpleSpanProcessor.create(exporter))
+                .build();
+        OtelSpanSink sink = new OtelSpanSink(provider.get("test"));
+
+        sink.onOpen("ctx1", "task1");
+        sink.accept(ev(0, Kind.RUN_START, 1000, null, "run", null, null, null));
+        sink.accept(firstTokenEvent(1, "run", 1010, 10L));
+        sink.accept(ev(2, Kind.RUN_END, 1200, 200L, "run", null, null, null));
+        sink.onClose();
+
+        SpanData run = byName(exporter.getFinishedSpanItems(), "agent.run");
+        assertThat(run.getEvents()).extracting(e -> e.getName()).contains("gen_ai.first_token");
+        // durationMs (10 ms) becomes the TTFT span attribute in seconds.
+        assertThat(run.getAttributes().get(GEN_AI_TTFT)).isEqualTo(0.01);
+    }
+
+    private static TrajectoryEvent firstTokenEvent(long seq, String parentSpanId, long ts, Long ttftMs) {
+        return new TrajectoryEvent(seq, Kind.MODEL_CALL_FIRST_TOKEN, ts, ttftMs, "task1", "ft", parentSpanId,
+                "t1", "ctx1", "task1", "first_token", null, null, null, null, null, null, null, null, null, "2");
     }
 
     private static SpanData byName(List<SpanData> spans, String name) {

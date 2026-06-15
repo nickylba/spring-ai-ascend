@@ -121,18 +121,30 @@ public final class StampingTrajectoryEmitter implements TrajectoryEmitter {
                 }
                 yield new SpanInfo(newSpanId(), currentPublishedSpanId(), null);
             }
+            case MODEL_CALL_FIRST_TOKEN -> {
+                // Point event whose durationMs carries the time-to-first-token, measured from
+                // the enclosing open span's start (the model call, or the run when no model span).
+                SpanFrame enclosing = nearestPublishedFrame();
+                yield new SpanInfo(newSpanId(), enclosing != null ? enclosing.spanId() : null,
+                        enclosing != null ? now - enclosing.startMillis() : null);
+            }
             default -> new SpanInfo(newSpanId(), currentPublishedSpanId(), null);
         };
     }
 
     /** Nearest open span that was itself emitted — skips capability-filtered ancestors. */
-    private String currentPublishedSpanId() {
+    private SpanFrame nearestPublishedFrame() {
         for (SpanFrame frame : spanStack) {
             if (frame.published()) {
-                return frame.spanId();
+                return frame;
             }
         }
         return null;
+    }
+
+    private String currentPublishedSpanId() {
+        SpanFrame frame = nearestPublishedFrame();
+        return frame != null ? frame.spanId() : null;
     }
 
     /** Pops the matching open START (top first, else nearest below) — tolerant of unbalanced ends. */

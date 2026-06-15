@@ -157,4 +157,22 @@ class StampingTrajectoryEmitterTest {
         assertThat(args.get("api_key")).isEqualTo("***");
         assertThat(String.valueOf(args.get("query"))).startsWith("a very l").contains("…(");
     }
+
+    @Test
+    void firstTokenIsAPointEventCarryingTtftFromEnclosingSpan() {
+        CapturingSink sink = new CapturingSink();
+        StampingTrajectoryEmitter emitter = emitter(sink, EnumSet.allOf(Kind.class));
+
+        emitter.emit(TrajectoryDraft.runStart());
+        emitter.emit(TrajectoryDraft.firstToken());
+        emitter.emit(TrajectoryDraft.runEnd());
+
+        TrajectoryEvent runStart = first(sink.events, Kind.RUN_START);
+        TrajectoryEvent firstToken = first(sink.events, Kind.MODEL_CALL_FIRST_TOKEN);
+        // Point event: fresh span id, parented to the enclosing open run span.
+        assertThat(firstToken.parentSpanId()).isEqualTo(runStart.spanId());
+        assertThat(firstToken.spanId()).isNotEqualTo(runStart.spanId());
+        // durationMs carries the time-to-first-token measured from the run span start.
+        assertThat(firstToken.durationMs()).isNotNull().isGreaterThanOrEqualTo(0L);
+    }
 }

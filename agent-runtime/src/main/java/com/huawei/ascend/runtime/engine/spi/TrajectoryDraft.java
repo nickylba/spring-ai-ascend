@@ -50,6 +50,16 @@ public record TrajectoryDraft(
         return new TrajectoryDraft(Kind.PROGRESS, "progress", null, null, delta, null, null, null, null, null, null);
     }
 
+    /**
+     * First streamed token of a model call — a point event the runtime stamps with the
+     * time-to-first-token (in {@code durationMs}). Optional tier: only frameworks that stream
+     * model output deltas emit it.
+     */
+    public static TrajectoryDraft firstToken() {
+        return new TrajectoryDraft(Kind.MODEL_CALL_FIRST_TOKEN, "first_token", null, null, null, null, null, null,
+                null, null, null);
+    }
+
     public static TrajectoryDraft toolCallStart(String name, Object args) {
         return new TrajectoryDraft(Kind.TOOL_CALL_START, "tool_call", name, args, null, null, null, null, null,
                 null, null);

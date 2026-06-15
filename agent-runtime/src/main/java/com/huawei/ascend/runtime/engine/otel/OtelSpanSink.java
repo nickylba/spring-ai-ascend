@@ -35,6 +35,8 @@ final class OtelSpanSink implements TrajectorySink {
     private static final AttributeKey<List<String>> GEN_AI_FINISH_REASONS =
             AttributeKey.stringArrayKey("gen_ai.response.finish_reasons");
     private static final AttributeKey<String> GEN_AI_ERROR_TYPE = AttributeKey.stringKey("gen_ai.error.type");
+    private static final AttributeKey<Double> GEN_AI_TTFT =
+            AttributeKey.doubleKey("gen_ai.server.time_to_first_token");
     private static final AttributeKey<String> TRAJECTORY_SPAN_ID = AttributeKey.stringKey("trajectory.span_id");
     private static final AttributeKey<String> TRAJECTORY_TRACE_ID = AttributeKey.stringKey("trajectory.trace_id");
 
@@ -52,6 +54,7 @@ final class OtelSpanSink implements TrajectorySink {
             case RUN_END, MODEL_CALL_END, TOOL_CALL_END -> closeSpan(event);
             case ERROR -> addPointEvent(event, true);
             case REASONING, PROGRESS -> addPointEvent(event, false);
+            case MODEL_CALL_FIRST_TOKEN -> addFirstToken(event);
         }
     }
 
@@ -96,6 +99,18 @@ final class OtelSpanSink implements TrajectorySink {
             if (event.error() != null && event.error().category() != null) {
                 parent.setAttribute(GEN_AI_ERROR_TYPE, event.error().category().name().toLowerCase(Locale.ROOT));
             }
+        }
+    }
+
+    private void addFirstToken(TrajectoryEvent event) {
+        Span parent = event.parentSpanId() != null ? openSpans.get(event.parentSpanId()) : null;
+        if (parent == null) {
+            return;
+        }
+        parent.addEvent("gen_ai.first_token");
+        if (event.durationMs() != null) {
+            // OTel convention records time-to-first-token in seconds.
+            parent.setAttribute(GEN_AI_TTFT, event.durationMs() / 1000.0);
         }
     }
 

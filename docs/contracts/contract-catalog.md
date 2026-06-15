@@ -66,9 +66,9 @@ Schema v3 per-event `DataPart` fields (serialized by `A2aNorthboundSink` and, id
 | Field | Type | Notes |
 |---|---|---|
 | `seq` | long | Monotonic step order per leg, assigned by the runtime |
-| `kind` | string | `RUN_START` `RUN_END` `MODEL_CALL_START` `MODEL_CALL_END` `TOOL_CALL_START` `TOOL_CALL_END` `REASONING` `ERROR` `PROGRESS` |
+| `kind` | string | `RUN_START` `RUN_END` `MODEL_CALL_START` `MODEL_CALL_END` `MODEL_CALL_FIRST_TOKEN` `TOOL_CALL_START` `TOOL_CALL_END` `REASONING` `ERROR` `PROGRESS` |
 | `tsEpochMillis` | long | Event wall-clock time |
-| `durationMs` | long \| null | Elapsed on `_END` events; null on `_START`/point kinds |
+| `durationMs` | long \| null | Elapsed on `_END` events; time-to-first-token on `MODEL_CALL_FIRST_TOKEN`; null on `_START` / other point kinds |
 | `traceId` / `spanId` / `parentSpanId` | string \| null | Span-tree correlation (`traceId` = `taskId`); pair `_START`/`_END` by `spanId` |
 | `tenantId` / `contextId` / `taskId` | string | Layered correlation: owning tenant → conversation/session → one call |
 | `object` / `name` | string \| null | Subject of the step (e.g. tool or model name) |
