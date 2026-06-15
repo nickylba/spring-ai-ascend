@@ -32,6 +32,7 @@ MemoryProvider.save(...) 保存本轮用户输入和 assistant 输出
 
 - JDK 21
 - curl
+- 可用的 OpenAI-compatible LLM API
 - 本地 18081 端口未被占用
 
 Windows PowerShell 可以把下面的 `./mvnw` 换成 `./mvnw.cmd`。
@@ -41,6 +42,11 @@ Windows PowerShell 可以把下面的 `./mvnw` 换成 `./mvnw.cmd`。
 ## 2. Step 1 — 启动守护进程
 
 ```bash
+export SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER=openai
+export SAA_SAMPLE_OPENJIUWEN_API_BASE=https://api.deepseek.com
+export SAA_SAMPLE_LLM_MODEL=deepseek-chat
+export SAA_SAMPLE_LLM_API_KEY=sk-your-key
+
 ./mvnw -f examples/agent-runtime-middleware-memory-inmemory/pom.xml spring-boot:run
 ```
 
@@ -82,17 +88,16 @@ curl -s -X POST http://localhost:18081/sample/memory/remember \
 ```bash
 curl -s -X POST http://localhost:18081/sample/memory/ask \
   -H 'Content-Type: application/json' \
-  -d '{"stateKey":"demo-user","text":"green tea"}'
+  -d '{"stateKey":"demo-user","text":"What drink does the user prefer?"}'
 ```
 
 期望响应：
 
-- `rawResults` 中包含 `output=pong`。
-- `modelMessages` 中包含 `the user prefers green tea`。
-- `modelMessages` 中包含 `Relevant memory:`，说明 memory rail 在调用模型前完成了检索和注入。
+- `memoryHits` 中包含 `the user prefers green tea`，说明 memory rail 使用同一个 `stateKey` 检索到了长期记忆。
+- `rawResults` 中是模型真实返回结果，正常情况下应能回答用户偏好是 `green tea`。
 - `records` 中包含本轮用户输入和 assistant 输出，说明执行后触发了 `MemoryProvider.save(...)`。
 
-说明：本样例的 InMemory provider 使用简单字符串匹配，不做向量语义检索；因此 curl 示例使用 `green tea` 作为 query，确保测试团队能稳定观察到记忆注入。
+说明：本样例的 InMemory provider 使用简单字符串匹配和词重叠打分，不做向量语义检索；因此 curl 示例的用户输入和记忆内容都包含 `user/prefer` 这类关键词，确保测试团队能稳定观察到记忆命中。
 
 ---
 
@@ -116,14 +121,17 @@ curl -s 'http://localhost:18081/sample/memory/records?stateKey=demo-user'
 
 - `MemoryInMemoryApplication.java`
 - `SampleMemoryOpenJiuwenHandler#setOpenJiuwenRailFactories(...)`
+- `SampleMemoryOpenJiuwenHandler#buildMemoryRailFactories(...)`
 - `SampleMemoryOpenJiuwenHandler#memoryRail(...)`
 - `InMemoryMemoryProvider`
 
 用户侧要复用这个模式时，核心动作是：
 
 ```java
-handler.setOpenJiuwenRailFactories(List.of(context -> handler.memoryRail(context, memoryProvider)));
+handler.setOpenJiuwenRailFactories(handler.buildMemoryRailFactories(memoryProvider));
 ```
+
+样例不 override `runOpenJiuwenAgent(...)`；handler 执行仍走 `OpenJiuwenAgentRuntimeHandler` 默认 Runner。业务侧只负责拿到自己的 handler，并在执行前把 rails 设置进去。
 
 ---
 

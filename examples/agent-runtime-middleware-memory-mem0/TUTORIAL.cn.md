@@ -28,6 +28,7 @@ ReActAgent 模型输入包含 Relevant memory
 
 - JDK 21
 - curl
+- 可用的 OpenAI-compatible LLM API
 - 一个可访问的 Mem0-compatible REST 服务
 - 本地 18082 端口未被占用
 
@@ -60,6 +61,11 @@ sample.mem0.infer-on-save=false
 ## 3. Step 2 — 启动样例守护进程
 
 ```bash
+export SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER=openai
+export SAA_SAMPLE_OPENJIUWEN_API_BASE=https://api.deepseek.com
+export SAA_SAMPLE_LLM_MODEL=deepseek-chat
+export SAA_SAMPLE_LLM_API_KEY=sk-your-key
+
 ./mvnw -f examples/agent-runtime-middleware-memory-mem0/pom.xml spring-boot:run \
   -Dspring-boot.run.arguments="--sample.mem0.base-url=http://localhost:8000 --sample.mem0.api-mode=oss --sample.mem0.infer-on-save=false"
 ```
@@ -113,14 +119,13 @@ curl -s 'http://localhost:18082/sample/memory/search?stateKey=demo-user&query=gr
 ```bash
 curl -s -X POST http://localhost:18082/sample/memory/ask \
   -H 'Content-Type: application/json' \
-  -d '{"stateKey":"demo-user","text":"green tea"}'
+  -d '{"stateKey":"demo-user","text":"What drink does the user prefer?"}'
 ```
 
 期望响应：
 
-- `rawResults` 中包含 `output=pong`。
 - `hits` 包含 Mem0 返回的记忆。
-- `modelMessages` 包含 Mem0 检索出的记忆内容，说明 memory rail 在调用模型前完成了注入。
+- `rawResults` 中是模型真实返回结果，正常情况下应能回答用户偏好是 `green tea`。
 
 ---
 
@@ -131,13 +136,16 @@ curl -s -X POST http://localhost:18082/sample/memory/ask \
 - `MemoryMem0Application.java`
 - `Mem0RestMemoryProvider`
 - `SampleMem0OpenJiuwenHandler#setOpenJiuwenRailFactories(...)`
+- `SampleMem0OpenJiuwenHandler#buildMemoryRailFactories(...)`
 - `SampleMem0OpenJiuwenHandler#memoryRail(...)`
 
 用户侧要复用这个模式时，核心动作是：
 
 ```java
-handler.setOpenJiuwenRailFactories(List.of(context -> handler.memoryRail(context, memoryProvider)));
+handler.setOpenJiuwenRailFactories(handler.buildMemoryRailFactories(memoryProvider));
 ```
+
+样例不 override `runOpenJiuwenAgent(...)`；handler 执行仍走 `OpenJiuwenAgentRuntimeHandler` 默认 Runner。业务侧只负责拿到自己的 handler，并在执行前把 rails 设置进去。
 
 ---
 

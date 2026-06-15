@@ -5,32 +5,17 @@ import com.huawei.ascend.runtime.common.RuntimeMessage;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.MemoryProvider;
-import com.openjiuwen.core.foundation.llm.Model;
-import com.openjiuwen.core.foundation.llm.model_clients.BaseModelClient;
-import com.openjiuwen.core.foundation.llm.output_parsers.BaseOutputParser;
-import com.openjiuwen.core.foundation.llm.schema.AssistantMessage;
-import com.openjiuwen.core.foundation.llm.schema.AssistantMessageChunk;
-import com.openjiuwen.core.foundation.llm.schema.AudioGenerationResponse;
-import com.openjiuwen.core.foundation.llm.schema.BaseMessage;
-import com.openjiuwen.core.foundation.llm.schema.ImageGenerationResponse;
-import com.openjiuwen.core.foundation.llm.schema.ModelClientConfig;
 import com.openjiuwen.core.foundation.llm.schema.ModelRequestConfig;
-import com.openjiuwen.core.foundation.llm.schema.UserMessage;
-import com.openjiuwen.core.foundation.llm.schema.VideoGenerationResponse;
-import com.openjiuwen.core.session.AgentSessionApi;
-import com.openjiuwen.core.session.stream.StreamMode;
 import com.openjiuwen.core.singleagent.BaseAgent;
 import com.openjiuwen.core.singleagent.agents.ReActAgent;
 import com.openjiuwen.core.singleagent.agents.ReActAgentConfig;
 import com.openjiuwen.core.singleagent.rail.AgentRail;
 import com.openjiuwen.core.singleagent.schema.AgentCard;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
@@ -58,16 +43,20 @@ class MemoryInMemoryConfiguration {
     }
 
     @Bean
-    SampleMemoryOpenJiuwenHandler sampleHandler(InMemoryMemoryProvider memoryProvider) {
-        SampleMemoryOpenJiuwenHandler handler = new SampleMemoryOpenJiuwenHandler(AGENT_ID);
-        handler.setOpenJiuwenRailFactories(List.of(context -> handler.memoryRail(context, memoryProvider)));
+    SampleMemoryOpenJiuwenHandler sampleHandler(
+            @Value("${sample.openjiuwen.model-provider:${SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER:openai}}")
+            String modelProvider,
+            @Value("${sample.openjiuwen.api-key:${SAA_SAMPLE_LLM_API_KEY:}}") String apiKey,
+            @Value("${sample.openjiuwen.api-base:${SAA_SAMPLE_OPENJIUWEN_API_BASE:https://api.deepseek.com}}")
+            String apiBase,
+            @Value("${sample.openjiuwen.model-name:${SAA_SAMPLE_LLM_MODEL:deepseek-chat}}") String modelName,
+            @Value("${sample.openjiuwen.ssl-verify:${SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY:false}}")
+            boolean sslVerify,
+            InMemoryMemoryProvider memoryProvider) {
+        SampleMemoryOpenJiuwenHandler handler =
+                new SampleMemoryOpenJiuwenHandler(AGENT_ID, modelProvider, apiKey, apiBase, modelName, sslVerify);
+        handler.setOpenJiuwenRailFactories(handler.buildMemoryRailFactories(memoryProvider));
         return handler;
-    }
-
-    @Bean
-    Object sampleModelFactoryRegistration() {
-        SampleModelClient.ensureRegistered();
-        return new Object();
     }
 }
 
@@ -100,7 +89,7 @@ class MemoryInMemoryController {
                 "stateKey", context.getAgentStateKey(),
                 "query", request.text(),
                 "rawResults", rawResults,
-                "modelMessages", SampleModelClient.capturedMessages(),
+                "memoryHits", memoryProvider.search(context, request.text(), 5),
                 "records", memoryProvider.records(context));
     }
 
@@ -127,17 +116,36 @@ class MemoryInMemoryController {
 }
 
 final class SampleMemoryOpenJiuwenHandler extends OpenJiuwenAgentRuntimeHandler {
-    private static final String MODEL_PROVIDER = "sample-memory-inmemory-model";
     private final String agentId;
+    private final String modelProvider;
+    private final String apiKey;
+    private final String apiBase;
+    private final String modelName;
+    private final boolean sslVerify;
     private List<Function<AgentExecutionContext, AgentRail>> railFactories = List.of();
 
-    SampleMemoryOpenJiuwenHandler(String agentId) {
+    SampleMemoryOpenJiuwenHandler(
+            String agentId,
+            String modelProvider,
+            String apiKey,
+            String apiBase,
+            String modelName,
+            boolean sslVerify) {
         super(agentId);
         this.agentId = agentId;
+        this.modelProvider = modelProvider;
+        this.apiKey = apiKey;
+        this.apiBase = apiBase;
+        this.modelName = modelName;
+        this.sslVerify = sslVerify;
     }
 
     void setOpenJiuwenRailFactories(List<Function<AgentExecutionContext, AgentRail>> railFactories) {
         this.railFactories = List.copyOf(Objects.requireNonNull(railFactories, "railFactories"));
+    }
+
+    List<Function<AgentExecutionContext, AgentRail>> buildMemoryRailFactories(MemoryProvider provider) {
+        return List.of(context -> memoryRail(context, provider));
     }
 
     AgentRail memoryRail(AgentExecutionContext context, MemoryProvider provider) {
@@ -158,89 +166,18 @@ final class SampleMemoryOpenJiuwenHandler extends OpenJiuwenAgentRuntimeHandler 
                 .build());
         ReActAgentConfig config = ReActAgentConfig.builder()
                 .promptTemplate(List.of(Map.of("role", "system", "content",
-                        "You are a deterministic middleware memory example. Reply exactly pong.")))
-                .maxIterations(1)
+                        """
+                        You are a middleware memory example assistant.
+                        Answer the user's question using relevant memory when it is provided.
+                        If the user asks for a preference, answer with the remembered preference directly.
+                        """)))
+                .maxIterations(3)
                 .build()
-                .configureModelClient(MODEL_PROVIDER, "sample-key", "http://localhost", "sample-model", false);
+                .configureModelClient(modelProvider, apiKey, apiBase, modelName, sslVerify);
+        ModelRequestConfig modelConfig = config.getModelConfigObj();
+        modelConfig.setTemperature(0.0);
+        modelConfig.setMaxTokens(128);
         agent.configure(config);
         return agent;
-    }
-
-    @Override
-    protected Object runOpenJiuwenAgent(BaseAgent agent, Object input, String conversationId) {
-        Iterator<Object> output = agent.stream(input, AgentSessionApi.create(conversationId, null, agent.getCard()),
-                List.of(StreamMode.OUTPUT));
-        output.forEachRemaining(ignored -> { });
-        return Map.of("result_type", "answer", "output", "pong");
-    }
-}
-
-final class SampleModelClient extends BaseModelClient {
-    private static final AtomicBoolean REGISTERED = new AtomicBoolean(false);
-    private static final CopyOnWriteArrayList<String> CAPTURED_MESSAGES = new CopyOnWriteArrayList<>();
-
-    private SampleModelClient(ModelRequestConfig modelConfig, ModelClientConfig clientConfig) {
-        super(modelConfig, clientConfig);
-    }
-
-    static void ensureRegistered() {
-        if (REGISTERED.compareAndSet(false, true)) {
-            Model.registerFactory(new Model.ModelClientFactory() {
-                @Override
-                public String providerName() {
-                    return "sample-memory-inmemory-model";
-                }
-
-                @Override
-                public BaseModelClient create(ModelRequestConfig modelConfig, ModelClientConfig clientConfig) {
-                    return new SampleModelClient(modelConfig, clientConfig);
-                }
-            });
-        }
-    }
-
-    static List<String> capturedMessages() {
-        return List.copyOf(CAPTURED_MESSAGES);
-    }
-
-    @Override
-    public AssistantMessage invoke(Object messages, Object tools, Float temperature, Float topP, String model,
-            Integer maxTokens, String stop, BaseOutputParser outputParser, Float timeout, Map<String, Object> kwargs) {
-        CAPTURED_MESSAGES.clear();
-        if (messages instanceof List<?> list) {
-            list.stream()
-                    .filter(BaseMessage.class::isInstance)
-                    .map(BaseMessage.class::cast)
-                    .map(BaseMessage::getContentAsString)
-                    .forEach(CAPTURED_MESSAGES::add);
-        }
-        return new AssistantMessage("pong");
-    }
-
-    @Override
-    public Iterator<AssistantMessageChunk> stream(Object messages, Object tools, Float temperature, Float topP,
-            String model, Integer maxTokens, String stop, BaseOutputParser outputParser, Float timeout,
-            Map<String, Object> kwargs) {
-        return List.<AssistantMessageChunk>of().iterator();
-    }
-
-    @Override
-    public ImageGenerationResponse generateImage(List<UserMessage> messages, String model, String size,
-            String negativePrompt, int n, boolean promptExtend, boolean watermark, int seed,
-            Map<String, Object> kwargs) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public AudioGenerationResponse generateSpeech(List<UserMessage> messages, String model, String voice,
-            String languageType, Map<String, Object> kwargs) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public VideoGenerationResponse generateVideo(List<UserMessage> messages, String imgUrl, String audioUrl,
-            String model, String size, String resolution, int duration, boolean promptExtend, boolean watermark,
-            String negativePrompt, Integer seed, Map<String, Object> kwargs) {
-        throw new UnsupportedOperationException();
     }
 }

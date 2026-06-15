@@ -9,6 +9,11 @@
 先准备一个兼容 Mem0 REST API 的服务，然后启动样例：
 
 ```bash
+export SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER=openai
+export SAA_SAMPLE_OPENJIUWEN_API_BASE=https://api.deepseek.com
+export SAA_SAMPLE_LLM_MODEL=deepseek-chat
+export SAA_SAMPLE_LLM_API_KEY=sk-your-key
+
 ./mvnw -f examples/agent-runtime-middleware-memory-mem0/pom.xml spring-boot:run \
   -Dspring-boot.run.arguments="--sample.mem0.base-url=http://localhost:8000 --sample.mem0.api-mode=oss --sample.mem0.infer-on-save=false"
 ```
@@ -30,6 +35,7 @@ http://localhost:18082
 ## 设计要点
 
 - 样例通过 `SampleMem0OpenJiuwenHandler#setOpenJiuwenRailFactories(...)` 预设 OpenJiuwen rail。
+- `buildMemoryRailFactories(...)` 负责构建 rails，`setOpenJiuwenRailFactories(...)` 负责把 rails 设置到 handler；执行时不 override `runOpenJiuwenAgent(...)`，仍走 OpenJiuwen 默认 Runner。
 - `Mem0RestMemoryProvider` 是 example 级适配器，用于演示 `MemoryProvider` 如何对接外部长期记忆服务。
 - `sample.mem0.api-mode=oss` 使用 `/memories` 和 `/search`；`sample.mem0.api-mode=platform` 使用 `/v1/memories/` 和 `/v2/memories/search/`。
 - 本样例是面向用户视角的 daemon + curl 验证，不是单元测试替代品。

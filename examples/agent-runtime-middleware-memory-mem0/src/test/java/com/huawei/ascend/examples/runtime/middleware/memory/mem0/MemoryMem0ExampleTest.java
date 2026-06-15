@@ -16,23 +16,28 @@ class MemoryMem0ExampleTest {
     void mem0RestMemoryProviderWorksThroughOpenJiuwenHandlerExecution() {
         String baseUrl = System.getenv("SAA_SAMPLE_MEM0_BASE_URL");
         assumeTrue(hasText(baseUrl), "Set SAA_SAMPLE_MEM0_BASE_URL to run the real Mem0 example");
+        assumeTrue(hasText(System.getenv("SAA_SAMPLE_LLM_API_KEY")),
+                "Set SAA_SAMPLE_LLM_API_KEY to run the real LLM example");
         Mem0RestMemoryProvider provider = new Mem0RestMemoryProvider(
                 baseUrl, System.getenv("SAA_SAMPLE_MEM0_API_KEY"), false, envOrDefault("SAA_SAMPLE_MEM0_API_MODE", "oss"));
         AgentExecutionContext context = MiddlewareTestFixtures.context("mem0-state-" + System.nanoTime());
         provider.save(context, List.of(new MemoryProvider.MemoryRecord(null, "assistant",
                 "the user prefers green tea", Map.of("source", "test"))));
-        Mem0SampleModelClient.ensureRegistered();
-        SampleMem0OpenJiuwenHandler handler = new SampleMem0OpenJiuwenHandler("openjiuwen-simple-agent");
-        handler.setOpenJiuwenRailFactories(List.of(execution -> handler.memoryRail(execution, provider)));
+        SampleMem0OpenJiuwenHandler handler = new SampleMem0OpenJiuwenHandler(
+                "openjiuwen-simple-agent",
+                envOrDefault("SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER", "openai"),
+                System.getenv("SAA_SAMPLE_LLM_API_KEY"),
+                envOrDefault("SAA_SAMPLE_OPENJIUWEN_API_BASE", "https://api.deepseek.com"),
+                envOrDefault("SAA_SAMPLE_LLM_MODEL", "deepseek-chat"),
+                Boolean.parseBoolean(envOrDefault("SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY", "false")));
+        handler.setOpenJiuwenRailFactories(handler.buildMemoryRailFactories(provider));
 
         List<?> rawResults = handler.execute(context).toList();
 
-        assertThat(rawResults).singleElement().isEqualTo(Map.of("result_type", "answer", "output", "pong"));
+        assertThat(rawResults).isNotEmpty();
         assertThat(provider.search(context, "green tea", 5))
                 .extracting(MemoryProvider.MemoryHit::content)
                 .anySatisfy(content -> assertThat(content).containsIgnoringCase("green tea"));
-        assertThat(Mem0SampleModelClient.capturedMessages())
-                .anySatisfy(message -> assertThat(message).containsIgnoringCase("green tea"));
     }
 
     private static boolean hasText(String value) {

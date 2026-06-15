@@ -7,6 +7,11 @@
 ## 快速启动
 
 ```bash
+export SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER=openai
+export SAA_SAMPLE_OPENJIUWEN_API_BASE=https://api.deepseek.com
+export SAA_SAMPLE_LLM_MODEL=deepseek-chat
+export SAA_SAMPLE_LLM_API_KEY=sk-your-key
+
 ./mvnw -f examples/agent-runtime-middleware-memory-inmemory/pom.xml spring-boot:run
 ```
 
@@ -27,5 +32,5 @@ http://localhost:18081
 ## 设计要点
 
 - 样例通过 `SampleMemoryOpenJiuwenHandler#setOpenJiuwenRailFactories(...)` 预设 OpenJiuwen rail。
-- 业务方可以按同样方式把 `memoryRuntimeRail(context, provider)` 设置到自己的 OpenJiuwen handler。
+- `buildMemoryRailFactories(...)` 负责构建 rails，`setOpenJiuwenRailFactories(...)` 负责把 rails 设置到 handler；执行时不 override `runOpenJiuwenAgent(...)`，仍走 OpenJiuwen 默认 Runner。
 - `InMemoryMemoryProvider` 只放在 example 中，用于端到端验证；生产环境应替换成企业自己的长期记忆服务。
