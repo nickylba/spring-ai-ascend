@@ -1,0 +1,959 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>A2D 流程图 v2 — 4+1 为枢纽的两闸门模型</title>
+  <style>
+    :root {
+      --paper: #f7f4ed;
+      --ink: #172033;
+      --muted: #657184;
+      --line: #d7d0c4;
+      --panel: #ffffff;
+      --blue: #2454d6;
+      --blue-soft: #e5ecff;
+      --green: #0f7c59;
+      --green-soft: #ddf4ea;
+      --amber: #a86200;
+      --amber-soft: #fff0d2;
+      --red: #bd3434;
+      --red-soft: #f8dddd;
+      --violet: #6548bf;
+      --violet-soft: #eae4ff;
+      --dark: #1f2a44;
+      --dark-soft: #324063;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
+      line-height: 1.5;
+    }
+
+    header {
+      padding: 34px 48px 24px;
+      background: linear-gradient(180deg, #ffffff 0%, var(--paper) 100%);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .kicker::before {
+      content: "";
+      display: inline-block;
+      width: 32px;
+      height: 4px;
+      background: var(--blue);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 3.6vw, 48px);
+      line-height: 1.12;
+      max-width: 1040px;
+    }
+
+    h1 .em {
+      color: var(--blue);
+    }
+
+    .subtitle {
+      margin: 16px 0 0;
+      color: var(--muted);
+      font-size: 17px;
+      max-width: 980px;
+    }
+
+    main {
+      padding: 28px 32px 48px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 0 0 22px;
+      padding: 0;
+      list-style: none;
+    }
+
+    .legend li {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 30px;
+      padding: 5px 10px;
+      border: 1px solid var(--line);
+      background: #fffaf2;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      display: inline-block;
+    }
+
+    .dot.human { background: var(--amber); }
+    .dot.ai { background: var(--blue); }
+    .dot.machine { background: var(--green); }
+    .dot.gate { background: var(--red); }
+
+    .scroll-shell {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      background: #fffaf2;
+      box-shadow: 0 18px 45px rgba(23, 32, 51, 0.08);
+      padding: 22px;
+    }
+
+    .scroll-note {
+      color: var(--muted);
+      font-size: 13px;
+      margin: 0 0 12px;
+    }
+
+    .section {
+      margin-top: 34px;
+      padding: 26px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.76);
+    }
+
+    .section > h2 {
+      margin: 0 0 6px;
+      font-size: 26px;
+    }
+
+    .section > .lead {
+      margin: 0 0 20px;
+      color: var(--muted);
+      font-size: 15px;
+      max-width: 900px;
+    }
+
+    /* ---------- 三元关系 ---------- */
+    .trinity {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .role {
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 20px;
+      border-top: 6px solid var(--muted);
+    }
+
+    .role.human { border-top-color: var(--amber); }
+    .role.machine { border-top-color: var(--green); }
+    .role.ai { border-top-color: var(--blue); }
+
+    .role .who {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      margin-bottom: 8px;
+    }
+
+    .role.human .who { color: var(--amber); }
+    .role.machine .who { color: var(--green); }
+    .role.ai .who { color: var(--blue); }
+
+    .role h3 {
+      margin: 0 0 10px;
+      font-size: 20px;
+    }
+
+    .role p {
+      margin: 0;
+      color: var(--ink);
+      font-size: 14px;
+    }
+
+    .role .no {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed var(--line);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    /* ---------- 主流程管道 ---------- */
+    .pipeline {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      min-width: 1560px;
+    }
+
+    .p-node,
+    .p-gate,
+    .p-autonomy {
+      padding: 16px 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .p-node {
+      background: #fff;
+      border: 1px solid var(--line);
+      min-width: 172px;
+      flex: 0 0 auto;
+    }
+
+    .p-gate {
+      background: var(--dark);
+      color: #e7edf8;
+      border: 1px solid var(--dark);
+      box-shadow: inset 0 0 0 3px var(--amber);
+      min-width: 212px;
+      flex: 0 0 auto;
+    }
+
+    .p-autonomy {
+      background: var(--blue-soft);
+      border: 1px solid var(--blue);
+      min-width: 280px;
+      flex: 1 1 0;
+    }
+
+    .p-arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 26px;
+      font-weight: 700;
+      padding: 0 4px;
+      flex: 0 0 auto;
+    }
+
+    .p-tag {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .p-gate .p-tag {
+      color: var(--amber);
+    }
+
+    .p-autonomy .p-tag {
+      color: var(--blue);
+    }
+
+    .p-node h3,
+    .p-gate h3,
+    .p-autonomy h3 {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.25;
+    }
+
+    .p-gate h3 {
+      color: #fff;
+    }
+
+    .p-node p,
+    .p-gate p,
+    .p-autonomy p {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .p-gate .sub {
+      color: #b9c4dc;
+    }
+
+    .p-node .sub,
+    .p-autonomy .sub {
+      color: var(--muted);
+    }
+
+    .escalation {
+      margin-top: auto;
+      padding: 9px 10px;
+      background: var(--red-soft);
+      border: 1px dashed var(--red);
+      color: var(--red);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
+    /* ---------- 围栏三位一体 ---------- */
+    .triad {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0;
+      margin-bottom: 8px;
+    }
+
+    .triad .leg {
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 18px;
+      position: relative;
+    }
+
+    .triad .leg + .leg {
+      border-left: none;
+    }
+
+    .triad .leg::after {
+      content: "→";
+      position: absolute;
+      top: 50%;
+      right: -11px;
+      transform: translateY(-50%);
+      color: var(--green);
+      font-size: 22px;
+      font-weight: 800;
+      z-index: 2;
+      background: var(--paper);
+      width: 22px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .triad .leg:last-child::after {
+      display: none;
+    }
+
+    .triad .leg .step {
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+    }
+
+    .triad .leg h3 {
+      margin: 6px 0 8px;
+      font-size: 18px;
+    }
+
+    .triad .leg p {
+      margin: 0;
+      font-size: 13px;
+      color: var(--ink);
+    }
+
+    .triad-note {
+      margin: 14px 0 0;
+      padding: 12px 14px;
+      background: var(--green-soft);
+      border-left: 4px solid var(--green);
+      font-size: 14px;
+    }
+
+    /* ---------- 通用表格 ---------- */
+    table.grid {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      font-size: 14px;
+    }
+
+    table.grid th,
+    table.grid td {
+      border: 1px solid var(--line);
+      padding: 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    table.grid th {
+      background: #f0ece4;
+      color: var(--ink);
+      font-size: 13px;
+    }
+
+    table.grid .stage {
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    table.grid .gate-row {
+      background: #f6f8ff;
+    }
+
+    table.grid .gate-row .stage {
+      color: var(--amber);
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 2px;
+      white-space: nowrap;
+    }
+
+    .tag.yes { background: var(--red-soft); color: var(--red); }
+    .tag.no { background: var(--green-soft); color: var(--green); }
+    .tag.only { background: var(--amber-soft); color: var(--amber); }
+
+    /* ---------- 4+1 参与度条 ---------- */
+    .participation {
+      margin-bottom: 22px;
+    }
+    .part-label {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .part-scroll {
+      overflow-x: auto;
+    }
+    .part-bar {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(0, 1fr));
+      gap: 6px;
+      min-width: 760px;
+    }
+    .part-cell {
+      border: 1px solid var(--line);
+      padding: 10px 6px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: center;
+      justify-content: center;
+      min-height: 74px;
+    }
+    .part-cell .lvl {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 2px;
+    }
+    .part-cell .nm {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1.25;
+    }
+    .part-cell.none { background: #ece8e0; }
+    .part-cell.none .lvl { background: #d8d3c8; color: var(--muted); }
+    .part-cell.weak { background: var(--blue-soft); }
+    .part-cell.weak .lvl { background: #cddcff; color: var(--blue); }
+    .part-cell.mid { background: #c5d8ff; }
+    .part-cell.mid .lvl { background: var(--blue); color: #fff; }
+    .part-cell.indirect { background: var(--blue-soft); border-style: dashed; border-color: var(--blue); }
+    .part-cell.indirect .lvl { background: #fff; color: var(--blue); border: 1px dashed var(--blue); }
+    .part-cell.core { background: var(--green); border-color: var(--green); }
+    .part-cell.core .nm { color: #fff; }
+    .part-cell.core .lvl { background: #fff; color: var(--green); }
+
+    /* ---------- 架构更新审核过程链 ---------- */
+    .process-chain {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .proc-step {
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 12px 14px;
+      font-size: 13px;
+      min-width: 150px;
+      display: flex;
+      align-items: center;
+    }
+
+    .proc-step.human-step {
+      background: var(--amber-soft);
+      border-color: var(--amber);
+      font-weight: 700;
+      color: var(--amber);
+    }
+
+    .proc-arrow {
+      display: flex;
+      align-items: center;
+      color: var(--muted);
+      padding: 0 5px;
+      font-weight: 700;
+    }
+
+    .sub-h {
+      margin: 22px 0 12px;
+      font-size: 18px;
+    }
+
+    /* ---------- 双面性 / 对比卡片 ---------- */
+    .split {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .face-card {
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 20px;
+      border-top: 6px solid var(--muted);
+    }
+
+    .face-card.human-face { border-top-color: var(--amber); }
+    .face-card.machine-face { border-top-color: var(--green); }
+
+    .face-card h3 {
+      margin: 0 0 10px;
+      font-size: 19px;
+      color: var(--ink);
+    }
+
+    .face-card.human-face h3 { color: var(--amber); }
+    .face-card.machine-face h3 { color: var(--green); }
+
+    .face-card p {
+      margin: 0 0 10px;
+      font-size: 14px;
+    }
+
+    .face-card ul {
+      margin: 0;
+      padding-left: 18px;
+      font-size: 13.5px;
+    }
+
+    .face-card li {
+      margin-bottom: 6px;
+    }
+
+    .path-card {
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 20px;
+    }
+
+    .path-card h3 {
+      margin: 0 0 12px;
+      font-size: 20px;
+      color: var(--blue);
+    }
+
+    .path-card:nth-child(2) h3 {
+      color: var(--green);
+    }
+
+    .path-card dl {
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      gap: 10px 14px;
+      margin: 0;
+    }
+
+    .path-card dt {
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .path-card dd {
+      margin: 0;
+      font-size: 14px;
+    }
+
+    footer {
+      padding: 24px 32px 36px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @media (max-width: 900px) {
+      header { padding: 28px 22px 20px; }
+      main { padding: 22px 16px 36px; }
+      .trinity,
+      .split { grid-template-columns: 1fr; }
+      .section { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="kicker">A2D v2 · 4+1 为枢纽</div>
+    <h1>人类做架构,机器守边界,<span class="em">AI 跑实现</span></h1>
+    <p class="subtitle">4+1 是持续维护的「架构基线」,不是每轮重建的。每轮需求产出一份「架构更新稿」,人类只审核更新信息(delta);中间 AI 自主实现,围栏防止破坏基线。人类做架构、机器守边界、AI 跑实现。</p>
+  </header>
+
+  <main>
+    <ul class="legend">
+      <li><span class="dot human"></span>人类:做架构、做裁决</li>
+      <li><span class="dot ai"></span>AI:自主实现</li>
+      <li><span class="dot machine"></span>机器:守边界(gate + 对账)</li>
+      <li><span class="dot gate"></span>闸门:人类必须过的关卡</li>
+    </ul>
+
+    <!-- ========== 核心心智 ========== -->
+    <section class="section" aria-label="核心心智">
+      <h2>核心心智:三个角色各司其职</h2>
+      <p class="lead">AI 写代码的能力已经很强,瓶颈不在实现,而在大型架构判断。所以把「实现」整个交给 AI,把「架构」牢牢交给人类,把「守边界」交给机器——三者构成一条不互相拖累的链。</p>
+      <div class="trinity">
+        <article class="role human">
+          <div class="who">● 人类</div>
+          <h3>做架构</h3>
+          <p>维护 4+1 视图,把控方向、模块边界、状态 owner、契约、部署约束和风险。决策的是「这个架构在业务和组织上站不站得住」。</p>
+          <div class="no">不写代码、不拆切片、不逐行审 diff。</div>
+        </article>
+        <article class="role machine">
+          <div class="who">● 机器</div>
+          <h3>守边界</h3>
+          <p>把 4+1 的每条约束转译成实时 gate 和验收对账。AI 破坏即拦,漂移即暴露,替人类守着边界。</p>
+          <div class="no">不创造架构语义,只投影、拦截、对账。</div>
+        </article>
+        <article class="role ai">
+          <div class="who">● AI</div>
+          <h3>跑实现</h3>
+          <p>在围栏内自主派生边界、拆切片、编码、测试、生成证据。碰到 4+1 不合理才升级打断人类。</p>
+          <div class="no">不自行扩大边界,不偷偷改架构。</div>
+        </article>
+      </div>
+      <div class="triad-note" style="margin-top:16px;"><strong>关键认知:</strong>4+1 是持续维护的「架构基线」,不是每轮重建的。每轮需求真正产出、需要人类审核的,是对基线的「架构更新稿」(delta)—— 人类审的是更新信息,不是整个架构。这让闸门负担随基线成熟而下降:基线越稳,每轮 delta 越小,审核越轻。</div>
+    </section>
+
+    <!-- ========== 主流程管道 ========== -->
+    <section class="section" aria-label="总体流程管道">
+      <h2>总体流程:两道闸门,中间全自动</h2>
+      <p class="scroll-note">横向滚动。4+1 是持续维护的架构基线;两个深色加琥珀框的节点是人类必须过的「闸门」,其中闸门 1 审核的是本轮对基线的「架构更新稿」。闸门之间 AI 自主跑,gate 实时守;升级口是 AI 自主区内唯一中断点。</p>
+      <div class="scroll-shell">
+        <div class="pipeline">
+
+          <div class="p-node">
+            <div class="p-tag">启动 · 轻</div>
+            <h3>需求注入</h3>
+            <p>一句话需求、目标、约束、验收口径。</p>
+            <p class="sub">AI 整理成结构化需求(目标 / 非目标 / 场景)。不搞重型需求文档。</p>
+          </div>
+
+          <div class="p-arrow">→</div>
+
+          <div class="p-gate">
+            <div class="p-tag">闸门 1 · 人类核心</div>
+            <h3>架构更新审核</h3>
+            <p>结合现有 4+1 基线,分析本轮要对架构改什么。</p>
+            <p class="sub">AI 产出「待合并更新稿」,人类审核意图。通过 → 作为本轮目标(暂不写基线)。</p>
+          </div>
+
+          <div class="p-arrow">→</div>
+
+          <div class="p-autonomy">
+            <div class="p-tag">AI 自主 · 释放生产力</div>
+            <h3>派生边界 + 编码 + 测试</h3>
+            <p>代码边界说明 = 4+1 ∩ 代码扫描,自动派生;接着拆切片、编码、测试、生成证据。</p>
+            <p class="sub">gate 实时守,破坏即拦;人类不逐条审批。</p>
+            <div class="escalation">⚠ 升级口:AI 发现 4+1 不合理(需越界 / 需改 owner / 假设不成立)→ 打断 → 回闸门 1,由人类决定改不改 4+1。</div>
+          </div>
+
+          <div class="p-arrow">→</div>
+
+          <div class="p-gate">
+            <div class="p-tag">闸门 2 · 人类</div>
+            <h3>验收对账</h3>
+            <p>graphify 对账结构、OpenAPI 对账接口、gate + 测试结果。</p>
+            <p class="sub">符合 4+1 则收;不符则回炉,或回头改 4+1。</p>
+          </div>
+
+          <div class="p-arrow">→</div>
+
+          <div class="p-node">
+            <div class="p-tag">闭环 · 演进</div>
+            <h3>基线固化</h3>
+            <p>实现验证后,根据实际落地,把已验证事实合并进 4+1 基线。</p>
+            <p class="sub">基线只在此时更新——实现可能推翻设计,以事实为准。</p>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 架构更新审核详解 ========== -->
+    <section class="section" aria-label="架构更新审核详解">
+      <h2>架构更新审核:闸门 1 到底在做什么</h2>
+      <p class="lead">4+1 是持续维护的架构基线,不是每轮重建的。这一闸门审核的不是整个架构,而是「本轮要对基线做的更新」—— 所以人类审的是更新信息(delta),负担随基线成熟而下降。需求到更新稿这段过程 AI 自动完成,但它是必要环节,不能省。</p>
+      <div class="process-chain">
+        <div class="proc-step">读取现有 4+1 基线 + 代码现状扫描</div>
+        <div class="proc-arrow">→</div>
+        <div class="proc-step">结合本轮需求,分析冲击哪些架构事实</div>
+        <div class="proc-arrow">→</div>
+        <div class="proc-step">AI 产出架构更新稿(新增 / 修改 / 废弃)</div>
+        <div class="proc-arrow">→</div>
+        <div class="proc-step human-step">人类审核更新信息</div>
+        <div class="proc-arrow">→</div>
+        <div class="proc-step">通过则作为本轮目标(待合并,不写基线)</div>
+      </div>
+      <div class="triad-note" style="margin-bottom:20px;"><strong>为什么更新稿不立即写基线:</strong>实现过程可能推翻设计思路(假设不成立、需要调整)。更新稿是「意图」,只有实现验证、根据实际落地后,才在末端固化进基线。实现期间 gate 和 graphify 按「已固化基线 + 本轮更新稿」对账,但不污染已固化基线。</div>
+      <h3 class="sub-h">AI 产出物要求 ——「架构更新稿」必须包含</h3>
+      <table class="grid">
+        <thead>
+          <tr>
+            <th>字段</th>
+            <th>要求</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="stage">delta</td><td>新增 / 修改 / 废弃了哪些架构事实(模块边界、状态 owner、契约、依赖方向、部署约束…)</td></tr>
+          <tr><td class="stage">理由</td><td>为什么需要这个更新,关联到哪条需求或哪处代码现状</td></tr>
+          <tr><td class="stage">冲击的不变量</td><td>动了哪些既定不可变项,是否可接受</td></tr>
+          <tr><td class="stage">gate 变更</td><td>哪些 gate 的期望值要跟着改,新的期望是什么</td></tr>
+          <tr><td class="stage">升级标记</td><td>有没有需要人类额外裁决的硬约束(越界 / 改 owner / 破坏契约)</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ========== 围栏三位一体 ========== -->
+    <section class="section" aria-label="围栏三位一体">
+      <h2>围栏机制:4+1 不是给人看的文档,是可执行的约束</h2>
+      <p class="lead">写在文档里的「模块边界」拦不住 AI。要真正限制破坏性修改,4+1 必须能落地成自动检查。三个环节其实是<strong>同一组架构约束的三个投影</strong>——蓝图是期望,gate 是实时守,对账是事后验。</p>
+      <div class="triad">
+        <div class="leg">
+          <div class="step">① 蓝图</div>
+          <h3>4+1 视图</h3>
+          <p>人类维护的「期望」。写明模块边界、状态 owner、依赖方向、契约、部署约束。这是人类把控架构的唯一界面。</p>
+        </div>
+        <div class="leg">
+          <div class="step">② 实时守</div>
+          <h3>gate 执行</h3>
+          <p>把蓝图转译成实时拦截。AI 写代码时 ArchUnit、依赖 gate、schema check 即时拦下破坏,不需要人类看 diff。</p>
+        </div>
+        <div class="leg">
+          <div class="step">③ 对账</div>
+          <h3>graphify / OpenAPI</h3>
+          <p>验收时从代码反推现实结构,和蓝图做 diff。漂移 = 破坏点,自动暴露给闸门 2 的人类裁决。</p>
+        </div>
+      </div>
+      <div class="triad-note">4+1 的每一类视图,都对应一类 gate。实现期间 gate 和 graphify 按「已固化基线 + 本轮待合并更新稿」对账(本轮目标);只有末端固化后,基线才真正吸收本轮已验证事实。graphify + 4+1 配对,就是「架构围栏」的自动对账机制。</div>
+
+      <table class="grid" style="margin-top:18px;">
+        <thead>
+          <tr>
+            <th>4+1 视图</th>
+            <th>围栏守什么</th>
+            <th>对应的 gate</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="stage">逻辑视图</td><td>模块职责边界</td><td>ArchUnit / rg gate:某包不许调用某包</td></tr>
+          <tr><td class="stage">开发视图</td><td>分层依赖方向</td><td>依赖方向 gate:禁止反向依赖</td></tr>
+          <tr><td class="stage">进程视图</td><td>状态 owner、并发模型</td><td>状态归属 contract test / drift check</td></tr>
+          <tr><td class="stage">物理视图</td><td>部署单元、配置</td><td>部署 / 配置 schema check</td></tr>
+          <tr><td class="stage">场景视图</td><td>关键路径行为</td><td>wire probe / 端到端测试</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ========== 4+1 双面性 ========== -->
+    <section class="section" aria-label="4+1 双面性">
+      <h2>4+1 的双面:人类的界面,机器的蓝图</h2>
+      <p class="lead">同一份 4+1,对人类和对机器承担两种角色。它既是人类把控架构的全景基线,也是机器守边界的约束源头——而且它是持续维护、增量演进的,不是每轮重画。</p>
+      <div class="split">
+        <article class="face-card human-face">
+          <h3>给人类:持续的全景基线</h3>
+          <p>每轮审核的是基线的更新(delta),不是从零把控整个架构。决策的是更新在业务和组织上站不站得住。</p>
+          <ul>
+            <li>一眼看清模块边界、状态归属、依赖方向</li>
+            <li>识别本轮更新会冲击哪些不变量</li>
+            <li>决定升级口和更新稿里的问题怎么裁决</li>
+          </ul>
+        </article>
+        <article class="face-card machine-face">
+          <h3>给机器:持续生效的约束蓝图</h3>
+          <p>实现期间围栏对齐「已固化基线 + 本轮更新稿」(目标);末端固化后,基线才吸收本轮已验证事实。</p>
+          <ul>
+            <li>代码边界说明 =(已固化基线 + 更新稿)∩ 代码扫描 → 自动派生 writable</li>
+            <li>每条约束配置一个 gate 的期望值</li>
+            <li>graphify 反推代码现实,与「基线 + 更新稿」对账</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <!-- ========== 端到端流程视图 ========== -->
+    <section class="section" aria-label="端到端流程视图">
+      <h2>端到端流程:从需求到版本交付件</h2>
+      <p class="lead">把一个需求变成版本交付件的完整路径。关键观察:4+1 不是全程参与——需求澄清和纯实现不直接碰它,但所有「架构相关」步骤都以 4+1 基线为核心。下面先看 4+1 在每一步的参与度,再看每步干什么、引用什么、产出什么交付件、用什么 skill。</p>
+
+      <div class="participation">
+        <div class="part-label">4+1 视图参与度(绿=核心 · 蓝=参与 · 虚线=间接 · 灰=不参与)</div>
+        <div class="part-scroll">
+          <div class="part-bar">
+            <div class="part-cell none"><span class="lvl">不参与</span><span class="nm">需求澄清</span></div>
+            <div class="part-cell weak"><span class="lvl">弱引用</span><span class="nm">现状扫描</span></div>
+            <div class="part-cell core"><span class="lvl">核心</span><span class="nm">架构更新稿</span></div>
+            <div class="part-cell core"><span class="lvl">核心</span><span class="nm">gate 派生</span></div>
+            <div class="part-cell mid"><span class="lvl">参与</span><span class="nm">切片计划</span></div>
+            <div class="part-cell indirect"><span class="lvl">间接</span><span class="nm">AI 实现</span></div>
+            <div class="part-cell core"><span class="lvl">核心</span><span class="nm">后置对账</span></div>
+            <div class="part-cell core"><span class="lvl">核心</span><span class="nm">基线固化</span></div>
+          </div>
+        </div>
+      </div>
+
+      <table class="grid">
+        <thead>
+          <tr>
+            <th>步骤</th>
+            <th>做什么</th>
+            <th>引用(输入)</th>
+            <th>产出交付件</th>
+            <th>交付件要求 / skill</th>
+            <th>谁做</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="stage">1 需求澄清</td>
+            <td>一句话需求 → 结构化需求</td>
+            <td>原始意图、背景、约束(无 4+1)</td>
+            <td>版本需求文档</td>
+            <td>模板:目标/非目标/场景/调用方/release bar;skill:需求访谈</td>
+            <td>人机密集</td>
+          </tr>
+          <tr>
+            <td class="stage">2 现状扫描</td>
+            <td>扫代码 / 契约 / 依赖 / 测试</td>
+            <td>代码库、git、schema(弱引 4+1 基线)</td>
+            <td>代码现状报告</td>
+            <td>模板:模块/依赖/契约/状态/测试/漂移;skill:rg、git、依赖扫描</td>
+            <td>自动(0→1 跳过)</td>
+          </tr>
+          <tr class="gate-row">
+            <td class="stage">3 架构更新稿</td>
+            <td>需求 + 现状 → 本轮架构 delta</td>
+            <td>需求 + 现状 + <strong>4+1 基线</strong></td>
+            <td>待合并更新稿</td>
+            <td>模板:delta/理由/冲击不变量/gate 变更/升级标记;skill:影响分析</td>
+            <td>AI 草案 → ⟨闸门 1 人类审核⟩</td>
+          </tr>
+          <tr>
+            <td class="stage">4 gate 派生</td>
+            <td>更新稿 + 基线 → 边界 + gate(围栏先行)</td>
+            <td><strong>4+1 基线 + 更新稿</strong></td>
+            <td>代码边界说明 + gate 配置</td>
+            <td>skill:边界派生、gate 生成(ArchUnit / 依赖 gate / schema check)</td>
+            <td>自动</td>
+          </tr>
+          <tr>
+            <td class="stage">5 切片 / 计划</td>
+            <td>在 gate 约束内拆可施工切片</td>
+            <td>更新稿 + <strong>4+1 基线</strong> + gate 配置</td>
+            <td>交付计划</td>
+            <td>模板:切片/writable/code·harness·schema·probe 输出/DoD;skill:切片生成</td>
+            <td>AI 草案</td>
+          </tr>
+          <tr>
+            <td class="stage">6 AI 实现</td>
+            <td>writable 内编码 / 测试</td>
+            <td>计划 + 边界 + gate(4+1 间接)</td>
+            <td>实现证据包</td>
+            <td>模板:changed files/测试/gate 结果/漂移;skill:编码、测试</td>
+            <td>AI 自主</td>
+          </tr>
+          <tr class="gate-row">
+            <td class="stage">7 后置对账</td>
+            <td>graphify / OpenAPI 反推对账</td>
+            <td>代码 + <strong>4+1 基线 + 更新稿</strong></td>
+            <td>对账报告</td>
+            <td>skill:graphify、OpenAPI、drift 分析</td>
+            <td>自动 → ⟨闸门 2 人类裁决⟩</td>
+          </tr>
+          <tr>
+            <td class="stage">8 基线固化</td>
+            <td>按实际实现写 4+1</td>
+            <td>证据 + 对账 + <strong>4+1 基线</strong></td>
+            <td>更新后 4+1 基线 + 决策记录</td>
+            <td>模板:accepted facts / deferred / release risk;skill:基线合并</td>
+            <td>人类确认</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="triad-note" style="margin-top:18px;"><strong>读这张表的方法:</strong>看「引用」列里有没有 <strong>4+1</strong>——只有需求澄清(步骤 1)和纯实现(步骤 6)不直接碰 4+1,其余每一步都把 4+1 基线当核心输入或对账基准。每个交付件都配有模板和 skill,自动化步骤也有明确产出要求,不是黑盒。</div>
+    </section>
+
+    <!-- ========== 升级口 ========== -->
+    <section class="section" aria-label="升级口">
+      <h2>升级口:围栏不是死墙</h2>
+      <p class="lead">4+1 是静态快照,架构是演进的。如果 AI 每次都必须严格符合 4+1,合理改进也被挡死,架构就僵化了。所以围栏要留一个口——这是 AI 自主推进过程中,唯一需要打断人类的地方。</p>
+      <div class="split">
+        <article class="path-card">
+          <h3>什么时候触发</h3>
+          <dl>
+            <dt>越界</dt><dd>实现需要改动当前 4+1 基线之外的模块或路径</dd>
+            <dt>改 owner</dt><dd>需要改变状态 owner 或跨模块控制权</dd>
+            <dt>假设崩</dt><dd>代码证明 4+1 基线的某条假设不成立</dd>
+          </dl>
+        </article>
+        <article class="path-card">
+          <h3>AI 怎么做</h3>
+          <dl>
+            <dt>不硬闯</dt><dd>gate 会拦,闯不过去</dd>
+            <dt>不偷改</dt><dd>偷改会被 graphify 对账暴露,破坏基线</dd>
+            <dt>而是</dt><dd>升级回闸门 1,调整本轮待合并更新稿,由人类重新审核</dd>
+          </dl>
+        </article>
+      </div>
+    </section>
+
+    <!-- ========== 0→1 vs 1→3 ========== -->
+    <section class="section" aria-label="两条流程">
+      <h2>0→1 与 1→3:围栏的成熟度不同</h2>
+      <p class="lead">这套模型的核心收益在增量开发——已有 4+1 基准、gate 已在守、graphify 能对账,AI 自主区可以开到最大。从零新建时人类在闸门 1 的负担更重。</p>
+      <div class="split">
+        <article class="path-card">
+          <h3>0→1 全新建</h3>
+          <dl>
+            <dt>闸门 1</dt><dd>人类最密集:架构基线从无到有,4+1 靠讨论建立</dd>
+            <dt>扫描</dt><dd>无代码可扫,给不出有依据的更新稿,AI 自主区窄</dd>
+            <dt>围栏</dt><dd>gate 从零配,graphify 无代码可对账,主要靠 gate</dd>
+          </dl>
+        </article>
+        <article class="path-card">
+          <h3>1→3 增量改</h3>
+          <dl>
+            <dt>闸门 1</dt><dd>人类轻:4+1 基线已存在,只审核本轮更新稿(delta)</dd>
+            <dt>扫描</dt><dd>有现成代码,边界说明从基线自动派生,AI 自主区宽</dd>
+            <dt>围栏</dt><dd>graphify 能对账(代码 vs 当前基线),破坏易暴露</dd>
+          </dl>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    A2D v2 · 以 4+1 架构视图为枢纽的两闸门模型。人类做架构、机器守边界、AI 跑实现。改自 a2d-stage-inputs-and-tools.md 的思路重构。
+  </footer>
+</body>
+</html>
