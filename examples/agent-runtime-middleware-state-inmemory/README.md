@@ -22,6 +22,7 @@ http://localhost:18083
 |---|---|
 | `POST /sample/state/save` | 保存一次 OpenJiuwen session checkpoint |
 | `GET /sample/state/exists?stateKey=demo-state` | 查询 checkpoint 是否存在 |
+| `GET /sample/state/load?stateKey=demo-state` | 用新的 session 读取并验证 checkpoint 内容 |
 | `DELETE /sample/state/{stateKey}` | 释放 checkpoint |
 
 ## 设计要点

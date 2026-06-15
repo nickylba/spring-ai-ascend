@@ -56,6 +56,13 @@ class AgentStateInMemoryController {
         return Map.of("stateKey", stateKey, "exists", checkpointer.sessionExists(stateKey));
     }
 
+    @GetMapping("/sample/state/load")
+    Map<String, Object> load(@RequestParam(defaultValue = "demo-state") String stateKey) {
+        AgentSessionApi session = new AgentSessionApi(stateKey);
+        checkpointer.preAgentExecute(session.getInner(), Map.of());
+        return Map.of("stateKey", stateKey, "exists", checkpointer.sessionExists(stateKey), "state", session.dumpState());
+    }
+
     @DeleteMapping("/sample/state/{stateKey}")
     Map<String, Object> release(@PathVariable String stateKey) {
         checkpointer.release(stateKey);

@@ -39,6 +39,13 @@ class AgentStateInMemoryExampleTest {
         assertThat(checkpointer).isInstanceOf(InMemoryCheckpointer.class);
         assertThat(checkpointer.sessionExists(sessionId)).isTrue();
 
+        AgentSessionApi restored = new AgentSessionApi(sessionId);
+        checkpointer.preAgentExecute(restored.getInner(), Map.of());
+        Map<?, ?> globalState = (Map<?, ?>) restored.dumpState().get("global_state");
+
+        assertThat(globalState.get("turn")).isEqualTo(1);
+        assertThat(globalState.get("answer")).isEqualTo("pong");
+
         checkpointer.release(sessionId);
 
         assertThat(checkpointer.sessionExists(sessionId)).isFalse();

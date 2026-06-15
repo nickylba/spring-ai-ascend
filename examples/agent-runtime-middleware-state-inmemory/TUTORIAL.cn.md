@@ -84,7 +84,30 @@ curl -s 'http://localhost:18083/sample/state/exists?stateKey=demo-state'
 
 ---
 
-## 5. Step 4 — 释放 state
+## 5. Step 4 — 读取并验证 state 内容
+
+```bash
+curl -s 'http://localhost:18083/sample/state/load?stateKey=demo-state'
+```
+
+期望响应包含 `turn=1` 和 `answer=pong`，表示新的 session 已经从 checkpointer 恢复出保存内容：
+
+```json
+{
+  "stateKey": "demo-state",
+  "exists": true,
+  "state": {
+    "global_state": {
+      "turn": 1,
+      "answer": "pong"
+    }
+  }
+}
+```
+
+---
+
+## 6. Step 5 — 释放 state
 
 ```bash
 curl -s -X DELETE http://localhost:18083/sample/state/demo-state
@@ -103,7 +126,7 @@ curl -s -X DELETE http://localhost:18083/sample/state/demo-state
 
 ---
 
-## 6. Step 5 — 看代码入口
+## 7. Step 6 — 看代码入口
 
 关键代码在：
 
@@ -122,6 +145,6 @@ Checkpointer openJiuwenCheckpointer() {
 
 ---
 
-## 7. 清理
+## 8. 清理
 
 在启动服务的终端按 `Ctrl+C` 停止进程。InMemory checkpoint 随进程退出释放。

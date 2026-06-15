@@ -47,6 +47,13 @@ class AgentStateRedisExampleTest {
         assertThat(installed).isSameAs(redisCheckpointer);
         assertThat(installed.sessionExists(sessionId)).isTrue();
 
+        AgentSessionApi restored = new AgentSessionApi(sessionId);
+        installed.preAgentExecute(restored.getInner(), Map.of());
+        Map<?, ?> globalState = (Map<?, ?>) restored.dumpState().get("global_state");
+
+        assertThat(globalState.get("turn")).isEqualTo(1);
+        assertThat(globalState.get("answer")).isEqualTo("pong");
+
         installed.release(sessionId);
 
         assertThat(installed.sessionExists(sessionId)).isFalse();
