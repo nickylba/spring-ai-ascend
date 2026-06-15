@@ -11,7 +11,9 @@ import com.huawei.ascend.examples.hotel.LlmConfig;
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.common.RuntimeMessage;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
+import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
+import com.huawei.ascend.runtime.engine.spi.MemoryProvider;
 import com.huawei.ascend.runtime.engine.spi.MemoryProvider.MemoryRecord;
 import com.openjiuwen.core.foundation.llm.Model;
 import com.openjiuwen.core.foundation.llm.model_clients.BaseModelClient;
@@ -25,9 +27,12 @@ import com.openjiuwen.core.foundation.llm.schema.ModelClientConfig;
 import com.openjiuwen.core.foundation.llm.schema.ModelRequestConfig;
 import com.openjiuwen.core.foundation.llm.schema.UserMessage;
 import com.openjiuwen.core.foundation.llm.schema.VideoGenerationResponse;
+import com.openjiuwen.core.singleagent.BaseAgent;
+import com.openjiuwen.core.singleagent.rail.AgentRail;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
@@ -72,6 +77,39 @@ class HotelAgentHandlerTest {
                     .anySatisfy(content -> assertThat(content).isEqualTo("帮我找北京酒店"))
                     .anySatisfy(content -> assertThat(content).contains("酒店推荐完成"))
                     .allSatisfy(content -> assertThat(content).doesNotContain("Relevant memory:"));
+        }
+    }
+
+    @Test
+    void railBasedHotelHandlerInjectsRecallThroughRunnerRunAgent() {
+        ensureModelFactoryRegistered();
+        CapturingModelClient.capturedMessages.clear();
+        AgentExecutionContext context = context("帮我找北京酒店");
+        HotelInMemoryMemoryProvider memoryProvider = new HotelInMemoryMemoryProvider();
+        memoryProvider.init(context);
+        memoryProvider.save(context, List.of(new MemoryRecord(
+                "memory-1",
+                "assistant",
+                "用户上次在北京偏好国贸附近的酒店",
+                Map.of())));
+        try (HotelPlanningAgent agent = new HotelPlanningAgent(
+                new LlmConfig(HOTEL_MODEL_PROVIDER, "key", "http://localhost", "fake-model", false))) {
+            RailBasedHotelAgentHandler handler =
+                    new RailBasedHotelAgentHandler("hotel-planning-agent", agent, memoryProvider);
+
+            List<?> rawResults;
+            try (Stream<?> raw = handler.execute(context)) {
+                rawResults = raw.toList();
+            }
+
+            assertThat(rawResults).isNotEmpty();
+            assertThat(CapturingModelClient.capturedMessages)
+                    .anySatisfy(message -> assertThat(message.getContentAsString())
+                            .contains("Relevant memory:")
+                            .contains("用户上次在北京偏好国贸附近的酒店"));
+            assertThat(CapturingModelClient.capturedMessages)
+                    .anySatisfy(message -> assertThat(message.getContentAsString())
+                            .isEqualTo("帮我找北京酒店"));
         }
     }
 
@@ -141,6 +179,27 @@ class HotelAgentHandlerTest {
                 String model, String size, String resolution, int duration, boolean promptExtend, boolean watermark,
                 String negativePrompt, Integer seed, Map<String, Object> kwargs) {
             throw new UnsupportedOperationException();
+        }
+    }
+
+    private static final class RailBasedHotelAgentHandler extends OpenJiuwenAgentRuntimeHandler {
+        private final HotelPlanningAgent agent;
+        private final MemoryProvider memoryProvider;
+
+        private RailBasedHotelAgentHandler(String agentId, HotelPlanningAgent agent, MemoryProvider memoryProvider) {
+            super(agentId);
+            this.agent = Objects.requireNonNull(agent, "agent");
+            this.memoryProvider = Objects.requireNonNull(memoryProvider, "memoryProvider");
+        }
+
+        @Override
+        protected BaseAgent createOpenJiuwenAgent(AgentExecutionContext context) {
+            return agent.newBaseAgent();
+        }
+
+        @Override
+        protected List<AgentRail> openJiuwenRails(AgentExecutionContext context) {
+            return List.of(memoryRuntimeRail(context, memoryProvider));
         }
     }
 }
