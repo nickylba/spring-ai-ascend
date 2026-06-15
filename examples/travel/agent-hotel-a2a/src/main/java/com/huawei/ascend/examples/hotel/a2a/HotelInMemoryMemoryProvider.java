@@ -34,9 +34,14 @@ import org.slf4j.LoggerFactory;
  * example's scorer) does not work for Chinese where there are no word boundaries,
  * so a paraphrased question like 「上次在北京住的是哪家」 would not recall a saved
  * 「已为您预订北京 BJ-001 酒店」. Character bigrams catch the shared 「北京」/「酒店」/「住」
- * pairs without a Chinese-aware tokenizer. Low-score records are still returned
- * as fallback candidates instead of producing an empty recall; higher scores
- * still rank first, and equal scores keep the most recent records first.
+ * pairs without a Chinese-aware tokenizer.
+ *
+ * <p>This in-memory demo keeps low-score records as fallback candidates instead
+ * of producing an empty recall, because it has no embedding index, reranker, or
+ * production threshold tuning. External memory backends should keep their own
+ * threshold and ranking policy; this fallback is intentionally scoped to the
+ * simplest process-local example. Higher scores still rank first, and equal
+ * scores keep the most recent records first.
  *
  * <p>This is intentionally NOT a production memory backend: storage is lost on
  * process restart, and scoring is text-only with no embeddings.
