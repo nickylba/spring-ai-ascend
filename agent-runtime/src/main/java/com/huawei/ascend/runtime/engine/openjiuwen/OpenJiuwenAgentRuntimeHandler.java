@@ -26,6 +26,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Spliterator;
 import java.util.Set;
 import java.util.Spliterators;
 import org.slf4j.Logger;
@@ -107,7 +108,7 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
             }
             if (result instanceof Iterator<?> iterator) {
                 return java.util.stream.StreamSupport.stream(
-                        Spliterators.spliteratorUnknownSize(iterator, 0), false);
+                        Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED), false);
             }
             return java.util.stream.Stream.of(result);
         } catch (RuntimeException error) {

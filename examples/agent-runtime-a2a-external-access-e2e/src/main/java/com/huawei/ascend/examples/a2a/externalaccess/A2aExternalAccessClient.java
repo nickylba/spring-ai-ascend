@@ -361,17 +361,18 @@ public final class A2aExternalAccessClient {
     }
 
     static String taskIdFrom(JsonNode root) {
-        return root.path("result").path("task").path("id").asText();
+        return taskNode(root).path("id").asText();
     }
 
     static String taskStateFrom(JsonNode root) {
-        return root.path("result").path("task").path("status").path("state").asText();
+        return taskNode(root).path("status").path("state").asText();
     }
 
     static String textFrom(JsonNode root) {
         StringBuilder text = new StringBuilder();
-        appendTextParts(root.path("result").path("task").path("status").path("message").path("parts"), text);
-        JsonNode artifacts = root.path("result").path("task").path("artifacts");
+        JsonNode task = taskNode(root);
+        appendTextParts(task.path("status").path("message").path("parts"), text);
+        JsonNode artifacts = task.path("artifacts");
         if (artifacts.isArray()) {
             artifacts.forEach(artifact -> appendTextParts(artifact.path("parts"), text));
         }
@@ -408,6 +409,12 @@ public final class A2aExternalAccessClient {
             return wrapped.asText();
         }
         return "";
+    }
+
+    private static JsonNode taskNode(JsonNode root) {
+        JsonNode result = root.path("result");
+        JsonNode wrapped = result.path("task");
+        return wrapped.isMissingNode() ? result : wrapped;
     }
 
     private static boolean isTerminalJson(JsonNode root) {

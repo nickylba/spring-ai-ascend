@@ -67,6 +67,9 @@ public class OpenJiuwenStreamAdapter {
         if (payload instanceof Map<?, ?> map) {
             return map(normalizeMap(map));
         }
+        if ("answer".equals(type)) {
+            return AgentExecutionResult.completed(asString(payload));
+        }
         return AgentExecutionResult.output(asString(payload));
     }
 

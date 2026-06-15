@@ -49,6 +49,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Spliterator;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
@@ -384,6 +385,15 @@ class OpenJiuwenAgentRuntimeHandlerTest {
     }
 
     @Test
+    void executeMarksIteratorBackedStreamsAsOrdered() {
+        StreamingOpenJiuwenHandler handler = new StreamingOpenJiuwenHandler();
+
+        try (Stream<?> rawResults = handler.execute(context(Map.of()))) {
+            assertThat(rawResults.spliterator().hasCharacteristics(Spliterator.ORDERED)).isTrue();
+        }
+    }
+
+    @Test
     void resultAdapterMapsOpenJiuwenStreamingOutputChunks() {
         TestOpenJiuwenHandler handler = new TestOpenJiuwenHandler();
 
@@ -399,6 +409,19 @@ class OpenJiuwenAgentRuntimeHandlerTest {
                         AgentExecutionResult.Type.COMPLETED);
         assertThat(results).extracting(AgentExecutionResult::outputContent)
                 .containsExactly("first ", "second", "final");
+    }
+
+    @Test
+    void resultAdapterMapsScalarAnswerChunkAsCompletion() {
+        TestOpenJiuwenHandler handler = new TestOpenJiuwenHandler();
+
+        List<AgentExecutionResult> results = handler.resultAdapter().adapt(Stream.of(
+                new OutputSchema("answer", 0, "done"))).toList();
+
+        assertThat(results).extracting(AgentExecutionResult::type)
+                .containsExactly(AgentExecutionResult.Type.COMPLETED);
+        assertThat(results).extracting(AgentExecutionResult::outputContent)
+                .containsExactly("done");
     }
 
     @Test
