@@ -4,7 +4,7 @@ import java.util.Objects;
 
 /**
  * Receiver-side dedup / idempotency / audit record for the C3 inbox substrate
- * (Stage 8).
+ * (Stage 8 / 9).
  *
  * <p>Mirrors the inbox record schema of {@code ICD-Agent-Bus-Forwarding-Runtime}
  * field-for-field: the receiver writes a record on first arrival
@@ -13,10 +13,15 @@ import java.util.Objects;
  * inbox state machine. {@code idempotencyKey} is an audit-only envelope field
  * (MI8-004); the dedup key is the triple below, not {@code idempotencyKey}.
  *
+ * <p>Stage 9 (MI9-003)固化 the runtime ICD condition-field rules in the compact
+ * constructor: {@code CONSUMED} requires a positive {@code consumedAtMillisEpoch}
+ * and no failure code; {@code DUPLICATE_SUPPRESSED} requires the
+ * {@code DUPLICATE_SUPPRESSED} failure code; {@code REJECTED} requires a
+ * non-null failure code; {@code RECEIVED} carries no failure code and
+ * {@code consumedAtMillisEpoch == 0} (unset).
+ *
  * <p>Forbidden-payload invariant (HD4): same as the outbox record — no payload
- * body, no token stream, no Task execution state, no physical endpoint. The
- * compact constructor enforces tenant isolation: {@code tenantId} and
- * {@code consumerServiceId} must be non-blank (Rule R-C.c).
+ * body, no token stream, no Task execution state, no physical endpoint.
  *
  * <p>Authority: {@code ICD-Agent-Bus-Forwarding-Runtime} (inbox record fields);
  * {@code architecture/docs/L2/agent-bus/forwarding-outbox-inbox.md §4.2};
@@ -43,14 +48,36 @@ public record ForwardingInboxRecord(
             throw new IllegalArgumentException("consumerServiceId must not be blank");
         }
         Objects.requireNonNull(status, "status is required");
-        // RECEIVED holds no failure code; rejected / duplicate outcomes carry one
-        if (status == ForwardingStatus.Inbox.RECEIVED && failureCode != null) {
-            throw new IllegalArgumentException(
+        validateStatusInvariants(status, consumedAtMillisEpoch, failureCode);
+    }
+
+    /**
+     * Per-status condition-field invariants (MI9-003). {@code consumedAtMillisEpoch == 0}
+     * denotes "unset" (long primitive); only {@code CONSUMED} requires a positive value.
+     */
+    static void validateStatusInvariants(ForwardingStatus.Inbox status,
+                                         long consumedAtMillisEpoch,
+                                         ForwardingFailureCode failureCode) {
+        switch (status) {
+            case RECEIVED -> requireCondition(failureCode == null,
                     "RECEIVED inbox record must not carry a failureCode");
+            case CONSUMED -> {
+                requireCondition(failureCode == null,
+                        "CONSUMED inbox record must not carry a failureCode");
+                requireCondition(consumedAtMillisEpoch > 0,
+                        "CONSUMED inbox record requires consumedAtMillisEpoch > 0");
+            }
+            case DUPLICATE_SUPPRESSED -> requireCondition(
+                    failureCode == ForwardingFailureCode.DUPLICATE_SUPPRESSED,
+                    "DUPLICATE_SUPPRESSED inbox record requires failureCode DUPLICATE_SUPPRESSED");
+            case REJECTED -> requireCondition(failureCode != null,
+                    "REJECTED inbox record requires a non-null failureCode");
         }
-        if (status == ForwardingStatus.Inbox.CONSUMED && failureCode != null) {
-            throw new IllegalArgumentException(
-                    "CONSUMED inbox record must not carry a failureCode");
+    }
+
+    private static void requireCondition(boolean condition, String message) {
+        if (!condition) {
+            throw new IllegalArgumentException(message);
         }
     }
 

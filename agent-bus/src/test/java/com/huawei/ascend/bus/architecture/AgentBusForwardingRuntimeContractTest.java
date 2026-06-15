@@ -5,6 +5,9 @@ import com.huawei.ascend.bus.forwarding.runtime.ForwardingStateMachine;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingDeliveryResult;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingEnvelope;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingFailureCode;
+import com.huawei.ascend.bus.forwarding.spi.ForwardingInboxRecord;
+import com.huawei.ascend.bus.forwarding.spi.ForwardingLease;
+import com.huawei.ascend.bus.forwarding.spi.ForwardingLeaseException;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingMessageId;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingOutboxClaimPort;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingOutboxRecord;
@@ -74,6 +77,8 @@ class AgentBusForwardingRuntimeContractTest {
             "../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding-runtime.md");
     private static final Path SCHEMA = Path.of(
             "../docs/architecture/l0/05-contracts/machine-readable/agent-bus-forwarding-runtime.v1.yaml");
+    private static final Path PERSISTENCE = Path.of(
+            "../architecture/docs/L2/agent-bus/forwarding-persistence.md");
 
     private static final long NOW = 1_700_000_000_000L;
     private static final String SOURCE_SERVICE = "svc-src";
@@ -293,9 +298,11 @@ class AgentBusForwardingRuntimeContractTest {
         assertThat(receipt.failureCode()).isNull();
         assertThat(outbox.statusOf(env.messageId(), env.tenantId())).isEqualTo(PENDING);
 
-        outbox.markDispatching(env.messageId(), env.tenantId());
+        // DISPATCHING is entered only via claim / lease (Stage 9, MI9-001:
+        // markDispatching was removed — claim is the sole path into DISPATCHING)
+        assertThat(outbox.claimDue("tenant-a", NOW, 10, LEASE_OWNER, LEASE_UNTIL)).hasSize(1);
         assertThat(outbox.statusOf(env.messageId(), env.tenantId())).isEqualTo(DISPATCHING);
-        outbox.markAcked(env.messageId(), env.tenantId());
+        outbox.markAcked(env.messageId(), env.tenantId(), LEASE_OWNER);
         assertThat(outbox.statusOf(env.messageId(), env.tenantId())).isEqualTo(ACKED);
     }
 
@@ -304,8 +311,9 @@ class AgentBusForwardingRuntimeContractTest {
         InMemoryForwardingOutbox outbox = new InMemoryForwardingOutbox();
         ForwardingEnvelope env = envelope("msg-retry", "tenant-a");
         outbox.enqueue(env, SOURCE_SERVICE, TARGET_SERVICE, NOW);
-        outbox.markDispatching(env.messageId(), env.tenantId());
-        outbox.scheduleRetry(env.messageId(), env.tenantId(),
+        // DISPATCHING via claim, then lease-owner guarded RETRY (Stage 9, MI9-001)
+        outbox.claimDue("tenant-a", NOW, 10, LEASE_OWNER, LEASE_UNTIL);
+        outbox.scheduleRetry(env.messageId(), env.tenantId(), LEASE_OWNER,
                 ForwardingFailureCode.RECEIVER_UNAVAILABLE, NOW + 5_000);
         assertThat(outbox.statusOf(env.messageId(), env.tenantId())).isEqualTo(RETRY_SCHEDULED);
         assertThat(outbox.attemptCountOf(env.messageId(), env.tenantId()))
@@ -413,8 +421,9 @@ class AgentBusForwardingRuntimeContractTest {
         ForwardingOutboxClaimPort claim = outbox;
         ForwardingEnvelope env = envelope("msg-term", "tenant-a");
         outbox.enqueue(env, SOURCE_SERVICE, TARGET_SERVICE, NOW);
-        outbox.markDispatching(env.messageId(), env.tenantId());
-        outbox.markAcked(env.messageId(), env.tenantId());
+        // drive to ACKED via claim + lease-owner guarded ack (Stage 9, MI9-001)
+        outbox.claimDue("tenant-a", NOW, 10, LEASE_OWNER, LEASE_UNTIL);
+        outbox.markAcked(env.messageId(), env.tenantId(), LEASE_OWNER);
         assertThat(outbox.statusOf(env.messageId(), env.tenantId())).isEqualTo(ACKED);
         assertThat(claim.claimDue("tenant-a", NOW, 10, LEASE_OWNER, LEASE_UNTIL))
                 .as("a terminal record is never claimable")
@@ -476,6 +485,252 @@ class AgentBusForwardingRuntimeContractTest {
                         .doesNotContain("java.sql.", "javax.sql.")
                         .doesNotContain("org.apache.kafka", "com.rabbitmq",
                                         "org.apache.rocketmq", "io.nats.client"));
+    }
+
+    // ===== Stage 9 — lease-safe mutation, lease lifecycle, record invariants, failure classification =====
+
+    /**
+     * Slice 1 (MI9-001): a worker whose lease expired and was reclaimed by
+     * another worker cannot mutate the record — the guard trips as
+     * {@code OWNER_MISMATCH}, while the new holder can. This is the canonical
+     * stale-worker race a real JDBC CAS
+     * ({@code WHERE lease_owner = ? AND lease_until > now()}) prevents.
+     */
+    @Test
+    void stale_worker_acks_after_lease_reclaimed_by_another_owner_fails() {
+        InMemoryForwardingOutbox outbox = new InMemoryForwardingOutbox();
+        ForwardingEnvelope env = envelope("msg-stale", "tenant-a");
+        outbox.enqueue(env, SOURCE_SERVICE, TARGET_SERVICE, NOW);
+
+        // worker-1 claims with a short lease
+        outbox.claimDue("tenant-a", NOW, 10, "worker-1", NOW + 1_000);
+        // lease expires; worker-2 reclaims the stuck DISPATCHING record
+        long later = NOW + 5_000;
+        outbox.claimDue("tenant-a", later, 10, "worker-2", later + 30_000);
+
+        // worker-1 (stale) tries to ACK → rejected, not the current holder
+        assertThatThrownBy(() -> outbox.markAcked(env.messageId(), "tenant-a", "worker-1"))
+                .isInstanceOf(ForwardingLeaseException.class)
+                .hasFieldOrPropertyWithValue("reason",
+                        ForwardingLeaseException.Reason.OWNER_MISMATCH);
+        // record is still DISPATCHING, owned by worker-2
+        assertThat(outbox.statusOf(env.messageId(), "tenant-a")).isEqualTo(DISPATCHING);
+        // the current holder can still drive it to terminal
+        assertThat(outbox.markAcked(env.messageId(), "tenant-a", "worker-2")).isEqualTo(ACKED);
+    }
+
+    /**
+     * Slice 1 (MI9-001): the lease-owner guard distinguishes its other failure
+     * modes — an unknown record and an unclaimed (PENDING) record.
+     */
+    @Test
+    void lease_guarded_mutation_reports_record_not_found_and_no_lease() {
+        InMemoryForwardingOutbox outbox = new InMemoryForwardingOutbox();
+        // RECORD_NOT_FOUND: unknown message
+        assertThatThrownBy(() -> outbox.markAcked(
+                new ForwardingMessageId("msg-missing"), "tenant-a", LEASE_OWNER))
+                .isInstanceOf(ForwardingLeaseException.class)
+                .hasFieldOrPropertyWithValue("reason",
+                        ForwardingLeaseException.Reason.RECORD_NOT_FOUND);
+        // NO_LEASE: a PENDING record was never claimed
+        ForwardingEnvelope env = envelope("msg-nolease", "tenant-a");
+        outbox.enqueue(env, SOURCE_SERVICE, TARGET_SERVICE, NOW);
+        assertThatThrownBy(() -> outbox.markAcked(env.messageId(), "tenant-a", LEASE_OWNER))
+                .isInstanceOf(ForwardingLeaseException.class)
+                .hasFieldOrPropertyWithValue("reason",
+                        ForwardingLeaseException.Reason.NO_LEASE);
+    }
+
+    /**
+     * Slice 2 (MI9-002): terminal + retry states clear the lease; only an
+     * active DISPATCHING record holds one.
+     */
+    @Test
+    void terminal_and_retry_states_clear_lease_only_dispatching_holds_it() {
+        InMemoryForwardingOutbox outbox = new InMemoryForwardingOutbox();
+
+        // ACKED clears the lease
+        ForwardingEnvelope ack = envelope("msg-lc-ack", "tenant-a");
+        outbox.enqueue(ack, SOURCE_SERVICE, TARGET_SERVICE, NOW);
+        outbox.claimDue("tenant-a", NOW, 10, LEASE_OWNER, LEASE_UNTIL);
+        outbox.markAcked(ack.messageId(), "tenant-a", LEASE_OWNER);
+        assertThat(outbox.recordOf(ack.messageId(), "tenant-a").lease())
+                .as("ACKED record holds no lease (MI9-002)").isNull();
+
+        // DLQ clears the lease
+        ForwardingEnvelope dlq = envelope("msg-lc-dlq", "tenant-a");
+        outbox.enqueue(dlq, SOURCE_SERVICE, TARGET_SERVICE, NOW);
+        outbox.claimDue("tenant-a", NOW, 10, LEASE_OWNER, LEASE_UNTIL);
+        outbox.moveToDlq(dlq.messageId(), "tenant-a", LEASE_OWNER,
+                ForwardingFailureCode.ROUTE_NOT_FOUND);
+        assertThat(outbox.recordOf(dlq.messageId(), "tenant-a").lease())
+                .as("DLQ record holds no lease (MI9-002)").isNull();
+
+        // EXPIRED clears the lease
+        ForwardingEnvelope exp = envelope("msg-lc-exp", "tenant-a");
+        outbox.enqueue(exp, SOURCE_SERVICE, TARGET_SERVICE, NOW);
+        outbox.claimDue("tenant-a", NOW, 10, LEASE_OWNER, LEASE_UNTIL);
+        outbox.markExpired(exp.messageId(), "tenant-a", LEASE_OWNER);
+        assertThat(outbox.recordOf(exp.messageId(), "tenant-a").lease())
+                .as("EXPIRED record holds no lease (MI9-002)").isNull();
+
+        // RETRY_SCHEDULED clears the lease
+        ForwardingEnvelope retr = envelope("msg-lc-retry", "tenant-a");
+        outbox.enqueue(retr, SOURCE_SERVICE, TARGET_SERVICE, NOW);
+        outbox.claimDue("tenant-a", NOW, 10, LEASE_OWNER, LEASE_UNTIL);
+        outbox.scheduleRetry(retr.messageId(), "tenant-a", LEASE_OWNER,
+                ForwardingFailureCode.RECEIVER_UNAVAILABLE, NOW + 5_000);
+        assertThat(outbox.recordOf(retr.messageId(), "tenant-a").lease())
+                .as("RETRY_SCHEDULED record holds no lease (MI9-002)").isNull();
+
+        // active DISPATCHING holds a live lease
+        ForwardingEnvelope disp = envelope("msg-lc-disp", "tenant-a");
+        outbox.enqueue(disp, SOURCE_SERVICE, TARGET_SERVICE, NOW);
+        outbox.claimDue("tenant-a", NOW, 10, LEASE_OWNER, LEASE_UNTIL);
+        ForwardingLease lease = outbox.recordOf(disp.messageId(), "tenant-a").lease();
+        assertThat(lease).as("DISPATCHING record holds a live lease (MI9-002)").isNotNull();
+        assertThat(lease.leaseOwner()).isEqualTo(LEASE_OWNER);
+        assertThat(lease.isExpiredAt(NOW)).isFalse();
+    }
+
+    /**
+     * Slice 3 (MI9-003): the outbox record compact constructor rejects a record
+     * that violates a per-status condition-field invariant.
+     */
+    @Test
+    void outbox_record_rejects_invalid_status_invariants() {
+        ForwardingMessageId id = new ForwardingMessageId("msg-bad");
+        ForwardingRouteHandle route = new ForwardingRouteHandle("route-1", "tenant-a");
+
+        // RETRY_SCHEDULED without nextAttemptAt
+        assertThatThrownBy(() -> new ForwardingOutboxRecord("tenant-a", id, SOURCE_SERVICE,
+                TARGET_SERVICE, route, null, RETRY_SCHEDULED, 0, 0L, NOW, NOW,
+                ForwardingFailureCode.RECEIVER_UNAVAILABLE, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        // RETRY_SCHEDULED with a non-retryable code
+        assertThatThrownBy(() -> new ForwardingOutboxRecord("tenant-a", id, SOURCE_SERVICE,
+                TARGET_SERVICE, route, null, RETRY_SCHEDULED, 0, NOW + 5_000, NOW, NOW,
+                ForwardingFailureCode.ROUTE_NOT_FOUND, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        // ACKED must not carry a lastFailureCode
+        assertThatThrownBy(() -> new ForwardingOutboxRecord("tenant-a", id, SOURCE_SERVICE,
+                TARGET_SERVICE, route, null, ACKED, 0, 0L, NOW, NOW,
+                ForwardingFailureCode.ROUTE_NOT_FOUND, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        // DLQ requires a lastFailureCode
+        assertThatThrownBy(() -> new ForwardingOutboxRecord("tenant-a", id, SOURCE_SERVICE,
+                TARGET_SERVICE, route, null, DLQ, 0, 0L, NOW, NOW, null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        // DISPATCHING requires a non-null lease
+        assertThatThrownBy(() -> new ForwardingOutboxRecord("tenant-a", id, SOURCE_SERVICE,
+                TARGET_SERVICE, route, null, DISPATCHING, 0, 0L, NOW, NOW, null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        // terminal ACKED must not hold a lease
+        assertThatThrownBy(() -> new ForwardingOutboxRecord("tenant-a", id, SOURCE_SERVICE,
+                TARGET_SERVICE, route, null, ACKED, 0, 0L, NOW, NOW, null,
+                new ForwardingLease(LEASE_OWNER, LEASE_UNTIL)))
+                .isInstanceOf(IllegalArgumentException.class);
+        // tenant mismatch: tenantId != routeHandle.tenantScope
+        assertThatThrownBy(() -> new ForwardingOutboxRecord("tenant-other", id, SOURCE_SERVICE,
+                TARGET_SERVICE, route, null, PENDING, 0, 0L, NOW, NOW, null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("tenant_mismatch");
+        // negative attemptCount
+        assertThatThrownBy(() -> new ForwardingOutboxRecord("tenant-a", id, SOURCE_SERVICE,
+                TARGET_SERVICE, route, null, PENDING, -1, 0L, NOW, NOW, null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    /**
+     * Slice 3 (MI9-003): the inbox record compact constructor rejects a record
+     * that violates a per-status condition-field invariant.
+     */
+    @Test
+    void inbox_record_rejects_invalid_status_invariants() {
+        ForwardingMessageId id = new ForwardingMessageId("msg-inbox-bad");
+        // CONSUMED requires consumedAt > 0
+        assertThatThrownBy(() -> new ForwardingInboxRecord("tenant-a", id, "consumer-1",
+                CONSUMED, NOW, 0L, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        // CONSUMED must not carry a failureCode
+        assertThatThrownBy(() -> new ForwardingInboxRecord("tenant-a", id, "consumer-1",
+                CONSUMED, NOW, NOW, ForwardingFailureCode.PAYLOAD_REF_INVALID))
+                .isInstanceOf(IllegalArgumentException.class);
+        // RECEIVED must not carry a failureCode
+        assertThatThrownBy(() -> new ForwardingInboxRecord("tenant-a", id, "consumer-1",
+                RECEIVED, NOW, 0L, ForwardingFailureCode.TENANT_MISMATCH))
+                .isInstanceOf(IllegalArgumentException.class);
+        // REJECTED requires a failureCode
+        assertThatThrownBy(() -> new ForwardingInboxRecord("tenant-a", id, "consumer-1",
+                REJECTED, NOW, 0L, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        // DUPLICATE_SUPPRESSED requires the DUPLICATE_SUPPRESSED failureCode
+        assertThatThrownBy(() -> new ForwardingInboxRecord("tenant-a", id, "consumer-1",
+                DUPLICATE_SUPPRESSED, NOW, 0L, ForwardingFailureCode.TENANT_MISMATCH))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    /**
+     * Slice 4 (MI9-004): the failure-code classification drives RETRY / DLQ
+     * routing at construction time.
+     */
+    @Test
+    void failure_code_classification_drives_retry_and_dlq_routing() {
+        // classification
+        assertThat(ForwardingFailureCode.DELIVERY_TIMEOUT.retryable()).isTrue();
+        assertThat(ForwardingFailureCode.RECEIVER_UNAVAILABLE.retryable()).isTrue();
+        assertThat(ForwardingFailureCode.BACKPRESSURE_REJECTED.retryable()).isTrue();
+        assertThat(ForwardingFailureCode.ROUTE_NOT_FOUND.nonRetryable()).isTrue();
+        assertThat(ForwardingFailureCode.TENANT_MISMATCH.nonRetryable()).isTrue();
+        assertThat(ForwardingFailureCode.PAYLOAD_REF_INVALID.nonRetryable()).isTrue();
+        assertThat(ForwardingFailureCode.DUPLICATE_SUPPRESSED.dedup()).isTrue();
+
+        // retry(...) rejects a non-retryable code
+        assertThatThrownBy(() -> ForwardingDeliveryResult.retry(
+                ForwardingFailureCode.ROUTE_NOT_FOUND, NOW + 5_000))
+                .isInstanceOf(IllegalArgumentException.class);
+        // retry(...) rejects the dedup outcome
+        assertThatThrownBy(() -> ForwardingDeliveryResult.retry(
+                ForwardingFailureCode.DUPLICATE_SUPPRESSED, NOW + 5_000))
+                .isInstanceOf(IllegalArgumentException.class);
+        // dlq(...) rejects the dedup outcome
+        assertThatThrownBy(() -> ForwardingDeliveryResult.dlq(
+                ForwardingFailureCode.DUPLICATE_SUPPRESSED))
+                .isInstanceOf(IllegalArgumentException.class);
+        // dlq(...) accepts a retryable code whose retries are exhausted
+        assertThat(ForwardingDeliveryResult.dlq(ForwardingFailureCode.DELIVERY_TIMEOUT).outcome())
+                .isEqualTo(ForwardingDeliveryResult.Outcome.DLQ);
+    }
+
+    /**
+     * Slice 6 (MI9-006): the persistence DDL carries the condition CHECK
+     * constraints that mirror the Java record invariants, plus the claim
+     * (MI8-001) and lease-owner guarded state-update (MI9-001) SQL — so a
+     * future edit that drops a guard fails the build. DDL / SQL remain a
+     * contract draft (path B: no JDBC / Flyway in agent-bus).
+     */
+    @Test
+    void forwarding_persistence_ddl_enforces_record_invariants() {
+        assertThat(PERSISTENCE)
+                .as("forwarding-persistence.md must be reachable from agent-bus basedir")
+                .exists();
+        String ddl;
+        try {
+            ddl = Files.readString(PERSISTENCE);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        // outbox condition CHECK constraints (MI9-006) mirror the MI9-003 record invariants
+        assertThat(ddl).contains("ck_outbox_attempt_count",
+                "ck_outbox_lease_paired", "ck_outbox_retry_has_next_attempt",
+                "ck_outbox_failure_code", "ck_outbox_lease_status");
+        // inbox condition CHECK constraints
+        assertThat(ddl).contains("ck_inbox_consumed_at", "ck_inbox_failure_code",
+                "ck_inbox_dup_code");
+        // claim (MI8-001) + lease-owner guarded state mutation (MI9-001) SQL
+        assertThat(ddl).contains("FOR UPDATE SKIP LOCKED");
+        assertThat(ddl).contains("lease_owner = :leaseOwner");
+        assertThat(ddl).contains("lease_until > :now");
     }
 
     // ===== helpers =====

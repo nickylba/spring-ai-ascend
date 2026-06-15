@@ -38,6 +38,11 @@ public record ForwardingDeliveryResult(Outcome outcome, ForwardingFailureCode fa
                     throw new IllegalArgumentException(
                             "RETRY_SCHEDULED result requires a retryable failureCode");
                 }
+                if (!failureCode.retryable()) {
+                    throw new IllegalArgumentException(
+                            "RETRY_SCHEDULED result requires a retryable failureCode; "
+                            + failureCode + " is not retryable (MI9-004)");
+                }
                 if (nextAttemptAtMillisEpoch <= 0) {
                     throw new IllegalArgumentException(
                             "RETRY_SCHEDULED result requires a positive nextAttemptAtMillisEpoch");
@@ -46,6 +51,11 @@ public record ForwardingDeliveryResult(Outcome outcome, ForwardingFailureCode fa
             case DLQ -> {
                 if (failureCode == null) {
                     throw new IllegalArgumentException("DLQ result requires a failureCode");
+                }
+                if (failureCode.dedup()) {
+                    throw new IllegalArgumentException(
+                            "DLQ result must not carry a dedup failureCode (DUPLICATE_SUPPRESSED "
+                            + "is a dedup outcome, not a delivery failure; MI9-004)");
                 }
             }
             case EXPIRED -> {
@@ -66,13 +76,21 @@ public record ForwardingDeliveryResult(Outcome outcome, ForwardingFailureCode fa
         return new ForwardingDeliveryResult(Outcome.ACKED, null, 0L);
     }
 
-    /** Retryable failure; retried at {@code nextAttemptAtMillisEpoch}. */
+    /**
+     * Retryable failure; retried at {@code nextAttemptAtMillisEpoch}. The code
+     * MUST be {@link ForwardingFailureCode#retryable() retryable} (MI9-004).
+     */
     public static ForwardingDeliveryResult retry(ForwardingFailureCode failureCode,
                                                  long nextAttemptAtMillisEpoch) {
         return new ForwardingDeliveryResult(Outcome.RETRY_SCHEDULED, failureCode, nextAttemptAtMillisEpoch);
     }
 
-    /** Non-retryable failure / retries exhausted → DLQ. */
+    /**
+     * Non-retryable failure / retries exhausted → DLQ. Accepts a
+     * {@link ForwardingFailureCode#nonRetryable() non-retryable} code or a
+     * retryable code whose retries have been exhausted; rejects the dedup
+     * outcome (MI9-004).
+     */
     public static ForwardingDeliveryResult dlq(ForwardingFailureCode failureCode) {
         return new ForwardingDeliveryResult(Outcome.DLQ, failureCode, 0L);
     }

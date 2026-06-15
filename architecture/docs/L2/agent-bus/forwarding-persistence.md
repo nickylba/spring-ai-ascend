@@ -140,7 +140,23 @@ CREATE TABLE agent_bus_forwarding_outbox (
     lease_until       BIGINT,
     CONSTRAINT pk_outbox PRIMARY KEY (tenant_id, message_id),
     CONSTRAINT ck_outbox_status CHECK (
-        status IN ('PENDING','DISPATCHING','ACKED','RETRY_SCHEDULED','DLQ','EXPIRED'))
+        status IN ('PENDING','DISPATCHING','ACKED','RETRY_SCHEDULED','DLQ','EXPIRED')),
+    -- MI9-006: condition-field CHECK constraints mirror the Java record
+    -- invariants (MI9-003) at the DB layer, so a buggy adapter cannot persist
+    -- an illegal row even if it bypasses the constructor.
+    CONSTRAINT ck_outbox_attempt_count CHECK (attempt_count >= 0),
+    CONSTRAINT ck_outbox_lease_paired CHECK (
+        (lease_owner IS NULL AND lease_until IS NULL)
+        OR (lease_owner IS NOT NULL AND lease_until IS NOT NULL)),
+    CONSTRAINT ck_outbox_retry_has_next_attempt CHECK (
+        status <> 'RETRY_SCHEDULED' OR next_attempt_at IS NOT NULL),
+    CONSTRAINT ck_outbox_failure_code CHECK (
+        (status = 'ACKED' AND last_failure_code IS NULL)
+        OR (status IN ('DLQ','EXPIRED','RETRY_SCHEDULED') AND last_failure_code IS NOT NULL)
+        OR (status IN ('PENDING','DISPATCHING'))),
+    CONSTRAINT ck_outbox_lease_status CHECK (
+        (status IN ('PENDING','ACKED','RETRY_SCHEDULED','DLQ','EXPIRED') AND lease_owner IS NULL)
+        OR (status = 'DISPATCHING' AND lease_owner IS NOT NULL))
 );
 
 -- claim due: 非终态 + due + 未被有效 lease 持有；Postgres SKIP LOCKED 防多实例重复投递
@@ -159,13 +175,66 @@ CREATE TABLE agent_bus_forwarding_inbox (
     failure_code       VARCHAR(32),
     CONSTRAINT pk_inbox PRIMARY KEY (tenant_id, message_id, consumer_service_id),
     CONSTRAINT ck_inbox_status CHECK (
-        status IN ('RECEIVED','DUPLICATE_SUPPRESSED','CONSUMED','REJECTED'))
+        status IN ('RECEIVED','DUPLICATE_SUPPRESSED','CONSUMED','REJECTED')),
+    -- MI9-006: condition-field CHECK constraints mirror the Java record (MI9-003)
+    CONSTRAINT ck_inbox_consumed_at CHECK (
+        status <> 'CONSUMED' OR consumed_at IS NOT NULL),
+    CONSTRAINT ck_inbox_failure_code CHECK (
+        (status IN ('REJECTED','DUPLICATE_SUPPRESSED') AND failure_code IS NOT NULL)
+        OR (status IN ('RECEIVED','CONSUMED') AND failure_code IS NULL)),
+    CONSTRAINT ck_inbox_dup_code CHECK (
+        status <> 'DUPLICATE_SUPPRESSED' OR failure_code = 'duplicate_suppressed')
 );
 ```
 
 > 列宽 / 索引策略是草案；真实实现按实际值域与查询模式定。`SKIP LOCKED` 是 Postgres 9.5+ / MySQL 8.0+ 行为；如选用其它产品需等价并发抢占原语（advisory lock / `SELECT ... FOR UPDATE`）。
 
-### 7.1 RLS（Postgres Row-Level Security）
+### 7.1 claim SQL（lease stamping, Postgres SKIP LOCKED）
+
+`claimDue` 的等价 SQL（MI8-001）：原子地选出 due、tenant-scoped、非终态、lease 空闲/过期的记录，迁移到 `DISPATCHING` 并 stamped 独占 lease。`FOR UPDATE SKIP LOCKED` 让并发 dispatcher 跳过已被同伴锁住的行，不阻塞。
+
+```sql
+UPDATE agent_bus_forwarding_outbox AS o
+SET status      = 'DISPATCHING',
+    lease_owner = :leaseOwner,
+    lease_until = :leaseUntil,
+    updated_at  = :now
+WHERE (o.tenant_id, o.message_id) IN (
+    SELECT tenant_id, message_id
+    FROM agent_bus_forwarding_outbox
+    WHERE tenant_id = :tenantId
+      AND ( (status = 'PENDING')
+            OR (status = 'RETRY_SCHEDULED' AND next_attempt_at <= :now)
+            OR (status = 'DISPATCHING' AND lease_until <= :now) )  -- stuck-holder reclaim
+    ORDER BY next_attempt_at NULLS FIRST
+    LIMIT :limit
+    FOR UPDATE SKIP LOCKED
+)
+RETURNING o.*;
+```
+
+### 7.2 lease-owner guarded state-update SQL
+
+`markAcked` / `scheduleRetry` / `moveToDlq` / `markExpired` 的状态变更都必须被 lease-owner 守卫（MI9-001）：只有当前持有有效 `DISPATCHING` lease 的 owner 才能改状态。`WHERE` 子句编码守卫，0 行受影响即代表 stale/foreign/expired owner，adapter 抛 `ForwardingLeaseException`（record 不被改动）。ACK 为例（terminal 清 lease，MI9-002）：
+
+```sql
+UPDATE agent_bus_forwarding_outbox
+SET status            = 'ACKED',
+    last_failure_code = NULL,
+    lease_owner       = NULL,     -- MI9-002: terminal clears the lease
+    lease_until       = NULL,
+    updated_at        = :now
+WHERE tenant_id   = :tenantId
+  AND message_id  = :messageId
+  AND status      = 'DISPATCHING'
+  AND lease_owner = :leaseOwner
+  AND lease_until > :now;
+-- scheduleRetry / moveToDlq / markExpired share the identical WHERE guard.
+-- RETRY additionally: next_attempt_at = :nextAttemptAt, attempt_count + 1,
+-- last_failure_code = :retryableCode, lease_owner/lease_until = NULL (MI9-002).
+```
+
+### 7.3 RLS（Postgres Row-Level Security）
 
 若采用 Postgres 且启用 RLS 做 tenant 行级隔离：
 
@@ -213,6 +282,28 @@ harness（`AgentBusForwardingRuntimeContractTest`）结构化校验 `ForwardingO
 - ✓ MI8-001..005 收口（§6）。
 - ✓ 无 concrete broker / MQ client；无 JDBC driver；无 Task execution state 写入；不绕 routeHandle；不放 payload body（§2 + harness 强制）。
 - ✓ 未引入生产数据库依赖，停在 schema 草案 + repository port + in-memory lease harness（§2 护栏）。
+
+## 11. Stage 9 决策（lease-safe / persistence-ready）
+
+Stage 9（MI9-001..006）在 Stage 8 的持久化准备之上补齐**并发安全**与**约束完整性**，仍**不引入**真实 DB / migration——DB / migration 归属未由人类确认，按 Stage 9 计划 §5「路径 B」执行：交付完整 DDL CHECK 约束 + claim / state-update SQL contract + in-memory lease harness，JDBC / Flyway 不进 `agent-bus`。
+
+| MI | 决策 | 落点 |
+|---|---|---|
+| MI9-001 | DISPATCHING → terminal/retry 状态变更全部升级为 lease-owner guarded mutation；`markDispatching` 移除（claim 是进入 DISPATCHING 的唯一路径） | `ForwardingOutboxPort` 四方法带 `leaseOwner`；`ForwardingLeaseException`（RECORD_NOT_FOUND/NO_LEASE/OWNER_MISMATCH/NOT_DISPATCHING）；in-mem `leaseGuardedMutate`；§7.2 SQL |
+| MI9-002 | lease 生命周期闭环：ACKED/DLQ/EXPIRED/RETRY_SCHEDULED 清 lease；仅 DISPATCHING 持 lease | in-mem `leaseGuardedMutate` 清 lease；record 不变量；DDL `ck_outbox_lease_status` |
+| MI9-003 | record 条件不变量固化到 Java 构造器 / schema / DDL CHECK / harness | `ForwardingOutboxRecord.validateStatusInvariants`、`ForwardingInboxRecord.validateStatusInvariants`；§7 CHECK；harness 非法构造测试 |
+| MI9-004 | failure-code classification（retryable/non-retryable/dedup）；`retry(...)` 只接 retryable，`dlq(...)` 拒 dedup | `ForwardingFailureCode.Classification`；`ForwardingDeliveryResult` 构造校验；`scheduleRetry`/`moveToDlq` |
+| MI9-005 | `targetServiceId` 来自 discovery metadata / gateway audit，不解包 routeHandle | `ForwardingOutboxRecord` javadoc；`enqueue` javadoc；yaml `owner: discovery-via-routeHandle` |
+| MI9-006 | DDL 草案补完整条件 CHECK 约束 | §7 DDL CHECK；SQL contract harness 锁定 |
+
+Stage 9 DoD 自检：
+
+- ✓ lease-owner guarded mutation：stale worker（lease 被 reclaim）ACK 失败为 OWNER_MISMATCH（harness 覆盖）。
+- ✓ lease 生命周期闭环：terminal + retry 清 lease，仅 DISPATCHING 持 lease（harness 覆盖）。
+- ✓ record 条件不变量进入 Java 构造器 + DDL CHECK + harness（非法构造失败测试）。
+- ✓ failure-code 分类明确，retry/dlq 路由在构造期被分类约束（harness 覆盖）。
+- ✓ DB / migration 归属：路径 B——归属未由人类确认，不引入 JDBC / Flyway；交付完整 DDL CHECK 约束 + claim / state-update SQL contract + in-memory lease harness。
+- ✓ 未引入生产数据库依赖；DDL / SQL 仍标注为 contract / draft（§2 护栏不变）。
 
 相关文档：
 

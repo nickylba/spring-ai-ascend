@@ -10,7 +10,7 @@ source_l1: "architecture/docs/L1/agent-bus/README.md"
 target_module: agent-bus
 ---
 
-# agent-bus 运行态转发候选方案裁决（Stage 6 H2/H3 → Stage 7 落位 → Stage 8 最终确认）
+# agent-bus 运行态转发候选方案裁决（Stage 6 H2/H3 → Stage 7 落位 → Stage 8 最终确认 → Stage 9 lease-safe）
 
 ## 0. 文档状态与裁决前提
 
@@ -132,7 +132,8 @@ C3 分支已由本裁决激活。Stage 7 的最小实现切片（见 Stage 7 计
 
 - ~~H2/H3 反对 C3 则回退 draft、撤回代码~~ —— 此悬置路径已随 Stage 8 最终确认关闭；C3 = `adopted-c3`。
 - Stage 8（已完成）：record 模型、claim / lease 端口、dispatcher worker skeleton、抽象 delivery 端口、schema / migration 草案（DDL 草稿未执行）、in-memory lease harness（[`forwarding-persistence`](../../../../architecture/docs/L2/agent-bus/forwarding-persistence.md)）。
-- Stage 9+：真实持久化实现（JDBC adapter / Flyway migration 归属 / lease store 物理实现 / polling / 并发抢占原语 / backpressure 参数 / 是否独立 adapter module / 接入 agent-runtime 受控调用路径 / 数据库产品 + RLS 确认）。**§6 护栏：数据库产品或 migration 归属未确认前，不引入生产数据库依赖。**
+- Stage 9（已完成，**路径 B**）：lease-safe / persistence-ready —— lease-owner guarded mutation（`markAcked` / `scheduleRetry` / `moveToDlq` / `markExpired` 带 `leaseOwner`，`markDispatching` 移除）、lease 生命周期闭环（terminal + retry 清 lease）、record 条件不变量（Java 构造器 + DDL CHECK + harness）、failure-code classification（retryable / non-retryable / dedup）、claim / state-update SQL contract、in-memory lease-guard harness；收口 MI9-001..006（[`forwarding-persistence §11`](../../../../architecture/docs/L2/agent-bus/forwarding-persistence.md)）。**DB / migration 归属未由人类确认 → 路径 B：不引入 JDBC / Flyway；DDL / SQL 仍为 contract / draft。**
+- 后续 deferred：真实持久化实现（JDBC adapter / Flyway migration 归属 / lease store 物理实现 / polling / 并发抢占原语 / backpressure 参数 / 是否独立 adapter module / 接入 agent-runtime 受控调用路径 / 数据库产品 + RLS 确认）。**§6 护栏：数据库产品或 migration 归属未确认前，不引入生产数据库依赖。**
 
 相关文档：
 
@@ -140,6 +141,7 @@ C3 分支已由本裁决激活。Stage 7 的最小实现切片（见 Stage 7 计
 - Stage 6 计划：[`agent-bus-stage5-review-and-stage6-plan`](../delivery-projections/agent-bus-stage5-review-and-stage6-plan.md)。
 - Stage 7 计划：[`agent-bus-stage6-review-and-stage7-plan`](../delivery-projections/agent-bus-stage6-review-and-stage7-plan.md)。
 - Stage 8 计划：[`agent-bus-stage7-review-and-stage8-plan`](../delivery-projections/agent-bus-stage7-review-and-stage8-plan.md)。
+- Stage 9 计划：[`agent-bus-stage8-review-and-stage9-plan`](../delivery-projections/agent-bus-stage8-review-and-stage9-plan.md)。
 - Stage 7 L2 设计：[`forwarding-outbox-inbox`](../../../../architecture/docs/L2/agent-bus/forwarding-outbox-inbox.md)。
 - Stage 8 持久化 L2：[`forwarding-persistence`](../../../../architecture/docs/L2/agent-bus/forwarding-persistence.md)。
 - Stage 7 runtime 契约：[`ICD-Agent-Bus-Forwarding-Runtime`](../../05-contracts/human-readable/ICD-agent-bus-forwarding-runtime.md)。

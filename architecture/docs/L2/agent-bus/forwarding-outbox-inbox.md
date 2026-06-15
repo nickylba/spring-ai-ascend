@@ -130,15 +130,16 @@ retryable vs 不可恢复：`route_not_found`、`tenant_mismatch`、`payload_ref
 ## 8. 端口接口投影（Stage 7 骨架 + Stage 8 补齐）
 
 ```
-ForwardingOutboxPort (spi)                          // gateway / worker 共用：写入 + 状态迁移 + 状态查询
+ForwardingOutboxPort (spi)                          // gateway / worker 共用：写入 + lease-owner guarded 状态迁移 + 状态查询
   enqueue(envelope, sourceServiceId, targetServiceId, now) -> ForwardingReceipt
                                                     // 同步 ack；source/target 写入 record（MI8-002）；重复 -> 已存在 receipt
-  markDispatching(id, tenantId)    -> Outbox status  // PENDING -> DISPATCHING
-  markAcked(id, tenantId)          -> Outbox status  // DISPATCHING -> ACKED
-  scheduleRetry(id, tenantId, code, nextAttemptAt) -> status   // -> RETRY_SCHEDULED（attemptCount + 1）
-  moveToDlq(id, tenantId, code)    -> Outbox status  // -> DLQ
-  markExpired(id, tenantId)        -> Outbox status  // -> EXPIRED
-  statusOf(id, tenantId)           -> Outbox status
+  markAcked(id, tenantId, leaseOwner)            -> Outbox status  // DISPATCHING -> ACKED（terminal，清 lease；MI9-001/002）
+  scheduleRetry(id, tenantId, leaseOwner, code, nextAttemptAt) -> status   // code 须 retryable；-> RETRY_SCHEDULED（attemptCount + 1，清 lease）
+  moveToDlq(id, tenantId, leaseOwner, code)      -> Outbox status  // -> DLQ（清 lease）
+  markExpired(id, tenantId, leaseOwner)          -> Outbox status  // -> EXPIRED（清 lease）
+  statusOf(id, tenantId)                         -> Outbox status
+                                                    // markDispatching 已移除：DISPATCHING 只经 claimDue 进入（MI9-001）
+                                                    // 状态变更 lease-owner guarded：stale/foreign/expired owner 抛 ForwardingLeaseException
 
 ForwardingOutboxClaimPort (spi)                     // Stage 8（MI8-001）：claim / lease，替代 findRetryable(now)
   claimDue(tenantId, now, limit, leaseOwner, leaseUntil) -> List<ForwardingOutboxRecord>
@@ -176,18 +177,20 @@ ForwardingStateMachine (runtime, 纯函数)
 - **承载 Stage 4 语义**：outbox/inbox 是 Stage 4 broker-agnostic 转发语义（ack / retry / timeout / DLQ / correlation / backpressure / tenant-aware routing）的运行态承载；本 L2 不修改 Stage 4 语义，只投影为状态机与端口。
 - **不改变 Task ownership**：runtime-to-runtime 消息只携带控制与 `payloadRef`，**不改变远端 Task lifecycle owner**；`agent-bus` 不写 Task execution state（延续 HD4 / 与 registry 边界一致）。
 
-## 10. Stage 8 已交付 / Stage 9+ deferred
+## 10. Stage 8 / Stage 9 已交付 / 后续 deferred
 
-Stage 8（本批）已交付（见 [`forwarding-persistence`](forwarding-persistence.md)）：record 模型、claim / lease 端口（`claimDue` 取代 `findRetryable`）、dispatcher worker skeleton、抽象 delivery 端口、schema / migration 草案（DDL 草稿，未执行）、in-memory lease harness。
+Stage 8 已交付（见 [`forwarding-persistence`](forwarding-persistence.md)）：record 模型、claim / lease 端口（`claimDue` 取代 `findRetryable`）、dispatcher worker skeleton、抽象 delivery 端口、schema / migration 草案（DDL 草稿，未执行）、in-memory lease harness。
 
-Stage 9+ deferred（不在 Stage 8）：
+Stage 9 已交付（lease-safe / persistence-ready）：lease-owner guarded mutation（`markAcked` / `scheduleRetry` / `moveToDlq` / `markExpired` 带 `leaseOwner`，`markDispatching` 移除）、lease 生命周期闭环（terminal + retry 清 lease）、record 条件不变量（Java 构造器 + DDL CHECK + harness）、failure-code classification（retryable / non-retryable / dedup）、claim / state-update SQL contract、in-memory lease-guard harness。DB / migration 归属未确认 → **路径 B**（不引入 JDBC / Flyway；DDL / SQL 仍为 contract / draft）。
 
-- 真实 JDBC adapter；outbox / inbox 物理 schema migration / rollback 策略（Flyway 归属确认后）。
-- lease store 物理实现；polling cadence；并发抢占原语（`SELECT ... FOR UPDATE SKIP LOCKED` / advisory lock）。
+后续 deferred（不在 Stage 9）：
+
+- 真实 JDBC adapter；outbox / inbox 物理 schema migration / rollback 策略（Flyway 归属确认后；归属：agent-bus 自有 vs 共享 schema 模块 vs runtime 受控路径）。
+- lease store 物理实现；polling cadence。
 - backpressure 参数（队列阈值、降速策略、tenant quota）。
 - 真实投递绑定（dispatcher worker → 接收方 transport；HTTP / gRPC / 内部 RPC）。
 - 是否独立 adapter module；接入 `agent-runtime` 受控调用路径。
-- ordering / fairness 的具体实现（per-tenant / per-route 局部 ordering 是运行态选择，不进 Stage 8 必选）。
+- ordering / fairness 的具体实现（per-tenant / per-route 局部 ordering 是运行态选择）。
 - 数据库产品确认 + 是否启用 Postgres RLS。
 
 ## 11. DoD 自检

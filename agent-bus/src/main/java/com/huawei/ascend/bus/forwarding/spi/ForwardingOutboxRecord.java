@@ -3,25 +3,30 @@ package com.huawei.ascend.bus.forwarding.spi;
 import java.util.Objects;
 
 /**
- * Sender-side durable-queue record for the C3 outbox substrate (Stage 8).
+ * Sender-side durable-queue record for the C3 outbox substrate (Stage 8 / 9).
  *
  * <p>Mirrors the outbox record schema of {@code ICD-Agent-Bus-Forwarding-Runtime}
  * field-for-field: the gateway writes a record when it accepts an envelope
  * ({@link ForwardingOutboxPort#enqueue}), and the dispatcher worker reads /
  * claims / mutates it. The record is the single source of truth a real JDBC
- * adapter must persist in Stage 8 — it carries exactly the ICD fields plus the
+ * adapter must persist — it carries exactly the ICD fields plus the
  * Stage 8 additive {@link ForwardingLease} (claim / lease ownership).
  *
  * <p>{@code sourceServiceId} and {@code targetServiceId} live on the record, not
- * on {@link ForwardingEnvelope} (MI8-002): they are gateway / discovery audit
- * metadata written when the record is created, projected from the caller and
- * from the opaque {@link ForwardingRouteHandle} — never a physical endpoint.
+ * on {@link ForwardingEnvelope} (MI8-002). {@code targetServiceId} comes from
+ * Stage 3 discovery metadata / gateway audit context — NOT by unpacking the
+ * opaque {@code routeHandle} (MI9-005).
+ *
+ * <p>Stage 9 (MI9-003)固化 the runtime ICD condition-field rules in the compact
+ * constructor: tenant continuity, {@code attemptCount >= 0}, and the per-status
+ * lease / failure-code / next-attempt invariants (see
+ * {@link #validateStatusInvariants}). A future edit that weakens any of these
+ * fails the harness.
  *
  * <p>Forbidden-payload invariant (HD4): this record NEVER carries a payload body,
  * a token stream, Task execution state, or a physical endpoint. There are no
  * such fields, by design; large payloads take the {@code payloadRef} data
- * reference path. The compact constructor additionally enforces tenant
- * isolation: {@code tenantId} must be non-blank (Rule R-C.c).
+ * reference path.
  *
  * <p>Authority: {@code ICD-Agent-Bus-Forwarding-Runtime} (outbox record fields);
  * {@code architecture/docs/L2/agent-bus/forwarding-outbox-inbox.md §4.1};
@@ -49,25 +54,76 @@ public record ForwardingOutboxRecord(
             throw new IllegalArgumentException("tenantId must not be blank");
         }
         Objects.requireNonNull(messageId, "messageId is required");
-        Objects.requireNonNull(sourceServiceId, "sourceServiceId is required");
-        if (sourceServiceId.isBlank()) {
-            throw new IllegalArgumentException("sourceServiceId must not be blank");
-        }
-        Objects.requireNonNull(targetServiceId, "targetServiceId is required");
-        if (targetServiceId.isBlank()) {
-            throw new IllegalArgumentException("targetServiceId must not be blank");
-        }
+        requireNonBlank(sourceServiceId, "sourceServiceId");
+        requireNonBlank(targetServiceId, "targetServiceId");
         Objects.requireNonNull(routeHandle, "routeHandle is required");
         Objects.requireNonNull(status, "status is required");
         if (payloadRef != null && payloadRef.isBlank()) {
             throw new IllegalArgumentException("payloadRef must be null or non-blank");
         }
-        // ACKED is terminal-success: no outstanding failure code
-        if (status == ForwardingStatus.Outbox.ACKED && lastFailureCode != null) {
+        if (!tenantId.equals(routeHandle.tenantScope())) {
             throw new IllegalArgumentException(
-                    "ACKED outbox record must not carry a lastFailureCode");
+                    "tenant_mismatch: outbox tenantId '" + tenantId
+                    + "' must equal routeHandle tenantScope '" + routeHandle.tenantScope() + "'");
         }
-        // lease ownership is internally consistent (ForwardingLease enforces owner non-blank)
+        if (attemptCount < 0) {
+            throw new IllegalArgumentException("attemptCount must be >= 0");
+        }
+        validateStatusInvariants(status, nextAttemptAtMillisEpoch, lastFailureCode, lease);
+    }
+
+    /**
+     * Per-status condition-field invariants (MI9-003). Extracted so the
+     * constructor stays readable; exercised directly by the harness.
+     */
+    static void validateStatusInvariants(ForwardingStatus.Outbox status,
+                                         long nextAttemptAtMillisEpoch,
+                                         ForwardingFailureCode lastFailureCode,
+                                         ForwardingLease lease) {
+        switch (status) {
+            case PENDING -> { /* fresh entry: no extra invariants */ }
+            case DISPATCHING -> requireCondition(lease != null,
+                    "DISPATCHING outbox record must hold a non-null lease (lease-safe, MI9-002)");
+            case RETRY_SCHEDULED -> {
+                requireCondition(nextAttemptAtMillisEpoch > 0,
+                        "RETRY_SCHEDULED outbox record requires nextAttemptAtMillisEpoch > 0");
+                requireCondition(lastFailureCode != null && lastFailureCode.retryable(),
+                        "RETRY_SCHEDULED outbox record requires a retryable lastFailureCode (MI9-004)");
+                requireCondition(lease == null,
+                        "RETRY_SCHEDULED outbox record must not hold a lease (MI9-002)");
+            }
+            case ACKED -> {
+                requireCondition(lastFailureCode == null,
+                        "ACKED outbox record must not carry a lastFailureCode");
+                requireCondition(lease == null,
+                        "ACKED outbox record must not hold a lease (terminal, MI9-002)");
+            }
+            case DLQ -> {
+                requireCondition(lastFailureCode != null,
+                        "DLQ outbox record requires a lastFailureCode");
+                requireCondition(lease == null,
+                        "DLQ outbox record must not hold a lease (terminal, MI9-002)");
+            }
+            case EXPIRED -> {
+                requireCondition(lastFailureCode != null,
+                        "EXPIRED outbox record requires a lastFailureCode");
+                requireCondition(lease == null,
+                        "EXPIRED outbox record must not hold a lease (terminal, MI9-002)");
+            }
+        }
+    }
+
+    private static void requireNonBlank(String value, String name) {
+        Objects.requireNonNull(value, name + " is required");
+        if (value.isBlank()) {
+            throw new IllegalArgumentException(name + " must not be blank");
+        }
+    }
+
+    private static void requireCondition(boolean condition, String message) {
+        if (!condition) {
+            throw new IllegalArgumentException(message);
+        }
     }
 
     /** Whether this record currently holds an unexpired lease at the given instant. */

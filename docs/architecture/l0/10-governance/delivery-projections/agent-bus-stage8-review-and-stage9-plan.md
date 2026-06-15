@@ -266,3 +266,24 @@ DoD：
 7. L1 / L2 / ICD / schema 同步。
 
 如果 DB / migration 归属没有得到人类确认，则 Stage 9 仍然必须完成 1-4 和 SQL contract harness，不应回退成纯文档阶段。
+
+## 7. 执行完成记录（Stage 9 已完成）
+
+Stage 9 全部切片 1-7 已完成。验证：`mvn -pl agent-bus test` **129 tests green，BUILD SUCCESS**（`AgentBusForwardingRuntimeContractTest` 29 个，含 7 个新增 Stage 9 行为测试）。工作树未提交（待人类决定 commit / 开分支）。
+
+逐切片 DoD 落地：
+
+| 切片 | 状态 | 落地证据 |
+|---|---|---|
+| 1 lease-safe mutation | ✓ | `ForwardingOutboxPort` 四方法（`markAcked`/`scheduleRetry`/`moveToDlq`/`markExpired`）带 `leaseOwner`；`markDispatching` 移除（DISPATCHING 只经 `claimDue`）；新增 `ForwardingLeaseException`（RECORD_NOT_FOUND/NO_LEASE/OWNER_MISMATCH/NOT_DISPATCHING）；`ForwardingDispatcherWorker` 传 `leaseOwner`；`InMemoryForwardingOutbox.leaseGuardedMutate`；harness `stale_worker_acks_after_lease_reclaimed_by_another_owner_fails` + `lease_guarded_mutation_reports_record_not_found_and_no_lease` |
+| 2 lease 生命周期闭环 | ✓ | ACKED/DLQ/EXPIRED/RETRY_SCHEDULED 清 lease，仅 DISPATCHING 持 lease；harness `terminal_and_retry_states_clear_lease_only_dispatching_holds_it` |
+| 3 record 条件不变量 | ✓ | `ForwardingOutboxRecord.validateStatusInvariants` / `ForwardingInboxRecord.validateStatusInvariants`（Java 构造器）；DDL `ck_outbox_*` / `ck_inbox_*` CHECK；harness `outbox_record_rejects_invalid_status_invariants` + `inbox_record_rejects_invalid_status_invariants` |
+| 4 failure-code classification | ✓ | `ForwardingFailureCode.Classification`（retryable/non-retryable/dedup）；`ForwardingDeliveryResult.retry(...)` 只接 retryable、`dlq(...)` 拒 dedup；harness `failure_code_classification_drives_retry_and_dlq_routing` |
+| 5 DB/migration 归属裁决 | ✓ | **路径 B**（DB 归属未由人类确认，不引入 JDBC/Flyway）；决策写入 `forwarding-persistence.md §11` + `decision.md §8`；不引入依赖（pom 无改动，N/A） |
+| 6 持久化 SQL contract harness | ✓ | `forwarding-persistence.md` §7 DDL 补完整 CHECK + §7.1 claim SQL（`FOR UPDATE SKIP LOCKED`）+ §7.2 lease-owner guarded state-update SQL；harness `forwarding_persistence_ddl_enforces_record_invariants`；非纯文档（生产代码 + 测试大量变更） |
+| 7 文档同步 | ✓ | L1 README/development/process/physical、L2 forwarding-outbox-inbox/forwarding-persistence、ICD、yaml、review packet（decision.md）—— 共 9 文档标注 Stage 9 lease-safe/persistence-ready（路径 B），DDL/SQL 仍为 contract/draft |
+
+护栏自检（§5「不能接受」均未发生）：未写 JDBC adapter；terminal/retry 不残留 active lease；条件字段进 Java + DDL + harness（非仅文档）；retry 拒 non-retryable；routeHandle 未解包成物理 endpoint；`agent-bus` 未写 Task execution state。
+
+模块依赖未变（`agent-bus/pom.xml` 仍仅 `spring-boot-starter-test` + `archunit`）；`AgentBusForwardingSpiPurityTest` / `AgentBusDependencyBoundaryTest` 仍 green（生产代码无 `java.sql` / broker）。真实 JDBC adapter / Flyway migration / 真实投递绑定仍 deferred（DB 归属裁决后）。
+

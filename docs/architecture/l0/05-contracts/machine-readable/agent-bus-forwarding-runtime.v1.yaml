@@ -187,6 +187,8 @@ claim_lease:
     - nextAttemptAt <= now or fresh PENDING is due
     - terminal never claimable
     - claim + state transition atomic (single tx / CAS)
+    - state mutation (ACK/RETRY/DLQ/EXPIRE) is lease-owner guarded; a stale/foreign/expired owner is rejected, not applied (MI9-001)
+    - ACKED/DLQ/EXPIRED/RETRY_SCHEDULED clear the lease; only DISPATCHING holds one (MI9-002)
 stage7_scope:
   delivers: [schema-draft, port-interfaces, state-machine, harness, in-memory-test-double]
   not_delivers: [jdbc-driver, real-db-implementation, migration, polling, lease, concurrent-claim, real-delivery-binding]
@@ -194,7 +196,12 @@ stage7_scope:
 stage8_scope:
   delivers: [record-models, claim-lease-port, dispatcher-worker-skeleton, delivery-port, schema-ddl-draft-not-executed, in-memory-lease-harness]
   not_delivers: [jdbc-driver, flyway-migration, real-db-implementation, polling-cadence, real-delivery-binding]
-  next_stage: Stage-9-plus
+  next_stage: Stage-9
+stage9_scope:
+  delivers: [lease-owner-guarded-mutation, lease-lifecycle-closure, record-condition-invariants-in-java-and-ddl-check, failure-code-classification, claim-and-state-update-sql-contract, in-memory-lease-guard-harness]
+  not_delivers: [jdbc-driver, flyway-migration, real-db-implementation, real-delivery-binding]
+  path: B  # DB/migration ownership not yet human-confirmed; no JDBC/Flyway in agent-bus
+  next_stage: Stage-10-plus
 compatibility:
   additive_fields_allowed: true
   breaking_change_requires_adr: true

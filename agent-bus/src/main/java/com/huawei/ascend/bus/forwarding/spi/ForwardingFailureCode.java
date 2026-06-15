@@ -7,33 +7,61 @@ package com.huawei.ascend.bus.forwarding.spi;
  * <p>{@link #wireCode()} returns the snake_case ICD identifier — harness asserts
  * these verbatim so a renamed code surfaces as ICD / harness drift.
  *
- * <p>Retryable classification (per
- * {@code architecture/docs/L2/agent-bus/forwarding-outbox-inbox.md §7}):
- * {@code ROUTE_NOT_FOUND}, {@code TENANT_MISMATCH}, {@code PAYLOAD_REF_INVALID}
- * are non-retryable; {@code DELIVERY_TIMEOUT}, {@code RECEIVER_UNAVAILABLE},
- * {@code BACKPRESSURE_REJECTED} are retryable; {@code DUPLICATE_SUPPRESSED} is a
- * dedup outcome, not a delivery failure.
+ * <p>Stage 9 (MI9-004) adds an explicit {@link Classification} per code so the
+ * worker / delivery result / record invariants can reject a wrong-class code at
+ * construction time:
+ * <ul>
+ *   <li>{@code ROUTE_NOT_FOUND}, {@code TENANT_MISMATCH}, {@code PAYLOAD_REF_INVALID}
+ *       — {@link Classification#NON_RETRYABLE non-retryable} (direct DLQ / reject).</li>
+ *   <li>{@code DELIVERY_TIMEOUT}, {@code RECEIVER_UNAVAILABLE},
+ *       {@code BACKPRESSURE_REJECTED} — {@link Classification#RETRYABLE retryable}.</li>
+ *   <li>{@code DUPLICATE_SUPPRESSED} — {@link Classification#DEDUP dedup outcome},
+ *       not a delivery failure (never drives RETRY / DLQ).</li>
+ * </ul>
  *
  * <p>Authority: {@code ICD-Agent-Bus-Forwarding} (Failure Modes);
- * {@code ICD-Agent-Bus-Forwarding-Runtime}.
+ * {@code ICD-Agent-Bus-Forwarding-Runtime};
+ * {@code architecture/docs/L2/agent-bus/forwarding-outbox-inbox.md §7}.
  */
 public enum ForwardingFailureCode {
-    ROUTE_NOT_FOUND("route_not_found"),
-    TENANT_MISMATCH("tenant_mismatch"),
-    DELIVERY_TIMEOUT("delivery_timeout"),
-    RECEIVER_UNAVAILABLE("receiver_unavailable"),
-    BACKPRESSURE_REJECTED("backpressure_rejected"),
-    DUPLICATE_SUPPRESSED("duplicate_suppressed"),
-    PAYLOAD_REF_INVALID("payload_ref_invalid");
+    ROUTE_NOT_FOUND("route_not_found", Classification.NON_RETRYABLE),
+    TENANT_MISMATCH("tenant_mismatch", Classification.NON_RETRYABLE),
+    DELIVERY_TIMEOUT("delivery_timeout", Classification.RETRYABLE),
+    RECEIVER_UNAVAILABLE("receiver_unavailable", Classification.RETRYABLE),
+    BACKPRESSURE_REJECTED("backpressure_rejected", Classification.RETRYABLE),
+    DUPLICATE_SUPPRESSED("duplicate_suppressed", Classification.DEDUP),
+    PAYLOAD_REF_INVALID("payload_ref_invalid", Classification.NON_RETRYABLE);
 
     private final String wireCode;
+    private final Classification classification;
 
-    ForwardingFailureCode(String wireCode) {
+    ForwardingFailureCode(String wireCode, Classification classification) {
         this.wireCode = wireCode;
+        this.classification = classification;
     }
 
     /** Snake_case ICD identifier (drift guard vs the runtime ICD / yaml). */
     public String wireCode() {
         return wireCode;
+    }
+
+    /** Whether this code is a retryable delivery failure (may drive RETRY_SCHEDULED). */
+    public boolean retryable() {
+        return classification == Classification.RETRYABLE;
+    }
+
+    /** Whether this code is a non-retryable failure (direct DLQ / reject). */
+    public boolean nonRetryable() {
+        return classification == Classification.NON_RETRYABLE;
+    }
+
+    /** Whether this code is a dedup outcome (never a delivery failure). */
+    public boolean dedup() {
+        return classification == Classification.DEDUP;
+    }
+
+    /** Failure-code classification — drives RETRY / DLQ / REJECT routing. */
+    public enum Classification {
+        RETRYABLE, NON_RETRYABLE, DEDUP
     }
 }

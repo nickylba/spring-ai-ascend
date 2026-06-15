@@ -22,7 +22,10 @@ import java.util.Objects;
  *   <li>delivers each via {@link ForwardingDeliveryPort#deliver}, consuming only
  *       the opaque {@code routeHandle} (never a physical endpoint);</li>
  *   <li>maps the {@link ForwardingDeliveryResult} to the matching outbox state
- *       transition — ACKED / RETRY_SCHEDULED / DLQ / EXPIRED.</li>
+ *       transition — ACKED / RETRY_SCHEDULED / DLQ / EXPIRED — carrying the
+ *       caller's {@code leaseOwner} so the mutation is lease-owner guarded
+ *       (Stage 9, MI9-001): a record reclaimed by another worker between claim
+ *       and ack is rejected, not mutated.</li>
  * </ol>
  *
  * <p>The worker holds no threads, no scheduler, no registry, no transport. Real
@@ -83,20 +86,21 @@ public final class ForwardingDispatcherWorker {
             ForwardingDeliveryResult result = deliveryPort.deliver(record, nowMillisEpoch);
             switch (result.outcome()) {
                 case ACKED -> {
-                    outboxPort.markAcked(record.messageId(), tenantId);
+                    outboxPort.markAcked(record.messageId(), tenantId, leaseOwner);
                     acked++;
                 }
                 case RETRY_SCHEDULED -> {
-                    outboxPort.scheduleRetry(record.messageId(), tenantId,
+                    outboxPort.scheduleRetry(record.messageId(), tenantId, leaseOwner,
                             result.failureCode(), result.nextAttemptAtMillisEpoch());
                     retried++;
                 }
                 case DLQ -> {
-                    outboxPort.moveToDlq(record.messageId(), tenantId, result.failureCode());
+                    outboxPort.moveToDlq(record.messageId(), tenantId, leaseOwner,
+                            result.failureCode());
                     dlqd++;
                 }
                 case EXPIRED -> {
-                    outboxPort.markExpired(record.messageId(), tenantId);
+                    outboxPort.markExpired(record.messageId(), tenantId, leaseOwner);
                     expired++;
                 }
             }
