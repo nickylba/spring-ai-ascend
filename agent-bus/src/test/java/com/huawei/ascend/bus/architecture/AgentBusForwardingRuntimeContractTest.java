@@ -1,12 +1,17 @@
 package com.huawei.ascend.bus.architecture;
 
+import com.huawei.ascend.bus.forwarding.runtime.ForwardingDispatcherWorker;
 import com.huawei.ascend.bus.forwarding.runtime.ForwardingStateMachine;
+import com.huawei.ascend.bus.forwarding.spi.ForwardingDeliveryResult;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingEnvelope;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingFailureCode;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingMessageId;
+import com.huawei.ascend.bus.forwarding.spi.ForwardingOutboxClaimPort;
+import com.huawei.ascend.bus.forwarding.spi.ForwardingOutboxRecord;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingReceipt;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingRouteHandle;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingStatus;
+import com.huawei.ascend.bus.forwarding.test.InMemoryForwardingDelivery;
 import com.huawei.ascend.bus.forwarding.test.InMemoryForwardingDispatcher;
 import com.huawei.ascend.bus.forwarding.test.InMemoryForwardingInbox;
 import com.huawei.ascend.bus.forwarding.test.InMemoryForwardingOutbox;
@@ -71,6 +76,10 @@ class AgentBusForwardingRuntimeContractTest {
             "../docs/architecture/l0/05-contracts/machine-readable/agent-bus-forwarding-runtime.v1.yaml");
 
     private static final long NOW = 1_700_000_000_000L;
+    private static final String SOURCE_SERVICE = "svc-src";
+    private static final String TARGET_SERVICE = "svc-tgt";
+    private static final String LEASE_OWNER = "worker-1";
+    private static final long LEASE_UNTIL = NOW + 30_000;
 
     private static String icdText;
     private static String schemaText;
@@ -100,6 +109,12 @@ class AgentBusForwardingRuntimeContractTest {
                 .contains("`tenantId`", "`messageId`", "`sourceServiceId`",
                           "`targetServiceId`", "`routeHandle`", "`status`",
                           "`attemptCount`", "`createdAt`", "`updatedAt`");
+        // structural (Stage 8, MI8-002): the Java record mirrors the ICD outbox fields
+        assertThat(recordFieldNames(ForwardingOutboxRecord.class))
+                .as("ForwardingOutboxRecord components mirror the ICD outbox record fields")
+                .contains("tenantId", "messageId", "sourceServiceId", "targetServiceId",
+                          "routeHandle", "status", "attemptCount",
+                          "createdAtMillisEpoch", "updatedAtMillisEpoch");
     }
 
     @Test
@@ -119,8 +134,8 @@ class AgentBusForwardingRuntimeContractTest {
         // behaviour: re-enqueue of the same (tenantId, messageId) is idempotent
         InMemoryForwardingOutbox outbox = new InMemoryForwardingOutbox();
         ForwardingEnvelope env = envelope("msg-uk", "tenant-a");
-        ForwardingReceipt first = outbox.enqueue(env, NOW);
-        ForwardingReceipt second = outbox.enqueue(env, NOW);
+        ForwardingReceipt first = outbox.enqueue(env, SOURCE_SERVICE, TARGET_SERVICE, NOW);
+        ForwardingReceipt second = outbox.enqueue(env, SOURCE_SERVICE, TARGET_SERVICE, NOW);
         assertThat(first.accepted()).isTrue();
         assertThat(second.accepted()).isTrue();
         assertThat(outbox.entryCount())
@@ -273,7 +288,7 @@ class AgentBusForwardingRuntimeContractTest {
         InMemoryForwardingDispatcher dispatcher = new InMemoryForwardingDispatcher(outbox);
         ForwardingEnvelope env = envelope("msg-flow", "tenant-a");
 
-        ForwardingReceipt receipt = dispatcher.dispatch(env, NOW);
+        ForwardingReceipt receipt = dispatcher.dispatch(env, SOURCE_SERVICE, TARGET_SERVICE, NOW);
         assertThat(receipt.accepted()).isTrue();
         assertThat(receipt.failureCode()).isNull();
         assertThat(outbox.statusOf(env.messageId(), env.tenantId())).isEqualTo(PENDING);
@@ -288,7 +303,7 @@ class AgentBusForwardingRuntimeContractTest {
     void outbox_retry_increments_attempt_count() {
         InMemoryForwardingOutbox outbox = new InMemoryForwardingOutbox();
         ForwardingEnvelope env = envelope("msg-retry", "tenant-a");
-        outbox.enqueue(env, NOW);
+        outbox.enqueue(env, SOURCE_SERVICE, TARGET_SERVICE, NOW);
         outbox.markDispatching(env.messageId(), env.tenantId());
         outbox.scheduleRetry(env.messageId(), env.tenantId(),
                 ForwardingFailureCode.RECEIVER_UNAVAILABLE, NOW + 5_000);
@@ -308,6 +323,155 @@ class AgentBusForwardingRuntimeContractTest {
                   + "no JDBC driver, no concrete broker / MQ client (decision §6.2)")
                 .allSatisfy(src -> assertThat(src)
                         .doesNotContain("payloadBody", "payload_body")
+                        .doesNotContain("TaskExecutionState", "TaskExecution", "TaskStatus")
+                        .doesNotContain("java.sql.", "javax.sql.")
+                        .doesNotContain("org.apache.kafka", "com.rabbitmq",
+                                        "org.apache.rocketmq", "io.nats.client"));
+    }
+
+    // ===== Stage 8 slice 6 — record projection, claim / lease, dispatcher worker =====
+
+    @Test
+    void forwarding_runtime_outbox_record_carries_source_and_target_service_id() {
+        // structural: source/target live on the record, not the envelope (MI8-002)
+        assertThat(recordFieldNames(ForwardingOutboxRecord.class))
+                .as("ForwardingOutboxRecord carries sourceServiceId + targetServiceId")
+                .contains("sourceServiceId", "targetServiceId");
+        // behaviour: gateway-written source/target survive onto the record
+        InMemoryForwardingOutbox outbox = new InMemoryForwardingOutbox();
+        ForwardingEnvelope env = envelope("msg-st", "tenant-a");
+        outbox.enqueue(env, SOURCE_SERVICE, TARGET_SERVICE, NOW);
+        ForwardingOutboxRecord record = outbox.recordOf(env.messageId(), env.tenantId());
+        assertThat(record.sourceServiceId()).isEqualTo(SOURCE_SERVICE);
+        assertThat(record.targetServiceId()).isEqualTo(TARGET_SERVICE);
+        assertThat(record.status()).isEqualTo(PENDING);
+        assertThat(record.attemptCount()).isZero();
+        assertThat(record.lease()).isNull();
+    }
+
+    @Test
+    void claim_due_returns_only_tenant_scoped_due_non_terminal_records() {
+        InMemoryForwardingOutbox outbox = new InMemoryForwardingOutbox();
+        ForwardingOutboxClaimPort claim = outbox;
+        ForwardingEnvelope envA = envelope("msg-cl-a", "tenant-a");
+        ForwardingEnvelope envB = envelope("msg-cl-b", "tenant-b");
+        outbox.enqueue(envA, SOURCE_SERVICE, TARGET_SERVICE, NOW);
+        outbox.enqueue(envB, SOURCE_SERVICE, TARGET_SERVICE, NOW);
+
+        List<ForwardingOutboxRecord> claimed =
+                claim.claimDue("tenant-a", NOW, 10, LEASE_OWNER, LEASE_UNTIL);
+
+        assertThat(claimed).hasSize(1);
+        ForwardingOutboxRecord r = claimed.get(0);
+        assertThat(r.messageId().value()).isEqualTo("msg-cl-a");
+        assertThat(r.status()).isEqualTo(DISPATCHING);
+        assertThat(r.lease()).isNotNull();
+        assertThat(r.lease().leaseOwner()).isEqualTo(LEASE_OWNER);
+        // tenant-b record untouched (tenant scope, Rule R-C.c)
+        assertThat(outbox.statusOf(envB.messageId(), "tenant-b")).isEqualTo(PENDING);
+    }
+
+    @Test
+    void claim_due_grants_exclusive_lease_one_owner_at_a_time() {
+        InMemoryForwardingOutbox outbox = new InMemoryForwardingOutbox();
+        ForwardingOutboxClaimPort claim = outbox;
+        ForwardingEnvelope env = envelope("msg-excl", "tenant-a");
+        outbox.enqueue(env, SOURCE_SERVICE, TARGET_SERVICE, NOW);
+
+        List<ForwardingOutboxRecord> first =
+                claim.claimDue("tenant-a", NOW, 10, LEASE_OWNER, LEASE_UNTIL);
+        assertThat(first).hasSize(1);
+        // second owner at the same instant: record is DISPATCHING under a live lease
+        List<ForwardingOutboxRecord> second =
+                claim.claimDue("tenant-a", NOW, 10, "worker-2", LEASE_UNTIL);
+        assertThat(second)
+                .as("a record under a live lease cannot be claimed by another owner")
+                .isEmpty();
+    }
+
+    @Test
+    void expired_lease_can_be_reclaimed() {
+        InMemoryForwardingOutbox outbox = new InMemoryForwardingOutbox();
+        ForwardingOutboxClaimPort claim = outbox;
+        ForwardingEnvelope env = envelope("msg-reclaim", "tenant-a");
+        outbox.enqueue(env, SOURCE_SERVICE, TARGET_SERVICE, NOW);
+        // first owner claims with a short lease
+        claim.claimDue("tenant-a", NOW, 10, LEASE_OWNER, NOW + 1_000);
+        // after the lease expires, a second owner reclaims the stuck DISPATCHING record
+        long later = NOW + 5_000;
+        List<ForwardingOutboxRecord> reclaimed =
+                claim.claimDue("tenant-a", later, 10, "worker-2", later + 30_000);
+        assertThat(reclaimed)
+                .as("an expired lease on a stuck DISPATCHING record can be reclaimed")
+                .hasSize(1);
+        assertThat(reclaimed.get(0).lease().leaseOwner()).isEqualTo("worker-2");
+    }
+
+    @Test
+    void terminal_outbox_record_is_not_claimable() {
+        InMemoryForwardingOutbox outbox = new InMemoryForwardingOutbox();
+        ForwardingOutboxClaimPort claim = outbox;
+        ForwardingEnvelope env = envelope("msg-term", "tenant-a");
+        outbox.enqueue(env, SOURCE_SERVICE, TARGET_SERVICE, NOW);
+        outbox.markDispatching(env.messageId(), env.tenantId());
+        outbox.markAcked(env.messageId(), env.tenantId());
+        assertThat(outbox.statusOf(env.messageId(), env.tenantId())).isEqualTo(ACKED);
+        assertThat(claim.claimDue("tenant-a", NOW, 10, LEASE_OWNER, LEASE_UNTIL))
+                .as("a terminal record is never claimable")
+                .isEmpty();
+    }
+
+    @Test
+    void dispatcher_worker_routes_ack_retry_dlq_expired_via_fake_delivery() {
+        InMemoryForwardingOutbox outbox = new InMemoryForwardingOutbox();
+        InMemoryForwardingDelivery delivery = new InMemoryForwardingDelivery();
+        ForwardingDispatcherWorker worker = new ForwardingDispatcherWorker(outbox, outbox, delivery);
+
+        // ACK path
+        ForwardingEnvelope ack = envelope("msg-w-ack", "tenant-a");
+        outbox.enqueue(ack, SOURCE_SERVICE, TARGET_SERVICE, NOW);
+        delivery.put("msg-w-ack", ForwardingDeliveryResult.acked());
+        ForwardingDispatcherWorker.DispatchTickResult tick =
+                worker.runOnce("tenant-a", NOW, 10, LEASE_OWNER, LEASE_UNTIL);
+        assertThat(tick.claimed()).isEqualTo(1);
+        assertThat(tick.acked()).isEqualTo(1);
+        assertThat(outbox.statusOf(ack.messageId(), "tenant-a")).isEqualTo(ACKED);
+
+        // RETRY path — increments attemptCount, sets nextAttemptAt + lastFailureCode
+        ForwardingEnvelope retr = envelope("msg-w-retry", "tenant-a");
+        outbox.enqueue(retr, SOURCE_SERVICE, TARGET_SERVICE, NOW);
+        delivery.put("msg-w-retry",
+                ForwardingDeliveryResult.retry(ForwardingFailureCode.RECEIVER_UNAVAILABLE, NOW + 5_000));
+        worker.runOnce("tenant-a", NOW, 10, LEASE_OWNER, LEASE_UNTIL);
+        assertThat(outbox.statusOf(retr.messageId(), "tenant-a")).isEqualTo(RETRY_SCHEDULED);
+        assertThat(outbox.attemptCountOf(retr.messageId(), "tenant-a"))
+                .as("each RETRY increments attemptCount")
+                .isEqualTo(1);
+        assertThat(outbox.recordOf(retr.messageId(), "tenant-a").lastFailureCode())
+                .isEqualTo(ForwardingFailureCode.RECEIVER_UNAVAILABLE);
+
+        // DLQ path (non-retryable failure)
+        ForwardingEnvelope dlq = envelope("msg-w-dlq", "tenant-a");
+        outbox.enqueue(dlq, SOURCE_SERVICE, TARGET_SERVICE, NOW);
+        delivery.put("msg-w-dlq", ForwardingDeliveryResult.dlq(ForwardingFailureCode.ROUTE_NOT_FOUND));
+        worker.runOnce("tenant-a", NOW, 10, LEASE_OWNER, LEASE_UNTIL);
+        assertThat(outbox.statusOf(dlq.messageId(), "tenant-a")).isEqualTo(DLQ);
+
+        // EXPIRED path (deadline exceeded)
+        ForwardingEnvelope exp = envelope("msg-w-exp", "tenant-a");
+        outbox.enqueue(exp, SOURCE_SERVICE, TARGET_SERVICE, NOW);
+        delivery.put("msg-w-exp", ForwardingDeliveryResult.expired());
+        worker.runOnce("tenant-a", NOW, 10, LEASE_OWNER, LEASE_UNTIL);
+        assertThat(outbox.statusOf(exp.messageId(), "tenant-a")).isEqualTo(EXPIRED);
+    }
+
+    @Test
+    void forwarding_persistence_does_not_write_task_state_nor_introduce_broker() {
+        // re-assert the production-source purity boundary for the Stage 8 additions
+        assertThat(forwardingSources)
+                .as("Stage 8 additions keep forwarding production code free of Task state, "
+                  + "JDBC driver, and concrete broker / MQ client (decision §6.1)")
+                .allSatisfy(src -> assertThat(src)
                         .doesNotContain("TaskExecutionState", "TaskExecution", "TaskStatus")
                         .doesNotContain("java.sql.", "javax.sql.")
                         .doesNotContain("org.apache.kafka", "com.rabbitmq",

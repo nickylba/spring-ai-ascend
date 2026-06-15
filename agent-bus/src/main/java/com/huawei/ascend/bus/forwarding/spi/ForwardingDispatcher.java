@@ -1,14 +1,21 @@
 package com.huawei.ascend.bus.forwarding.spi;
 
 /**
- * Coordinator that drives a forwarding envelope through the outbox lifecycle —
- * enqueue → DISPATCHING → ACK / RETRY / DLQ / EXPIRED — delegating storage to
- * {@link ForwardingOutboxPort} and transitions to {@code ForwardingStateMachine}.
+ * Accept / enqueue entry for the C3 forwarding substrate — the <em>gateway
+ * role</em> (MI8-003).
  *
- * <p>Stage 7 ships this interface plus an in-memory test double; the real
- * delivery binding (dispatcher → receiver transport) is Stage 8. The dispatcher
- * never bypasses {@link ForwardingRouteHandle} to a physical endpoint, and never
- * writes Task execution state.
+ * <p>This interface accepts a forwarding envelope, validates it, and writes it
+ * into the outbox, returning the synchronous ack receipt. It is deliberately a
+ * thin accept / enqueue entry: it does <strong>not</strong> drive the outbox
+ * through DISPATCHING → ACK / RETRY / DLQ / EXPIRED. That claim / deliver /
+ * ack / retry half of the lifecycle is the separate {@code ForwardingDispatcherWorker}
+ * (runtime package), which consumes a {@code ForwardingOutboxClaimPort} and an
+ * abstract {@code ForwardingDeliveryPort}. Keeping the two roles in separate
+ * types resolves the Stage 7 javadoc / method mismatch: {@code dispatch} here
+ * means "accept into the outbox", not "deliver to the receiver".
+ *
+ * <p>The gateway never bypasses {@link ForwardingRouteHandle} to a physical
+ * endpoint and never writes Task execution state.
  *
  * <p>Authority: {@code architecture/docs/L2/agent-bus/forwarding-outbox-inbox.md §3/§8}.
  */
@@ -16,8 +23,10 @@ public interface ForwardingDispatcher {
 
     /**
      * Accept a forwarding envelope into the outbox and return the synchronous
-     * ack receipt. Dispatch / delivery orchestration is deferred to Stage 8;
-     * Stage 7 only confirms durable enqueue via the outbox port.
+     * ack receipt. {@code sourceServiceId} and {@code targetServiceId} are
+     * written onto the resulting {@link ForwardingOutboxRecord} (MI8-002).
+     * Delivery orchestration is the {@code ForwardingDispatcherWorker} role.
      */
-    ForwardingReceipt dispatch(ForwardingEnvelope envelope, long nowMillisEpoch);
+    ForwardingReceipt dispatch(ForwardingEnvelope envelope, String sourceServiceId,
+                               String targetServiceId, long nowMillisEpoch);
 }

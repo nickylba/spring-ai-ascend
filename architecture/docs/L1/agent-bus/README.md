@@ -76,7 +76,7 @@ Agent / Service / Capability 注册与发现的完整设计态契约见 [`ICD-Ag
 - runtime-to-runtime 消息不改变远端 Task lifecycle owner；`agent-bus` 不写 Task execution state。
 - Stage 4 只定义转发语义和 harness 断言，不实现运行态转发底座、不新增 mailbox / queue / DLQ / replay 运行态存储。
 
-## C3 转发运行态最小骨架（Stage 7）
+## C3 转发运行态（Stage 7 最小骨架 → Stage 8 持久化准备）
 
 Stage 7 按 Stage 6 裁决采用 **C3（database outbox / inbox）** 作为类 MQ 转发的生产候选路径，交付 C3 的最小可测运行态骨架（非完整持久化实现）。运行态契约见 [`ICD-Agent-Bus-Forwarding-Runtime`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding-runtime.md)，L2 技术设计见 [`forwarding-outbox-inbox.md`](../../L2/agent-bus/forwarding-outbox-inbox.md)。Stage 7 边界：
 
@@ -85,6 +85,18 @@ Stage 7 按 Stage 6 裁决采用 **C3（database outbox / inbox）** 作为类 M
 - 生产代码（`com.huawei.ascend.bus.forwarding{,.spi,.runtime}`）保持纯 Java：不依赖 Spring / JDBC / broker client / HTTP / 序列化框架（由 `AgentBusForwardingSpiPurityTest` ArchUnit 强制）。
 - 持久化 / 交付绑定的真实实现（JDBC 驱动、migration、polling、lease、broker transport）deferred 到 Stage 8；Stage 7 仅提供非生产 in-memory 测试替身验证端口语义。
 - 不改变远端 Task lifecycle owner；`agent-bus` 不写 Task execution state。
+
+### Stage 8：C3 持久化准备（record 模型 / claim / lease / worker / schema 草案）
+
+Stage 8 在 Stage 7 最小骨架上完成 C3 最终确认（`adopted-c3`）并推进为可落真实持久化的运行态底座（[`forwarding-persistence.md`](../../L2/agent-bus/forwarding-persistence.md)）。组件边界拆清：
+
+- **ForwardingDispatcher**（accept / enqueue 网关角色）：接受 envelope，写 outbox，返回同步 ack；不驱动投递（MI8-003）。
+- **ForwardingOutboxPort**（写入 + 状态迁移 + 状态查询）：enqueue / mark* / statusOf；`sourceServiceId` / `targetServiceId` 写入 record（MI8-002）。
+- **ForwardingOutboxClaimPort**（claim / lease，Stage 8 MI8-001）：`claimDue` 原子声明到期记录并 stamped lease，取代裸 `findRetryable(now)`。
+- **ForwardingDispatcherWorker**（claim / deliver / ack / retry 半边）：claimDue → deliver → ACK / RETRY / DLQ / EXPIRED；与网关角色分离（MI8-003）。
+- **ForwardingDeliveryPort**（抽象投递）：worker 仅消费 `routeHandle`，**不**暴露物理 endpoint；真实 HTTP / gRPC / broker 绑定 deferred Stage 9+。
+
+Stage 8 边界：补齐 record 模型（`ForwardingOutboxRecord` / `ForwardingInboxRecord` / `ForwardingLease`）、claim / lease 端口、worker skeleton、schema / migration 草案（DDL 草稿**未执行**）、in-memory lease harness；收口 MI8-001..005。真实 receiver transport **仍未落地**；**不引入** JDBC driver / Flyway / 生产数据库依赖（§6 护栏：数据库产品 / migration 归属未确认前停在此处）。
 
 ## 阶段记录
 
@@ -105,6 +117,6 @@ Stage 7 按 Stage 6 裁决采用 **C3（database outbox / inbox）** 作为类 M
 - 为 ingress、federation、reflection 增加契约测试计划。
 - 为本目录生成 graphify 输入和漂移检查 manifest。
 - Stage 5 运行态候选方案评审：见 [`../../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-candidates.md`](../../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-candidates.md)（候选评审，不绑定产品；Stage 4 设计态契约见上方「类 MQ 转发契约」章节）。
-- Stage 6 运行态候选裁决：见 [`../../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md`](../../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md)（已默认采用 C3，仍待 H2/H3 最终确认；Stage 7 已按受限范围落地最小骨架）。
-- Stage 7 C3 转发运行态最小骨架已落地（领域模型 + 端口 + 状态机 + in-memory 测试替身 + harness，115 tests green）；真实持久化 / 交付绑定 deferred 到 Stage 8。
-- Stage 8 建议进入 C3 真实持久化准备 / 初始实现：先收口 record / schema / Java 类型一致性，再推进 claim / lease、migration 草案、dispatcher worker skeleton 和 harness；计划见上方「阶段记录」。
+- Stage 6 运行态候选裁决：见 [`../../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md`](../../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md)（已采用 C3，`adopted-c3`；Stage 8 最终确认，后续变更需 ADR / review packet）。
+- Stage 7 C3 转发运行态最小骨架已落地（领域模型 + 端口 + 状态机 + in-memory 测试替身 + harness）；115 tests green。
+- Stage 8 C3 持久化准备已落地：record 模型 + claim / lease 端口 + dispatcher worker skeleton + 抽象 delivery 端口 + schema / migration 草案（DDL 草稿未执行）+ in-memory lease harness；收口 MI8-001..005；122 tests green。真实 JDBC adapter / Flyway migration / 真实投递绑定 deferred Stage 9+（§6 护栏：数据库产品 / migration 归属未确认前不引入生产数据库依赖）。计划见上方「阶段记录」。

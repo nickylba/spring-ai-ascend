@@ -1,7 +1,7 @@
 ---
 artifact_type: a2d_review_packet
 version: "agent-bus-forwarding-runtime-decision"
-status: "adopted-c3-pending-final-confirmation"
+status: "adopted-c3"
 source_plan: "docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage6-review-and-stage7-plan.md"
 source_stage6_plan: "docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage5-review-and-stage6-plan.md"
 source_candidates: "docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-candidates.md"
@@ -10,15 +10,15 @@ source_l1: "architecture/docs/L1/agent-bus/README.md"
 target_module: agent-bus
 ---
 
-# agent-bus 运行态转发候选方案裁决（Stage 6 H2/H3 → Stage 7 落位）
+# agent-bus 运行态转发候选方案裁决（Stage 6 H2/H3 → Stage 7 落位 → Stage 8 最终确认）
 
 ## 0. 文档状态与裁决前提
 
-**当前状态：默认采用 C3（database outbox / inbox），待 H2/H3 最终确认。**
+**当前状态：已采用 C3（database outbox / inbox）。H2/H3 在 Stage 7 → Stage 8 推进期间未提出反对，C3 进入最终确认状态（`adopted-c3`）；后续对 C3 的变更需新的 ADR / review packet。**
 
-本文档是 Stage 6（运行态候选裁决）的裁决记录，并被 Stage 7 计划（[`stage6-review-and-stage7-plan`](../delivery-projections/agent-bus-stage6-review-and-stage7-plan.md) §0）正式推进落位：Stage 6 的 draft 作为裁决入口已被接受为收口输入；Stage 7 不再生成「等待裁决」文档，而是按 Stage 5 推荐方向默认采用 **C3 database outbox / inbox** 作为生产候选路径，并解锁最小运行态实现。
+本文档是 Stage 6（运行态候选裁决）的裁决记录，并被 Stage 7 计划（[`stage6-review-and-stage7-plan`](../delivery-projections/agent-bus-stage6-review-and-stage7-plan.md) §0）正式推进落位：Stage 6 的 draft 作为裁决入口已被接受为收口输入；Stage 7 不再生成「等待裁决」文档，而是按 Stage 5 推荐方向默认采用 **C3 database outbox / inbox** 作为生产候选路径，并解锁最小运行态实现。Stage 8 计划（[`stage7-review-and-stage8-plan`](../delivery-projections/agent-bus-stage7-review-and-stage8-plan.md) §0/§3）在此基础上完成 C3 最终确认、补齐 record 模型与 claim / lease 端口、提供 schema / migration 草案与 dispatcher worker skeleton。
 
-裁决权威方仍为 **H2/H3**（架构治理 / 人类决策）。Stage 7 计划 §0 的落位逻辑是「若人类没有反对，默认按 Stage 5 推荐采用 C3」—— 这是默认裁决，不是绕过 H2/H3：若 H2/H3 在最终确认时反对 C3，则回退本文档状态、撤回 Stage 7 生产代码、回到分支式计划态。在 H2/H3 最终确认前，Stage 7 生产代码受 §4 许可范围与 §6 禁止范围双向约束。
+裁决权威方为 **H2/H3**（架构治理 / 人类决策）。Stage 7 计划 §0 的默认裁决（「若人类没有反对，默认按 Stage 5 推荐采用 C3」）在 Stage 7 → Stage 8 推进期间未被 H2/H3 否决，C3 进入最终确认状态（`adopted-c3`）。**后续对 C3 的变更（撤回、改候选、扩大 / 收紧代码许可范围）不再以「待确认」悬置，而需新的 ADR / review packet**；不再以「H2/H3 反对则撤回代码」作为默认回退路径。Stage 7 / Stage 8 生产代码受 §4 许可范围与 §6 禁止范围双向约束。
 
 回应「Stage 6 是否应该写代码」（Stage 6 计划 MI6-003）：Stage 6 本身是裁决关卡、不写代码（已收口）；Stage 7 在 C3 默认裁决下开始铺最小运行态实现路径，代码最早在此出现。
 
@@ -26,16 +26,16 @@ target_module: agent-bus
 
 | 裁决项 | 裁决 | 说明 |
 |---|---|---|
-| 采用候选 | **C3 database outbox / inbox（默认）** | Stage 7 计划 §0 落位；durable、审计强、tenant 行级隔离清楚、可能复用现有 DB、运维轻（见 [`candidates §6.2`](agent-bus-forwarding-runtime-candidates.md)）。 |
+| 采用候选 | **C3 database outbox / inbox（已采用，`adopted-c3`）** | Stage 7 计划 §0 默认裁决，Stage 8 最终确认；durable、审计强、tenant 行级隔离清楚、可能复用现有 DB、运维轻（见 [`candidates §6.2`](agent-bus-forwarding-runtime-candidates.md)）。 |
 | 是否允许写生产代码 | **是（仅 C3 最小范围）** | 允许最小领域模型、端口接口、状态机、schema 草案、harness；不允许完整调度器接入真实服务调用链（见 §4）。 |
 | 最小实现范围 | C3 最小骨架（Stage 7 切片 2-5） | L2 技术设计、outbox/inbox schema 草案、`com.huawei.ascend.bus.forwarding{,.spi,.runtime}` 骨架、状态机与契约 harness、L1 同步。 |
 | 验收标准 | Stage 7 计划 §4 | C3 决策不再阻塞；L2 可投影 schema/接口/测试；最小骨架有单测/harness 覆盖关键规则；不引入 broker/MQ 依赖；不改 Task ownership；不绕 routeHandle；不放 payload body。 |
 
-**本裁决不再是「待裁决导致不得推进」的阻塞状态**：默认采用 C3 已解锁 Stage 7 最小实现路径。
+**本裁决不再是「待裁决导致不得推进」的阻塞状态**：C3 已最终确认（`adopted-c3`），解锁 Stage 7 最小骨架与 Stage 8 持久化准备。
 
 ## 2. 采用候选
 
-**采用 C3 — database outbox / inbox（默认生产候选路径）。**
+**采用 C3 — database outbox / inbox（已最终确认的生产候选路径）。**
 
 理由（与 Stage 5 [`candidates §6.2`](agent-bus-forwarding-runtime-candidates.md) 推荐一致）：
 
@@ -76,7 +76,15 @@ Stage 7 **不允许**写生产代码的范围（反向禁止）：
 - **不绕过** Stage 3 discovery 的 `routeHandle`。
 - **不放** payload body / token stream 进 forwarding envelope（`payloadRef` 条件必填，MI5-003 方案 B）。
 
-允许范围与禁止范围同时存在，且均可被 review（§6 与 Stage 7 计划 §3/§4）。
+Stage 8 允许写生产代码的范围（正向许可，[`Stage 8 计划 §3`](../delivery-projections/agent-bus-stage7-review-and-stage8-plan.md)）：
+
+- outbox / inbox **record 模型**（`ForwardingOutboxRecord` / `ForwardingInboxRecord` / `ForwardingLease`），承载 runtime ICD 必填字段（MI8-002）。
+- **claim / lease 端口**（`ForwardingOutboxClaimPort`）与并发抢占语义，取代裸 `findRetryable(now)`（MI8-001）。
+- **dispatcher worker skeleton**（`ForwardingDispatcherWorker`）与抽象 delivery 端口（`ForwardingDeliveryPort` / `ForwardingDeliveryResult`），分离 accept / enqueue 与 claim / deliver（MI8-003）。
+- outbox / inbox **schema / migration 草案**（DDL 草稿，**未执行**）与持久化 L2（[`forwarding-persistence`](../../../../architecture/docs/L2/agent-bus/forwarding-persistence.md)）。
+- in-memory lease harness + fake delivery（test source set，non-production）。
+
+允许范围与禁止范围同时存在，且均可被 review（§6 与 Stage 7 / Stage 8 计划 §3/§4）。
 
 ## 5. 最小实现范围（C3 已激活）
 
@@ -122,16 +130,18 @@ C3 分支已由本裁决激活。Stage 7 的最小实现切片（见 Stage 7 计
 
 ## 8. 后续
 
-- H2/H3 最终确认 C3：本文档状态升为 `adopted-c3`，Stage 7 生产代码保留。
-- H2/H3 反对 C3：本文档回退 draft，撤回 Stage 7 生产代码，回到 §5 分支式计划态。
-- Stage 8：真实持久化实现（JDBC / migration / polling / lease / 并发抢占 / backpressure 参数 / 是否独立 adapter module / 接入 agent-runtime 受控调用路径）。
+- ~~H2/H3 反对 C3 则回退 draft、撤回代码~~ —— 此悬置路径已随 Stage 8 最终确认关闭；C3 = `adopted-c3`。
+- Stage 8（已完成）：record 模型、claim / lease 端口、dispatcher worker skeleton、抽象 delivery 端口、schema / migration 草案（DDL 草稿未执行）、in-memory lease harness（[`forwarding-persistence`](../../../../architecture/docs/L2/agent-bus/forwarding-persistence.md)）。
+- Stage 9+：真实持久化实现（JDBC adapter / Flyway migration 归属 / lease store 物理实现 / polling / 并发抢占原语 / backpressure 参数 / 是否独立 adapter module / 接入 agent-runtime 受控调用路径 / 数据库产品 + RLS 确认）。**§6 护栏：数据库产品或 migration 归属未确认前，不引入生产数据库依赖。**
 
 相关文档：
 
 - Stage 5 候选评审：[`agent-bus-forwarding-runtime-candidates`](agent-bus-forwarding-runtime-candidates.md)。
 - Stage 6 计划：[`agent-bus-stage5-review-and-stage6-plan`](../delivery-projections/agent-bus-stage5-review-and-stage6-plan.md)。
 - Stage 7 计划：[`agent-bus-stage6-review-and-stage7-plan`](../delivery-projections/agent-bus-stage6-review-and-stage7-plan.md)。
+- Stage 8 计划：[`agent-bus-stage7-review-and-stage8-plan`](../delivery-projections/agent-bus-stage7-review-and-stage8-plan.md)。
 - Stage 7 L2 设计：[`forwarding-outbox-inbox`](../../../../architecture/docs/L2/agent-bus/forwarding-outbox-inbox.md)。
+- Stage 8 持久化 L2：[`forwarding-persistence`](../../../../architecture/docs/L2/agent-bus/forwarding-persistence.md)。
 - Stage 7 runtime 契约：[`ICD-Agent-Bus-Forwarding-Runtime`](../../05-contracts/human-readable/ICD-agent-bus-forwarding-runtime.md)。
 - 设计态契约：[`ICD-Agent-Bus-Forwarding`](../../05-contracts/human-readable/ICD-agent-bus-forwarding.md)（HD4）。
 - L1 入口：[`agent-bus L1 README`](../../../../architecture/docs/L1/agent-bus/README.md)。

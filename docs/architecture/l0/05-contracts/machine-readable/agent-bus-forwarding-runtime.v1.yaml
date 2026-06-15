@@ -87,6 +87,15 @@ outbox_record:
       pii: enum-no-redact
       required_when: status in [RETRY_SCHEDULED, DLQ, EXPIRED]
       nullable_when: status == ACKED
+  stage8_additive:
+    - field: lease
+      type: object
+      projection: "ForwardingLease on ForwardingOutboxRecord (nested: leaseOwner string, leaseUntilMillisEpoch epoch-millis); DDL columns lease_owner / lease_until"
+      mutable: true
+      owner: dispatcher-worker-claim
+      pii: owner-identifier-audit-retained
+      rule: MI8-001
+      constraint: "at most one active lease per record; expired lease reclaimable; terminal never leased"
   unique_key: [tenantId, messageId]
 inbox_record:
   description: "接收端去重 / 幂等 / 审计 record。"
@@ -167,10 +176,25 @@ lifecycle_ownership:
   bus_writes_task_execution_state: false
   changes_remote_task_owner: false
 broker_posture: broker-agnostic
+claim_lease:
+  authority: architecture/docs/L2/agent-bus/forwarding-persistence.md#4
+  port: ForwardingOutboxClaimPort
+  replaces: findRetryable(now)
+  semantics:
+    - tenant-scoped claim (Rule R-C.c)
+    - one active lease owner per record at a time
+    - expired lease reclaimable by another owner
+    - nextAttemptAt <= now or fresh PENDING is due
+    - terminal never claimable
+    - claim + state transition atomic (single tx / CAS)
 stage7_scope:
   delivers: [schema-draft, port-interfaces, state-machine, harness, in-memory-test-double]
   not_delivers: [jdbc-driver, real-db-implementation, migration, polling, lease, concurrent-claim, real-delivery-binding]
   next_stage: Stage-8
+stage8_scope:
+  delivers: [record-models, claim-lease-port, dispatcher-worker-skeleton, delivery-port, schema-ddl-draft-not-executed, in-memory-lease-harness]
+  not_delivers: [jdbc-driver, flyway-migration, real-db-implementation, polling-cadence, real-delivery-binding]
+  next_stage: Stage-9-plus
 compatibility:
   additive_fields_allowed: true
   breaking_change_requires_adr: true
@@ -182,3 +206,10 @@ contract_tests:
   - forwarding_runtime_forbids_payload_body_token_stream_task_state_endpoint
   - forwarding_runtime_status_values_match_l2_state_machine
   - forwarding_runtime_failure_codes_cover_l2_semantics
+  - forwarding_runtime_outbox_record_carries_source_and_target_service_id
+  - claim_due_returns_only_tenant_scoped_due_non_terminal_records
+  - claim_due_grants_exclusive_lease_one_owner_at_a_time
+  - expired_lease_can_be_reclaimed
+  - terminal_outbox_record_is_not_claimable
+  - dispatcher_worker_routes_ack_retry_dlq_expired_via_fake_delivery
+  - forwarding_persistence_does_not_write_task_state_nor_introduce_broker

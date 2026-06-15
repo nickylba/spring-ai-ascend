@@ -19,8 +19,16 @@ public interface ForwardingOutboxPort {
      * Enqueue an envelope into the outbox and return the synchronous ack
      * receipt. A duplicate {@code (tenantId, messageId)} returns an
      * already-accepted receipt without re-enqueueing.
+     *
+     * <p>{@code sourceServiceId} and {@code targetServiceId} are gateway /
+     * discovery audit metadata written onto the resulting
+     * {@link ForwardingOutboxRecord} (MI8-002): the source is the calling
+     * service instance, the target is projected from the opaque
+     * {@link ForwardingRouteHandle} via Stage 3 discovery — never a physical
+     * endpoint. They live on the record, not on the envelope.
      */
-    ForwardingReceipt enqueue(ForwardingEnvelope envelope, long nowMillisEpoch);
+    ForwardingReceipt enqueue(ForwardingEnvelope envelope, String sourceServiceId,
+                              String targetServiceId, long nowMillisEpoch);
 
     /** Transition an entry to DISPATCHING (PENDING → DISPATCHING). */
     ForwardingStatus.Outbox markDispatching(ForwardingMessageId id, String tenantId);

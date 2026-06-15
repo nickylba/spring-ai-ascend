@@ -10,13 +10,16 @@ import java.util.Objects;
 /**
  * In-memory test double for {@link ForwardingDispatcher} — NON-PRODUCTION.
  *
- * <p>Stage 7 only confirms durable enqueue via the outbox port; real dispatch /
- * delivery orchestration (dispatcher → receiver transport) is Stage 8. This
- * double therefore delegates straight to {@link ForwardingOutboxPort#enqueue}.
+ * <p>The dispatcher is the accept / enqueue gateway role (MI8-003): this double
+ * delegates straight to {@link ForwardingOutboxPort#enqueue}, projecting the
+ * caller's source / target service ids onto the outbox record. Real delivery
+ * orchestration (claim / deliver / ack / retry) is the separate
+ * {@code ForwardingDispatcherWorker} role, exercised with an
+ * {@link InMemoryForwardingDelivery} fake.
  *
  * <p>Authority: {@code architecture/docs/L2/agent-bus/forwarding-outbox-inbox.md §3}.
  */
-// non-production — test fixture only; real delivery binding is Stage 8
+// non-production — test fixture only; real delivery binding is a later stage
 public final class InMemoryForwardingDispatcher implements ForwardingDispatcher {
 
     private final ForwardingOutboxPort outbox;
@@ -26,7 +29,8 @@ public final class InMemoryForwardingDispatcher implements ForwardingDispatcher 
     }
 
     @Override
-    public ForwardingReceipt dispatch(ForwardingEnvelope envelope, long nowMillisEpoch) {
-        return outbox.enqueue(envelope, nowMillisEpoch);
+    public ForwardingReceipt dispatch(ForwardingEnvelope envelope, String sourceServiceId,
+                                      String targetServiceId, long nowMillisEpoch) {
+        return outbox.enqueue(envelope, sourceServiceId, targetServiceId, nowMillisEpoch);
     }
 }

@@ -25,7 +25,7 @@ target_module: agent-bus
 - 幂等键、租户隔离、失败语义的精确化定义。
 - 可被 harness 字段级校验的 schema 草案（见 runtime ICD + machine-readable yaml）。
 
-Stage 7 只交付**最小骨架**：领域模型、端口接口、状态机、schema 草案、harness、in-memory test double。真实持久化实现（JDBC / migration / polling / lease / 并发抢占 / 真实投递绑定）是 **Stage 8**。
+Stage 7 交付**最小骨架**：领域模型、端口接口、状态机、schema 草案、harness、in-memory test double。**Stage 8** 补齐 record 模型（`ForwardingOutboxRecord` / `ForwardingInboxRecord`）、claim / lease 端口、dispatcher worker skeleton、schema / migration 草案（[`forwarding-persistence`](forwarding-persistence.md)）。真实持久化实现（JDBC adapter / Flyway migration / lease store 物理实现 / 真实投递绑定）是 **Stage 9+**。
 
 ## 2. 非目标
 
@@ -104,7 +104,7 @@ Stage 7 只交付**最小骨架**：领域模型、端口接口、状态机、sc
 | inbox 去重键 | `(tenantId, messageId, consumerServiceId)` | 接收方对同消息去重；不同 consumer 各自独立消费。 |
 | route 稳定维度 | `routeHandle.tenantScope`（== envelope.tenantId） | routeHandle 来自 Stage 3 discovery，opaque；幂等键含 tenantId 保证跨 tenant 不混淆、不可跨 tenant fallback。 |
 
-`messageId` 是 `ForwardingMessageId`（opaque 稳定值）。`idempotencyKey`（envelope 字段）与 `messageId` 的关系：`idempotencyKey` 是调用方提供的业务幂等键，`messageId` 是转发底座分配的转发级唯一键；去重以 `(tenantId, messageId, consumerServiceId)` 为主，`idempotencyKey` 作为辅助校验（`duplicate_suppressed` 可由任一命中触发）。
+`messageId` 是 `ForwardingMessageId`（opaque 稳定值）。`idempotencyKey`（envelope 字段）与 `messageId` 的关系（MI8-004 收口）：`idempotencyKey` 是调用方提供的业务幂等键，**降级为审计字段**；去重以 `(tenantId, messageId, consumerServiceId)` 为唯一依据，**不**随 `idempotencyKey` 命中触发 `duplicate_suppressed`。如需保留 `idempotencyKey` 供审计，作为 inbox 可选非键列后续追加，不改去重语义。
 
 ## 6. 租户隔离
 
@@ -127,34 +127,48 @@ Stage 7 只交付**最小骨架**：领域模型、端口接口、状态机、sc
 
 retryable vs 不可恢复：`route_not_found`、`tenant_mismatch`、`payload_ref_invalid` 不可恢复（直接 DLQ / REJECT）；`delivery_timeout` / `receiver_unavailable` / `backpressure_rejected` 可重试（受 attemptCount 上限 + deadline 约束）。
 
-## 8. 端口接口投影（Stage 7 骨架）
+## 8. 端口接口投影（Stage 7 骨架 + Stage 8 补齐）
 
 ```
-ForwardingOutboxPort (spi)
-  enqueue(envelope, now)           -> ForwardingReceipt     // 同步 ack；重复 -> 已存在 receipt
-  markDispatching(id, tenantId)    -> Outbox status          // PENDING -> DISPATCHING
-  markAcked(id, tenantId)          -> Outbox status          // DISPATCHING -> ACKED
-  scheduleRetry(id, tenantId, code, nextAttemptAt) -> status // -> RETRY_SCHEDULED
-  moveToDlq(id, tenantId, code)    -> Outbox status          // -> DLQ
-  markExpired(id, tenantId)        -> Outbox status          // -> EXPIRED
+ForwardingOutboxPort (spi)                          // gateway / worker 共用：写入 + 状态迁移 + 状态查询
+  enqueue(envelope, sourceServiceId, targetServiceId, now) -> ForwardingReceipt
+                                                    // 同步 ack；source/target 写入 record（MI8-002）；重复 -> 已存在 receipt
+  markDispatching(id, tenantId)    -> Outbox status  // PENDING -> DISPATCHING
+  markAcked(id, tenantId)          -> Outbox status  // DISPATCHING -> ACKED
+  scheduleRetry(id, tenantId, code, nextAttemptAt) -> status   // -> RETRY_SCHEDULED（attemptCount + 1）
+  moveToDlq(id, tenantId, code)    -> Outbox status  // -> DLQ
+  markExpired(id, tenantId)        -> Outbox status  // -> EXPIRED
   statusOf(id, tenantId)           -> Outbox status
-  findRetryable(now)               -> List<id> (tenant-scoped, nextAttemptAt <= now)
+
+ForwardingOutboxClaimPort (spi)                     // Stage 8（MI8-001）：claim / lease，替代 findRetryable(now)
+  claimDue(tenantId, now, limit, leaseOwner, leaseUntil) -> List<ForwardingOutboxRecord>
+                                                    // 原子声明到期记录（PENDING / due RETRY_SCHEDULED / 过期 lease 的 DISPATCHING）
+                                                    // -> DISPATCHING + stamped lease；tenant-scoped；terminal 不可 claim
+  renewLease(id, tenantId, owner, until)  -> boolean
+  releaseLease(id, tenantId, owner)       -> boolean
 
 ForwardingInboxPort (spi)
-  receive(envelope, consumerServiceId, now) -> InboxReceipt  // 去重判定 -> RECEIVED / DUPLICATE_SUPPRESSED
+  receive(envelope, consumerServiceId, now) -> Inbox status  // 去重判定 -> RECEIVED / DUPLICATE_SUPPRESSED
   markConsumed(id, tenantId, consumer)      -> Inbox status
   markRejected(id, tenantId, consumer, code)-> Inbox status
   statusOf(id, tenantId, consumer)          -> Inbox status
 
-ForwardingDispatcher (spi)
-  dispatch(envelope)               -> ForwardingReceipt       // 编排 enqueue -> DISPATCHING -> ACK/RETRY/DLQ
+ForwardingDispatcher (spi)                          // accept / enqueue 网关角色（MI8-003）
+  dispatch(envelope, sourceServiceId, targetServiceId, now) -> ForwardingReceipt
+
+ForwardingDeliveryPort (spi)                        // Stage 8：抽象投递，worker 消费 routeHandle
+  deliver(record, now)              -> ForwardingDeliveryResult  // outcome: ACKED / RETRY_SCHEDULED / DLQ / EXPIRED
+
+ForwardingDispatcherWorker (runtime)                // Stage 8：claim / deliver / ack / retry 半边（MI8-003）
+  runOnce(tenantId, now, limit, leaseOwner, leaseUntil) -> DispatchTickResult
+                                                    // claimDue -> deliver -> markAcked / scheduleRetry / moveToDlq / markExpired
 
 ForwardingStateMachine (runtime, 纯函数)
-  transitOutbox(current, event)    -> Outbox status           // 非法迁移抛异常
+  transitOutbox(current, event)    -> Outbox status  // 非法迁移抛异常
   transitInbox(current, event)     -> Inbox status
 ```
 
-端口实现（JDBC / 真实 DB）是 Stage 8；Stage 7 提供 in-memory test double（test source set）验证端口语义与状态机。
+> Stage 8 用 `claimDue` 取代裸 `findRetryable(now)`（MI8-001）：真实持久化下多实例并发抢同一条消息，必须用 claim / lease 防重复投递（并发抢占语义见 [`forwarding-persistence §4`](forwarding-persistence.md)）。端口实现（JDBC adapter）是 Stage 9+；Stage 7 / Stage 8 提供 in-memory test double + in-memory lease harness（test source set）验证端口语义、状态机与 claim / lease。
 
 ## 9. 与 Stage 3 / Stage 4 的消费关系
 
@@ -162,14 +176,19 @@ ForwardingStateMachine (runtime, 纯函数)
 - **承载 Stage 4 语义**：outbox/inbox 是 Stage 4 broker-agnostic 转发语义（ack / retry / timeout / DLQ / correlation / backpressure / tenant-aware routing）的运行态承载；本 L2 不修改 Stage 4 语义，只投影为状态机与端口。
 - **不改变 Task ownership**：runtime-to-runtime 消息只携带控制与 `payloadRef`，**不改变远端 Task lifecycle owner**；`agent-bus` 不写 Task execution state（延续 HD4 / 与 registry 边界一致）。
 
-## 10. Stage 8 deferred（不在 Stage 7）
+## 10. Stage 8 已交付 / Stage 9+ deferred
 
-- JDBC / 真实 DB 实现；outbox / inbox 物理表 schema migration / rollback 策略。
-- polling / lease / 并发抢占（CAS / `SELECT ... FOR UPDATE` / advisory lock）。
+Stage 8（本批）已交付（见 [`forwarding-persistence`](forwarding-persistence.md)）：record 模型、claim / lease 端口（`claimDue` 取代 `findRetryable`）、dispatcher worker skeleton、抽象 delivery 端口、schema / migration 草案（DDL 草稿，未执行）、in-memory lease harness。
+
+Stage 9+ deferred（不在 Stage 8）：
+
+- 真实 JDBC adapter；outbox / inbox 物理 schema migration / rollback 策略（Flyway 归属确认后）。
+- lease store 物理实现；polling cadence；并发抢占原语（`SELECT ... FOR UPDATE SKIP LOCKED` / advisory lock）。
 - backpressure 参数（队列阈值、降速策略、tenant quota）。
-- 真实投递绑定（dispatcher → 接收方 transport；HTTP / gRPC / 内部 RPC）。
+- 真实投递绑定（dispatcher worker → 接收方 transport；HTTP / gRPC / 内部 RPC）。
 - 是否独立 adapter module；接入 `agent-runtime` 受控调用路径。
-- ordering / fairness 的具体实现（per-tenant / per-route 局部 ordering 是运行态选择，不进 Stage 7 必选）。
+- ordering / fairness 的具体实现（per-tenant / per-route 局部 ordering 是运行态选择，不进 Stage 8 必选）。
+- 数据库产品确认 + 是否启用 Postgres RLS。
 
 ## 11. DoD 自检
 
