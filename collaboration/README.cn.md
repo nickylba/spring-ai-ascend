@@ -34,9 +34,11 @@
 
 ## 接真实 A2A(`a2a/`)
 
-`A2aWorker` 把一个远程 A2A agent 包成 `Worker`:用 SDK `ClientTransport` **流式**发消息(任务令牌放 `Message.metadata`)、收集事件到终态、映射成 `WorkResult`、用 `cancelTask` 实现回收。这样同一个 `Coordinator` 既能编排真实 A2A agent,也能在评测里用内存 worker 复现。
+`A2aWorker` 把一个远程 A2A agent 包成 `Worker`:用 SDK `ClientTransport` 发 `message/send`(任务令牌放 `Message.metadata`、租户走 `X-Tenant-Id` 头)、把终态 `Task`(或直接的 `Message` 回复)映射成 `WorkResult`、用 `cancelTask` 实现回收。这样同一个 `Coordinator` 既能编排真实 A2A agent,也能在评测里用内存 worker 复现。
 
-**真实 A2A 往返 e2e(`src/test`,目前 `@Disabled`)**:`DeterministicEchoAgent` 是一个**不调 LLM** 的极简 A2A agent(直接返回 echo + 完成),`A2aWorkerE2eTest` 启它在随机端口、让 `A2aWorker` 真打它一次,确定性、无需 API key。**当前被仓库级 a2a-sdk 版本漂移挡住**:根 pom 声明 `1.0.0.Final` 且 agent-runtime 源码用 .Final-only 的客户端 API,但本地 `.m2` 只有 `1.0.0.CR1`;CR1 客户端打 .Final 构建的运行时,流式端点返回 0 事件(SSE wire 不兼容)。agent 能启、路径能通(无 404),差的纯是 CR1↔Final。**待平台统一并落地某一版本后去掉 `@Disabled` 即可验证**(脚手架已就位)。
+> 注:租户必须走 `X-Tenant-Id` 头,**不要**用 `MessageSendParams.tenant()`——后者会让 SDK 把请求打到租户作用域的 URL(`/a2a/{tenant}`),而运行时只服务 `/a2a`,会 404。
+
+**真实 A2A 往返 e2e(`src/test`)**:`DeterministicEchoAgent` 是一个**不调 LLM** 的极简 A2A agent(直接返回 echo + 完成),`A2aWorkerE2eTest` 启它在随机端口、让 `A2aWorker` 真打它一次(直连 + 经 `Coordinator`),确定性、无需 API key、CI 安全。整套 a2a-sdk 对齐到 `1.0.0.Final`(与平台一致),`logback-test.xml` 覆盖 agent-runtime 的 logstash appender。**2 个 e2e 全绿**,既验证了 engine→A2A 桥,也是一次真实 A2A 往返评测。
 
 ## 构建
 

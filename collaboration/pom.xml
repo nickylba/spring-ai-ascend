@@ -51,17 +51,17 @@
     <dependency>
       <groupId>org.a2aproject.sdk</groupId>
       <artifactId>a2a-java-sdk-spec</artifactId>
-      <version>1.0.0.CR1</version>
+      <version>1.0.0.Final</version>
     </dependency>
     <dependency>
       <groupId>org.a2aproject.sdk</groupId>
       <artifactId>a2a-java-sdk-client-transport-jsonrpc</artifactId>
-      <version>1.0.0.CR1</version>
+      <version>1.0.0.Final</version>
     </dependency>
     <dependency>
       <groupId>org.a2aproject.sdk</groupId>
       <artifactId>a2a-java-sdk-http-client</artifactId>
-      <version>1.0.0.CR1</version>
+      <version>1.0.0.Final</version>
     </dependency>
     <dependency>
       <groupId>ch.qos.logback</groupId>
@@ -75,7 +75,7 @@
     </dependency>
 
     <!-- E2E only: boot a real A2A agent (no LLM) and drive A2aWorker over the wire.
-         a2a-sdk pinned to 1.0.0.CR1 across the stack so the whole graph (client +
+         a2a-sdk pinned to 1.0.0.Final across the stack so the whole graph (client +
          agent-runtime's server side) resolves offline at one consistent version. -->
     <dependency>
       <groupId>com.huawei.ascend</groupId>
@@ -102,7 +102,7 @@
     <dependency>
       <groupId>org.a2aproject.sdk</groupId>
       <artifactId>a2a-java-sdk-server-common</artifactId>
-      <version>1.0.0.CR1</version>
+      <version>1.0.0.Final</version>
       <scope>test</scope>
     </dependency>
   </dependencies>

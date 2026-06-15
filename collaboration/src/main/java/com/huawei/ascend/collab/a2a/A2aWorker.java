@@ -4,29 +4,24 @@ import com.huawei.ascend.collab.core.SubTask;
 import com.huawei.ascend.collab.core.TaskToken;
 import com.huawei.ascend.collab.core.WorkResult;
 import com.huawei.ascend.collab.core.Worker;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import org.a2aproject.sdk.client.http.A2ACardResolver;
 import org.a2aproject.sdk.client.transport.jsonrpc.JSONRPCTransport;
 import org.a2aproject.sdk.client.transport.spi.ClientTransport;
 import org.a2aproject.sdk.client.transport.spi.interceptors.ClientCallContext;
 import org.a2aproject.sdk.spec.AgentCard;
+import org.a2aproject.sdk.spec.Artifact;
 import org.a2aproject.sdk.spec.CancelTaskParams;
+import org.a2aproject.sdk.spec.EventKind;
 import org.a2aproject.sdk.spec.Message;
 import org.a2aproject.sdk.spec.MessageSendParams;
 import org.a2aproject.sdk.spec.Part;
-import org.a2aproject.sdk.spec.StreamingEventKind;
 import org.a2aproject.sdk.spec.Task;
-import org.a2aproject.sdk.spec.TaskArtifactUpdateEvent;
 import org.a2aproject.sdk.spec.TaskState;
-import org.a2aproject.sdk.spec.TaskStatusUpdateEvent;
 import org.a2aproject.sdk.spec.TextPart;
 
 /**
@@ -38,11 +33,12 @@ import org.a2aproject.sdk.spec.TextPart;
  * Coordinator therefore orchestrates real A2A agents (this worker) or, in eval,
  * deterministic in-memory workers.
  *
- * <p>Uses streaming ({@code sendMessageStreaming}) — the transport the runtime
- * serves — collecting events until a terminal/interrupted status. Token echo: A2A
- * correlates by taskId/contextId and the endpoint is operator-configured, so on a
- * correlated response this worker re-presents the issued token (the metadata-carried
- * token is the idempotency/deadline credential).
+ * <p>Uses the blocking {@code message/send} call and maps the terminal
+ * {@link Task} state (or a direct {@link Message} reply) to a {@link WorkResult}.
+ * The {@link TaskToken} rides the message metadata as the idempotency/deadline
+ * credential; the tenant rides the {@code X-Tenant-Id} header (not
+ * {@code MessageSendParams.tenant()}, which would route to a tenant-scoped URL).
+ * On a correlated response this worker re-presents the issued token.
  */
 public final class A2aWorker implements Worker {
 
@@ -69,7 +65,7 @@ public final class A2aWorker implements Worker {
         this.capabilities = Set.copyOf(capabilities);
         this.timeoutMs = timeoutMs;
         try {
-            AgentCard card = new A2ACardResolver(baseUrl).getAgentCard();
+            AgentCard card = A2ACardResolver.builder().baseUrl(baseUrl).build().getAgentCard();
             this.transport = new JSONRPCTransport(card);
         } catch (Throwable e) {
             throw new IllegalStateException(
@@ -97,10 +93,6 @@ public final class A2aWorker implements Worker {
 
     @Override
     public WorkResult execute(SubTask task, TaskToken token) {
-        List<StreamingEventKind> events = new ArrayList<>();
-        CountDownLatch done = new CountDownLatch(1);
-        AtomicReference<Throwable> failure = new AtomicReference<>();
-        AtomicReference<TaskState> terminal = new AtomicReference<>();
         try {
             Map<String, Object> meta = new LinkedHashMap<>();
             meta.put(MK_TOKEN, token.tokenId().toString());
@@ -111,51 +103,46 @@ public final class A2aWorker implements Worker {
             Message message = Message.builder()
                     .role(Message.Role.ROLE_USER)
                     .messageId(UUID.randomUUID().toString())
-                    .contextId(token.taskId())
                     .parts(List.<Part<?>>of(new TextPart(task.payload() == null ? "" : task.payload())))
                     .metadata(meta)
                     .build();
+            // Tenant rides the X-Tenant-Id header (which the runtime reads), NOT
+            // MessageSendParams.tenant() — the latter makes the SDK route to a
+            // tenant-scoped URL path (/a2a/{tenant}) the runtime does not serve.
             MessageSendParams params = MessageSendParams.builder()
-                    .message(message).metadata(meta).tenant(token.tenantId()).build();
+                    .message(message).metadata(meta).build();
+            ClientCallContext ctx = new ClientCallContext(Map.of(),
+                    Map.of("X-Tenant-Id", token.tenantId()));
 
-            transport.sendMessageStreaming(params,
-                    event -> {
-                        events.add(event);
-                        TaskState st = terminalStateOf(event);
-                        if (st != null) {
-                            terminal.set(st);
-                            done.countDown();
-                        }
-                    },
-                    error -> {
-                        failure.set(error);
-                        done.countDown();
-                    },
-                    new ClientCallContext(Map.of(), Map.of("X-Tenant-Id", token.tenantId())));
+            EventKind result = transport.sendMessage(params, ctx);
+            return map(task, token, result);
+        } catch (Throwable t) {
+            return WorkResult.failed(task.id(), token, id,
+                    "a2a error: " + t.getClass().getSimpleName()
+                            + (t.getMessage() == null ? "" : ": " + t.getMessage()));
+        }
+    }
 
-            if (!done.await(timeoutMs, TimeUnit.MILLISECONDS)) {
+    private WorkResult map(SubTask task, TaskToken token, EventKind result) {
+        if (result instanceof Task t) {
+            TaskState state = t.status() == null ? null : t.status().state();
+            String text = textFrom(t);
+            if (state == TaskState.TASK_STATE_COMPLETED) {
+                return WorkResult.completed(task.id(), text == null || text.isBlank() ? "completed" : text, token, id);
+            }
+            if (state == TaskState.TASK_STATE_INPUT_REQUIRED || state == TaskState.TASK_STATE_AUTH_REQUIRED) {
+                return new WorkResult(task.id(), WorkResult.Status.INPUT_REQUIRED, null, token, id, null, "remote input");
+            }
+            if (state == TaskState.TASK_STATE_CANCELED) {
                 return WorkResult.timeout(task.id(), token, id);
             }
-        } catch (Throwable t) {
-            return WorkResult.failed(task.id(), token, id, "a2a error: " + t.getClass().getSimpleName());
+            return WorkResult.failed(task.id(), token, id, "remote state " + state);
         }
-
-        if (failure.get() != null && terminal.get() == null) {
-            return WorkResult.failed(task.id(), token, id, "a2a stream error: " + failure.get().getMessage());
-        }
-
-        TaskState state = terminal.get();
-        String text = textFrom(events);
-        if (state == TaskState.TASK_STATE_COMPLETED) {
+        if (result instanceof Message m) {
+            String text = textOf(m);
             return WorkResult.completed(task.id(), text == null || text.isBlank() ? "completed" : text, token, id);
         }
-        if (state == TaskState.TASK_STATE_INPUT_REQUIRED || state == TaskState.TASK_STATE_AUTH_REQUIRED) {
-            return new WorkResult(task.id(), WorkResult.Status.INPUT_REQUIRED, null, token, id, null, "remote input");
-        }
-        if (state == TaskState.TASK_STATE_CANCELED) {
-            return WorkResult.timeout(task.id(), token, id);
-        }
-        return WorkResult.failed(task.id(), token, id, "remote state " + state);
+        return WorkResult.failed(task.id(), token, id, "unexpected event kind: " + result);
     }
 
     /** Reclaim a remote task (orchestrator on timeout/reassignment). */
@@ -168,33 +155,23 @@ public final class A2aWorker implements Worker {
         }
     }
 
-    private static TaskState terminalStateOf(StreamingEventKind event) {
-        if (event instanceof TaskStatusUpdateEvent s && s.status() != null && s.status().state() != null) {
-            TaskState st = s.status().state();
-            return st.isFinal() || st.isInterrupted() ? st : null;
-        }
-        if (event instanceof Task t && t.status() != null && t.status().state() != null) {
-            TaskState st = t.status().state();
-            return st.isFinal() || st.isInterrupted() ? st : null;
-        }
-        if (event instanceof Message) {
-            return TaskState.TASK_STATE_COMPLETED; // a direct message reply means done
-        }
-        return null;
-    }
-
-    private static String textFrom(List<StreamingEventKind> events) {
+    /** Collect text from a completed task: its artifacts plus any status message. */
+    private static String textFrom(Task t) {
         StringBuilder sb = new StringBuilder();
-        for (StreamingEventKind event : events) {
-            if (event instanceof Message m) {
-                appendParts(sb, m.parts());
-            } else if (event instanceof TaskStatusUpdateEvent s
-                    && s.status() != null && s.status().message() != null) {
-                appendParts(sb, s.status().message().parts());
-            } else if (event instanceof TaskArtifactUpdateEvent a && a.artifact() != null) {
-                appendParts(sb, a.artifact().parts());
+        if (t.artifacts() != null) {
+            for (Artifact a : t.artifacts()) {
+                appendParts(sb, a.parts());
             }
         }
+        if (t.status() != null && t.status().message() != null) {
+            appendParts(sb, t.status().message().parts());
+        }
+        return sb.isEmpty() ? null : sb.toString();
+    }
+
+    private static String textOf(Message m) {
+        StringBuilder sb = new StringBuilder();
+        appendParts(sb, m.parts());
         return sb.isEmpty() ? null : sb.toString();
     }
 
