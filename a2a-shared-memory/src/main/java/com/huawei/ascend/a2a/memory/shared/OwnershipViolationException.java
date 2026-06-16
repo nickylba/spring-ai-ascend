@@ -4,7 +4,7 @@ package com.huawei.ascend.a2a.memory.shared;
  * Thrown when an agent tries to write a blackboard key owned by another agent.
  * A key's owner is the agent that first wrote it; only the owner may update it
  * (after hand-over A&rarr;B, B writes its own keys, A's stay immutable to B).
- * The closed engine maps this to a gRPC {@code PERMISSION_DENIED} on the wire.
+ * A remote backend maps this to its transport's permission-denied error.
  */
 public final class OwnershipViolationException extends RuntimeException {
 

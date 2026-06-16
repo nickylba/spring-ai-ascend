@@ -4,11 +4,13 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Backend SPI for the A2A run-scoped shared blackboard — the server-sovereign
- * boundary. The in-process {@link InMemorySharedMemoryStore} implements it for
- * offline eval; a gRPC client to the closed A2A shared-memory engine implements the same
- * SPI in production (the a2a-shared-memory design decision, form C). Implementations MUST enforce the
- * ownership write rule and tenant isolation; the kit facade stays thin.
+ * Backend SPI for the A2A run-scoped shared blackboard. The in-process
+ * {@link InMemorySharedMemoryStore} implements it for offline eval; a remote or
+ * persistent backend (e.g. redis, or the MemOpt engine) may implement the same
+ * SPI for production. The choice of backend and how it is deployed (in-process,
+ * remote, containerised) is out of scope here — this SPI only fixes the contract.
+ * Implementations MUST enforce the ownership write rule and tenant isolation; the
+ * kit facade stays thin.
  */
 public interface SharedMemoryStore {
 
