@@ -32,6 +32,30 @@ A2A agents ──▶ a2a-shared-memory (experience SPI)
 - LLM gateway credentials the engine calls (`GATEWAY_BASE_URL`, `GATEWAY_API_KEY`,
   `DEFAULT_MODEL`).
 
+## Get the image (private registry)
+
+The MemOpt image lives in a **private** registry — pull access is the IP boundary.
+Log in first, then Compose will pull it.
+
+**GHCR (GitHub Container Registry):** use a GitHub Personal Access Token with the
+`read:packages` scope:
+
+```bash
+echo "$GH_PAT" | docker login ghcr.io -u <github-username> --password-stdin
+# MEMOPT_IMAGE=ghcr.io/chaosxingxc-orion/memopt:0.0.1   (the default)
+```
+
+**Harbor / other private registry:**
+
+```bash
+docker login harbor.example.com
+# set MEMOPT_IMAGE=harbor.example.com/memopt/memopt:0.0.1 in .env
+```
+
+> The image bakes the Python source, so anyone who can pull it can read it — keep the
+> registry **private** and grant pull only to authorized colleagues. Genuine
+> source-hiding (compilation) or central hosting is out of scope for this bundle.
+
 ## Enable (3 steps)
 
 ```bash
@@ -71,8 +95,30 @@ down, recall returns empty and the agent path is never blocked.
 - **No secrets in files.** Gateway creds and the token come from `.env` (uncommitted),
   not from the compose file.
 
-## Where the image comes from
+## Publishing the image (maintainers only)
 
-The image is built from the MemOpt repo (`docs/DEPLOY_CONTAINER.md` there) and pushed
-to your registry; set `MEMOPT_IMAGE` accordingly. If you built it locally, the default
-`memopt:0.0.1` tag works on that host.
+The image is built from the MemOpt repo (closed); see its `docs/DEPLOY_CONTAINER.md`
+for the build (incl. proxy build-args for slow-mirror regions). Then tag + push to the
+**private** registry:
+
+**GHCR** — token needs `write:packages`:
+
+```bash
+docker tag memopt:0.0.1 ghcr.io/chaosxingxc-orion/memopt:0.0.1
+echo "$GH_PAT" | docker login ghcr.io -u <github-username> --password-stdin
+docker push ghcr.io/chaosxingxc-orion/memopt:0.0.1
+# Then in GitHub → the package's settings, confirm visibility = Private and grant
+# pull access to the team. (GHCR packages are private by default.)
+```
+
+**Harbor:**
+
+```bash
+docker tag memopt:0.0.1 harbor.example.com/memopt/memopt:0.0.1
+docker login harbor.example.com
+docker push harbor.example.com/memopt/memopt:0.0.1
+```
+
+> The MemOpt **source + Dockerfile stay in the MemOpt repo**; only the built image is
+> published, and only to a private registry. This GitHub PR ships the Java client +
+> this deploy bundle — never the engine source.

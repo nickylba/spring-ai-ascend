@@ -15,9 +15,9 @@ services:
     restart: unless-stopped
 
   memopt:
-    # e.g. MEMOPT_IMAGE=registry.example.com/memopt:0.0.1 (set in .env). The default is
-    # a local tag for whoever built the image themselves; colleagues set their registry.
-    image: ${MEMOPT_IMAGE:-memopt:0.0.1}
+    # Pulled from a PRIVATE registry (set MEMOPT_IMAGE in .env; `docker login` first).
+    # Default points at GHCR under this org; override for Harbor / your registry.
+    image: ${MEMOPT_IMAGE:-ghcr.io/chaosxingxc-orion/memopt:0.0.1}
     depends_on:
       - nats
     environment:
