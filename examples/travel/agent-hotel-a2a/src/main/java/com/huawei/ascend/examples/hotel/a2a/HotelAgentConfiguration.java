@@ -15,8 +15,8 @@ import org.a2aproject.sdk.spec.AgentInterface;
 import org.a2aproject.sdk.spec.AgentProvider;
 import org.a2aproject.sdk.spec.AgentSkill;
 import org.a2aproject.sdk.spec.TransportProtocol;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -46,15 +46,16 @@ public class HotelAgentConfiguration {
     }
 
     /**
-     * Process-local memory backend. Activated by default so the runtime memory
-     * rail has somewhere to write; production deployments should override by
-     * setting {@code hotel-agent.memory.provider=mem0} (see
-     * {@link #hotelMem0MemoryProvider}) or by registering a {@link MemoryProvider}
-     * bean of their own. The concrete return type is preserved so
+     * Process-local memory backend, active when {@code hotel-agent.memory.provider}
+     * is unset or set to {@code in-memory}. Mutual exclusivity with the mem0
+     * backend is enforced by both beans gating on the same property — relying on
+     * {@code @ConditionalOnMissingBean} inside the same {@code @Configuration}
+     * class is order-sensitive and registered both beans when the property was
+     * set to {@code mem0}. The concrete return type is preserved so
      * {@link HotelMemoryDebugController} can inject the same bean for inspection.
      */
     @Bean
-    @ConditionalOnMissingBean(MemoryProvider.class)
+    @ConditionalOnProperty(name = "hotel-agent.memory.provider", havingValue = "in-memory", matchIfMissing = true)
     HotelInMemoryMemoryProvider hotelInMemoryMemoryProvider() {
         return new HotelInMemoryMemoryProvider();
     }
@@ -83,8 +84,8 @@ public class HotelAgentConfiguration {
     }
 
     @Bean
-    AgentRuntimeHandler hotelAgentHandler(HotelPlanningAgent agent, MemoryProvider memoryProvider) {
-        return new HotelAgentHandler(AGENT_ID, agent, memoryProvider);
+    AgentRuntimeHandler hotelAgentHandler(HotelPlanningAgent agent, ObjectProvider<MemoryProvider> memoryProvider) {
+        return new HotelAgentHandler(AGENT_ID, agent, memoryProvider.getIfAvailable());
     }
 
     @Bean
@@ -100,7 +101,6 @@ public class HotelAgentConfiguration {
                 .description("Corporate-travel hotel planning sub-agent. Given a destination city, "
                         + "check-in / check-out dates and optional star / price / brand filters, "
                         + "returns a markdown comparison of recommended hotels with rooms and prices.")
-                .url("/a2a")
                 .version("0.1.0")
                 .provider(new AgentProvider("spring-ai-ascend", ""))
                 .capabilities(AgentCapabilities.builder()
@@ -139,7 +139,6 @@ public class HotelAgentConfiguration {
                                 .build()))
                 .supportedInterfaces(List.of(
                         new AgentInterface(TransportProtocol.JSONRPC.asString(), "/a2a")))
-                .preferredTransport(TransportProtocol.JSONRPC.asString())
                 .build();
     }
 }

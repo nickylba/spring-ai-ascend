@@ -4,7 +4,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Flow;
 import com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor;
+import com.google.protobuf.Empty;
+import com.google.protobuf.MessageOrBuilder;
 import org.a2aproject.sdk.grpc.utils.JSONRPCUtils;
+import org.a2aproject.sdk.grpc.utils.ProtoUtils;
 import org.a2aproject.sdk.jsonrpc.common.json.JsonMappingException;
 import org.a2aproject.sdk.jsonrpc.common.json.JsonProcessingException;
 import org.a2aproject.sdk.jsonrpc.common.json.JsonUtil;
@@ -36,7 +39,6 @@ import org.a2aproject.sdk.spec.A2AError;
 import org.a2aproject.sdk.spec.A2AErrorCodes;
 import org.a2aproject.sdk.spec.StreamingEventKind;
 import org.a2aproject.sdk.spec.TaskStatusUpdateEvent;
-import org.reactivestreams.FlowAdapters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -47,6 +49,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxSink;
 
 @RestController
 public class A2aJsonRpcController {
@@ -126,7 +129,7 @@ public class A2aJsonRpcController {
         } else {
             throw error(A2AErrorCodes.METHOD_NOT_FOUND, "Unknown streaming request: " + request.getMethod());
         }
-        Flux<StreamingEventKind> flux = Flux.from(FlowAdapters.toPublisher(publisher));
+        Flux<StreamingEventKind> flux = unboundedFlux(publisher);
         if (terminateOnInterrupt) {
             // The A2A SDK keeps the stream open on INPUT_REQUIRED (interrupted state)
             // for SubscribeToTask semantics. For SendStreamingMessage the client expects
@@ -146,6 +149,37 @@ public class A2aJsonRpcController {
                             : error(A2AErrorCodes.INTERNAL, e.getMessage());
                     return Flux.just(errorEvent(id, fault));
                 });
+    }
+
+    private static Flux<StreamingEventKind> unboundedFlux(Flow.Publisher<StreamingEventKind> publisher) {
+        return Flux.create(sink -> publisher.subscribe(new Flow.Subscriber<>() {
+            @Override
+            public void onSubscribe(Flow.Subscription subscription) {
+                sink.onCancel(subscription::cancel);
+                subscription.request(Long.MAX_VALUE);
+            }
+
+            @Override
+            public void onNext(StreamingEventKind item) {
+                if (!sink.isCancelled()) {
+                    sink.next(item);
+                }
+            }
+
+            @Override
+            public void onError(Throwable throwable) {
+                if (!sink.isCancelled()) {
+                    sink.error(throwable);
+                }
+            }
+
+            @Override
+            public void onComplete() {
+                if (!sink.isCancelled()) {
+                    sink.complete();
+                }
+            }
+        }), FluxSink.OverflowStrategy.BUFFER);
     }
 
     ResponseEntity<String> handleBlocking(A2ARequest<?> request, String tenantHeader) throws A2AError {
@@ -172,12 +206,44 @@ public class A2aJsonRpcController {
             default -> throw error(A2AErrorCodes.METHOD_NOT_FOUND, "Unknown: " + request.getMethod());
         };
         try {
-            return ResponseEntity.ok(JsonUtil.toJson(response));
+            return ResponseEntity.ok(responseJson(response));
         } catch (Exception e) {
             log.error("[A2A] response serialization failed id={}", request.getId(), e);
             return errorResponse(request.getId(),
                     error(A2AErrorCodes.INTERNAL, "failed to serialize A2A response: " + e.getMessage()));
         }
+    }
+
+    private static String responseJson(A2AResponse<?> response) {
+        return JSONRPCUtils.toJsonRPCResultResponse(response.getId(), responseProto(response));
+    }
+
+    private static MessageOrBuilder responseProto(A2AResponse<?> response) {
+        if (response instanceof SendMessageResponse r) {
+            return ProtoUtils.ToProto.taskOrMessage(r.getResult());
+        }
+        if (response instanceof GetTaskResponse r) {
+            return ProtoUtils.ToProto.task(r.getResult());
+        }
+        if (response instanceof ListTasksResponse r) {
+            return ProtoUtils.ToProto.listTasksResult(r.getResult());
+        }
+        if (response instanceof CancelTaskResponse r) {
+            return ProtoUtils.ToProto.task(r.getResult());
+        }
+        if (response instanceof CreateTaskPushNotificationConfigResponse r) {
+            return ProtoUtils.ToProto.createTaskPushNotificationConfigResponse(r.getResult());
+        }
+        if (response instanceof GetTaskPushNotificationConfigResponse r) {
+            return ProtoUtils.ToProto.getTaskPushNotificationConfigResponse(r.getResult());
+        }
+        if (response instanceof ListTaskPushNotificationConfigsResponse r) {
+            return ProtoUtils.ToProto.listTaskPushNotificationConfigsResponse(r.getResult());
+        }
+        if (response instanceof DeleteTaskPushNotificationConfigResponse) {
+            return Empty.getDefaultInstance();
+        }
+        throw new IllegalArgumentException("Unknown A2A response type: " + response.getClass().getName());
     }
 
     private static String streamingResponseJson(Object id, StreamingEventKind event) {

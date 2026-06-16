@@ -1,6 +1,6 @@
 # agent-runtime A2A remote Agent tool E2E example
 
-本示例演示“远端 A2A Agent 作为本地 OpenJiuwen tool 调用”的链路。示例用同一个 jar 启两个 `agent-runtime` 实例：
+本示例演示“远端 A2A Agent 作为本地 OpenJiuwen tool 调用”的链路。示例用同一套源码启动两个 `agent-runtime` 实例：
 
 - **Remote A2A Agent**（profile `remote-agent`）：mock A2A Agent，不需要大模型。它会流式返回消息，第一轮进入 `INPUT_REQUIRED`，第二轮收到续写后 `COMPLETED`。
 - **Local OpenJiuwen Agent**（profile `local-agent`）：LLM 驱动的 OpenJiuwen `ReActAgent`。启动后通过 A2A Agent Card 发现远端 Agent，把它注入为本地 tool：`a2a_remote_remote_a2a_agent`。
@@ -57,17 +57,17 @@ mvn -f examples/agent-runtime-a2a-remote-agent-tool-e2e/pom.xml package "-DskipT
 Bash:
 
 ```bash
-java -jar examples/agent-runtime-a2a-remote-agent-tool-e2e/target/agent-runtime-a2a-remote-agent-tool-e2e-example-0.1.0-SNAPSHOT.jar \
-  --spring.profiles.active=remote-agent \
-  --server.port=18082
+mvn -f examples/agent-runtime-a2a-remote-agent-tool-e2e/pom.xml spring-boot:run \
+  -Dspring-boot.run.profiles=remote-agent \
+  -Dspring-boot.run.arguments=--server.port=18082
 ```
 
 PowerShell:
 
 ```powershell
-java -jar examples/agent-runtime-a2a-remote-agent-tool-e2e/target/agent-runtime-a2a-remote-agent-tool-e2e-example-0.1.0-SNAPSHOT.jar `
-  --spring.profiles.active=remote-agent `
-  --server.port=18082
+mvn -f examples/agent-runtime-a2a-remote-agent-tool-e2e/pom.xml spring-boot:run `
+  "-Dspring-boot.run.profiles=remote-agent" `
+  "-Dspring-boot.run.arguments=--server.port=18082"
 ```
 
 验证远端 Agent Card:
@@ -85,17 +85,17 @@ curl http://localhost:18082/.well-known/agent-card.json
 Bash:
 
 ```bash
-java -jar examples/agent-runtime-a2a-remote-agent-tool-e2e/target/agent-runtime-a2a-remote-agent-tool-e2e-example-0.1.0-SNAPSHOT.jar \
-  --spring.profiles.active=local-agent \
-  --server.port=18081
+mvn -f examples/agent-runtime-a2a-remote-agent-tool-e2e/pom.xml spring-boot:run \
+  -Dspring-boot.run.profiles=local-agent \
+  -Dspring-boot.run.arguments=--server.port=18081
 ```
 
 PowerShell:
 
 ```powershell
-java -jar examples/agent-runtime-a2a-remote-agent-tool-e2e/target/agent-runtime-a2a-remote-agent-tool-e2e-example-0.1.0-SNAPSHOT.jar `
-  --spring.profiles.active=local-agent `
-  --server.port=18081
+mvn -f examples/agent-runtime-a2a-remote-agent-tool-e2e/pom.xml spring-boot:run `
+  "-Dspring-boot.run.profiles=local-agent" `
+  "-Dspring-boot.run.arguments=--server.port=18081"
 ```
 
 `application-local-agent.yaml` 默认配置：
@@ -161,8 +161,10 @@ curl http://localhost:18081/a2a \
 PowerShell:
 
 ```powershell
-$SESSION_ID = "ctx-remote-agent-tool-1"
+$SESSION_ID = "ctx-remote-agent-tool-" + [guid]::NewGuid().ToString("N")
 $jsonPath = "$env:TEMP\a2a-remote-agent-tool-request-1.json"
+$outPath = "$env:TEMP\a2a-remote-agent-tool-response-1.txt"
+
 $body = @"
 {
   "jsonrpc": "2.0",
@@ -190,19 +192,34 @@ $body = @"
 
 [System.IO.File]::WriteAllText($jsonPath, $body, [System.Text.UTF8Encoding]::new($false))
 
-curl.exe -s -N -X POST "http://localhost:18081/a2a" `
+curl.exe --max-time 60 -sS -N -X POST "http://localhost:18081/a2a" `
   -H "Content-Type: application/json" `
   -H "Accept: text/event-stream" `
-  --data-binary "@$jsonPath"
+  --data-binary "@$jsonPath" `
+  -o "$outPath"
+
+"EXIT=$LASTEXITCODE"
+"EVENTS=$((Select-String -Path $outPath -Pattern '^event:jsonrpc').Count)"
+
+$responseText = Get-Content $outPath -Raw
+$taskIds = [regex]::Matches($responseText, '"taskId":"([^"]+)"') |
+  ForEach-Object { $_.Groups[1].Value } |
+  Select-Object -Unique
+
+$PARENT_TASK_ID = $taskIds | Select-Object -First 1
+"SESSION_ID=$SESSION_ID"
+"PARENT_TASK_ID=$PARENT_TASK_ID"
+"HAS_INPUT_REQUIRED=$($responseText.Contains('TASK_STATE_INPUT_REQUIRED'))"
+Get-Content $outPath -Tail 40
 ```
 
 预期：
 
 - SSE 中能看到 `Remote agent first stream message 1`、`Remote agent first stream message 2`。
 - parent task 进入 `TASK_STATE_INPUT_REQUIRED`。
-- 返回事件里能看到本地 parent `taskId`，下一轮续写需要复用这个 `taskId` 和同一个 `contextId`。
+- PowerShell 输出中的 `PARENT_TASK_ID` 是本地 parent task，第二轮需要复用它和同一个 `SESSION_ID`。
 
-第二轮请求需要把第一轮返回的 parent `taskId` 填到 `message.taskId`，`contextId` 继续使用同一个会话值。下面示例里的 `$PARENT_TASK_ID` 需要替换成第一轮 `statusUpdate.taskId`。
+第二轮请求需要把第一轮返回的 parent `taskId` 填到 `message.taskId`，`contextId` 继续使用同一个会话值。PowerShell 示例默认复用第一轮命令输出的 `$SESSION_ID` 和 `$PARENT_TASK_ID`，建议在同一个 PowerShell 窗口中连续执行两段命令。
 
 Bash:
 
@@ -236,9 +253,16 @@ curl http://localhost:18081/a2a \
 PowerShell:
 
 ```powershell
-$SESSION_ID = "ctx-remote-agent-tool-1"
-$PARENT_TASK_ID = "replace-with-first-round-parent-task-id"
+if (-not $SESSION_ID) {
+  throw "SESSION_ID is required. Run the first-round command in the same PowerShell session first."
+}
+if (-not $PARENT_TASK_ID) {
+  throw "PARENT_TASK_ID is required. Run the first-round command and copy the printed PARENT_TASK_ID."
+}
+
 $jsonPath = "$env:TEMP\a2a-remote-agent-tool-request-2.json"
+$outPath = "$env:TEMP\a2a-remote-agent-tool-response-2.txt"
+
 $body = @"
 {
   "jsonrpc": "2.0",
@@ -267,13 +291,39 @@ $body = @"
 
 [System.IO.File]::WriteAllText($jsonPath, $body, [System.Text.UTF8Encoding]::new($false))
 
-curl.exe -s -N -X POST "http://localhost:18081/a2a" `
+curl.exe --max-time 60 -sS -N -X POST "http://localhost:18081/a2a" `
   -H "Content-Type: application/json" `
   -H "Accept: text/event-stream" `
-  --data-binary "@$jsonPath"
+  --data-binary "@$jsonPath" `
+  -o "$outPath"
+
+"EXIT=$LASTEXITCODE"
+"EVENTS=$((Select-String -Path $outPath -Pattern '^event:jsonrpc').Count)"
+
+$responseText = Get-Content $outPath -Raw
+"HAS_COMPLETED=$($responseText.Contains('TASK_STATE_COMPLETED'))"
+Get-Content $outPath -Tail 60
+
+if ($LASTEXITCODE -ne 0 -or -not $responseText.Contains('TASK_STATE_COMPLETED')) {
+  $getTaskPath = "$env:TEMP\a2a-remote-agent-tool-get-task.json"
+  $getTaskBody = @"
+{
+  "jsonrpc": "2.0",
+  "id": "get-2",
+  "method": "GetTask",
+  "params": {
+    "id": "$PARENT_TASK_ID"
+  }
+}
+"@
+  [System.IO.File]::WriteAllText($getTaskPath, $getTaskBody, [System.Text.UTF8Encoding]::new($false))
+  curl.exe --max-time 30 -sS -X POST "http://localhost:18081/a2a" `
+    -H "Content-Type: application/json" `
+    --data-binary "@$getTaskPath"
+}
 ```
 
-预期第二轮能看到 `Remote agent second stream message`；随后 remote-agent completed 文本被作为 tool result 回灌给 local-agent，最终由 local-agent 输出摘要，并使 parent task `TASK_STATE_COMPLETED`。
+预期第二轮能看到 `Remote agent second stream message`；随后 remote-agent completed 文本被作为 tool result 回灌给 local-agent，最终由 local-agent 输出摘要，并使 parent task `TASK_STATE_COMPLETED`。如果 `EXIT=28` 且后续 `GetTask` 显示 `TASK_STATE_COMPLETED`，说明任务本身已完成，但当前 SSE 响应没有完整收到，需要继续排查 streaming transport。
 
 ### 方式 B：使用交互式客户端验证两轮调用
 

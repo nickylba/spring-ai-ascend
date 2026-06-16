@@ -43,7 +43,7 @@ public class RemoteAgentCardCache {
     }
 
     public RemoteAgentCardCache(List<String> urls, Map<String, Duration> streamTimeoutsByUrl) {
-        this(urls, streamTimeoutsByUrl, url -> new A2ACardResolver(url).getAgentCard());
+        this(urls, streamTimeoutsByUrl, url -> A2ACardResolver.builder().baseUrl(url).build().getAgentCard());
     }
 
     RemoteAgentCardCache(List<String> urls, Function<String, AgentCard> cardResolver) {
@@ -236,15 +236,19 @@ public class RemoteAgentCardCache {
     }
 
     /**
-     * Returns an open input schema that accepts arbitrary key-value pairs.
-     * The remote agent's skill descriptions (from its AgentCard) tell the
-     * LLM which specific fields to extract; the schema stays open so the
-     * LLM can pass whatever business parameters the workflow needs.
+     * Returns the common remote-A2A tool envelope. The remoteInput value becomes
+     * the child A2A message text, so the field must be visible to the LLM instead
+     * of relying on description-only prompting. Extra properties stay open for
+     * remote-agent-specific business fields.
      */
     private static Map<String, Object> inputSchema() {
         return Map.of(
                 "type", "object",
-                "properties", Map.of(),
+                "properties", Map.of(
+                        "remoteInput", Map.of(
+                                "type", "string",
+                                "description", "Text to send as the remote A2A user message.")),
+                "required", List.of("remoteInput"),
                 "additionalProperties", true);
     }
 
