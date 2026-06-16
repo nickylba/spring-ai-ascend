@@ -12,6 +12,7 @@ dependency:
   - development.md
   - process.md
   - physical.md
+  - api-appendix.md
   - spi-appendix.md
   - ../../../version-scope/agent-runtime-release-features.cn.md
 ---
@@ -42,7 +43,7 @@ dependency:
 | 受众 | 主要需求 |
 |---|---|
 | 模块维护者 | 理解 `agent-runtime` 的模块身份、L0 边界、active 能力、依赖方向和 per-view 文档入口。 |
-| Agent 框架适配开发者 | 理解框架如何通过 `AgentRuntimeHandler`、结果适配和 provider hook 接入 runtime。 |
+| Agent 框架适配开发者 | 理解框架如何通过 `AgentRuntimeHandler`、结果适配、memory、trajectory 和远端工具接缝接入 runtime。 |
 | 业务集成开发者 | 理解如何把 runtime 作为 SDK 嵌入应用，以及当前对外暴露的 A2A 和 Agent Card 契约边界。 |
 | 架构评审者 | 判断 runtime 是否仍保持框架中立、服务边界清晰、状态归属明确，并与 L0 顶层设计一致。 |
 | AI agent / 文档维护者 | 以本文建立模块心智模型，再进入 4+1 视图和 L2 详细设计定位事实来源。 |
@@ -72,9 +73,9 @@ dependency:
 
 | 边界项 | agent-runtime 负责 | agent-runtime 不负责 | 事实下沉位置 |
 |---|---|---|---|
-| A2A 接入 | 暴露 `/a2a` JSON-RPC 和 Agent Card 发现端点，并通过 A2A SDK 处理标准请求。 | 不定义新的外部协议族；多协议接入属于后续提案或 L2 设计。 | `logical.md`, `process.md` |
+| A2A 接入 | 暴露 `/a2a` JSON-RPC 和 Agent Card 发现端点，并通过 A2A SDK 处理标准请求。 | 不定义新的外部协议族；多协议接入属于后续提案或 L2 设计。 | `api-appendix.md`, `logical.md`, `process.md` |
 | Task 生命周期桥接 | 消费 A2A SDK 的 TaskStore、EventBus、QueueManager、RequestHandler，把 Task 执行推进到 Agent SPI。 | 不拥有平台级 Run record、幂等入口或 serviceization 状态外观。 | `logical.md`, `process.md`, `physical.md` |
-| Agent 执行 SPI | 定义并消费框架无关的 `AgentRuntimeHandler`、provider hook、执行结果和结果适配语义。 | 不把某个 Agent 框架设为平台唯一执行模型。 | `spi-appendix.md`, `development.md` |
+| Agent 执行 SPI | 定义并消费框架无关的 `AgentRuntimeHandler`、执行结果、结果适配、memory、trajectory 和远端工具规格。 | 不把某个 Agent 框架设为平台唯一执行模型。 | `spi-appendix.md`, `development.md` |
 | 框架适配 | 提供 openJiuwen、AgentScope 等当前适配实现和抽象基类。 | 不承诺所有未来框架适配已经 active。 | `development.md`, L2 详细设计 |
 | 嵌入式启动 | 提供纯 Java runtime 入口、Spring Boot host 和自动装配。 | 不负责业务应用的部署编排、租户入口治理或平台网关能力。 | `development.md`, `physical.md` |
 | 远端 Agent 调用支撑 | 在 engine service 边界内维护远端 Agent Card 目录和 outbound 调用支撑。 | 不接管跨实例、跨部门、跨数据边界的 A2A 总线治理；该边界归属 L0 中的 `agent-bus`。 | `logical.md`, `process.md` |

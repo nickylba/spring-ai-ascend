@@ -13,10 +13,11 @@ dependency:
   - development.md
   - process.md
   - physical.md
+  - api-appendix.md
   - spi-appendix.md
 ---
 
-# `agent-runtime` — 逻辑视图
+# agent-runtime L1 架构逻辑视图
 
 ## 1. 逻辑视图定位
 
@@ -86,7 +87,7 @@ AgentExecutionResult
 
 该结果语义不等同于任一具体 Agent 框架的原生输出，也不等同于 A2A 外部响应。它是 runtime 内部连接 Agent 执行与 Task 状态推进的稳定契约。
 
-### 2.4 Handler / Provider / Adapter 抽象关系
+### 2.4 Handler / Adapter / Extension 抽象关系
 
 Engine 层通过一组框架无关抽象封装异构执行能力。
 
@@ -94,17 +95,24 @@ Engine 层通过一组框架无关抽象封装异构执行能力。
 AgentRuntimeHandler
 ├── 标识一个可执行 Agent
 ├── 接收 AgentExecutionContext
-└── 返回框架原生或中立结果流
+├── 返回框架原生或中立结果流
+├── 提供 start / stop 生命周期
+└── 提供按 taskId 的协作式 cancel 接缝
 
 StreamAdapter
 └── 将框架原生结果转换为 AgentExecutionResult 流
 
-AgentRuntimeProvider
-├── 在执行前后注入扩展行为
-└── 承载状态、观测、中间件代理等可组合能力
+MemoryProvider
+└── 提供 runtime-provided memory init / search / save 窄接缝
+
+TrajectorySource / TrajectoryEmitter / TrajectorySink
+└── 提供框架中立的执行轨迹发射与导出接缝
+
+RemoteAgentToolSpec
+└── 以协议中立方式描述可作为工具使用的远端 Agent
 ```
 
-`AgentRuntimeHandler` 表示 Agent 执行入口，`StreamAdapter` 负责结果语义转换，`AgentRuntimeProvider` 负责可组合的生命周期扩展。框架适配通过组合扩展 runtime 能力，而不是把某个 Agent 框架提升为 runtime 的唯一执行模型。
+`AgentRuntimeHandler` 表示 Agent 执行入口，`StreamAdapter` 负责结果语义转换。Memory、Trajectory 和 RemoteAgentToolSpec 是当前代码中的可选扩展面；它们通过中立 SPI 被框架适配器消费，而不是把某个 Agent 框架或 A2A 协议对象提升为 runtime 的唯一执行模型。
 
 ## 3. 五层逻辑架构
 
@@ -198,7 +206,7 @@ AgentRuntimeProvider
 
 - 通过 `AgentRuntimeHandler` 接入具体 Agent。
 - 通过 `StreamAdapter` 将框架原生输出转换为 `AgentExecutionResult`。
-- 通过 `AgentRuntimeProvider` 组合状态、观测、中间件代理等扩展行为。
+- 通过 `MemoryProvider`、Trajectory SPI 和 `RemoteAgentToolSpec` 暴露 memory、观测和远端 Agent 工具等可选扩展面。
 - 隔离 openJiuwen、AgentScope 等框架差异。
 - 代理调用 memory、trajectory、remote Agent 等中间件服务能力，但不接管这些服务的内部状态。
 

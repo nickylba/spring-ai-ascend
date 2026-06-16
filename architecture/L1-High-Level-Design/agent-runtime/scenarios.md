@@ -12,10 +12,11 @@ dependency:
   - development.md
   - process.md
   - physical.md
+  - api-appendix.md
   - spi-appendix.md
 ---
 
-# agent-runtime L1 技术场景
+# agent-runtime L1 架构场景视图
 
 ## 目的
 
@@ -69,7 +70,10 @@ runtime 通过统一 SPI 接入不同 Agent 框架，使调用方不感知 openJ
 | 组件 | 角色 |
 |---|---|
 | AgentRuntimeHandler | 统一 Agent 执行 SPI。 |
-| AgentRuntimeProvider | 执行前后扩展钩子。 |
+| StreamAdapter | 框架原生结果到 runtime 中立结果的转换。 |
+| MemoryProvider | 可选 memory init/search/save 窄接缝。 |
+| Trajectory SPI | 可选执行轨迹发射与导出接缝。 |
+| RemoteAgentToolSpec | 远端 Agent 工具的协议中立描述。 |
 | OpenJiuwen adapter | openJiuwen 框架适配。 |
 | AgentScope adapter | AgentScope 框架适配。 |
 | Remote agent service | 远端 A2A Agent 目录与调用支撑。 |

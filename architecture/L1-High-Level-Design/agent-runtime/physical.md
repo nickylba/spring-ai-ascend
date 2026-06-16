@@ -1,154 +1,313 @@
 ---
-level: L1
-view: physical
-module: agent-runtime
-status: implemented
-authority: "ADR-0152 (Uniform L1 per-view mechanism + L0 mounting)"
+level: L1-HLD
+TAG:
+  - physical-view
+  - deployment-boundary
+  - runtime-topology
+  - architecture-fact
+status: active
+dependency:
+  - README.md
+  - overview.md
+  - scenarios.md
+  - logical.md
+  - development.md
+  - process.md
+  - api-appendix.md
+  - spi-appendix.md
 ---
 
-# `agent-runtime` — 物理视图
+# agent-runtime L1 架构物理视图
 
-## 1. 部署平面
+## 1. 物理视图定位
 
-`agent-runtime` 部署在 `compute_control` 平面（`module-metadata.yaml#deployment_plane`）。运行时在进程中与引擎内核同处一体。
+本文档描述 `agent-runtime` 当前 active 架构下的部署归属、宿主进程关系、单实例物理拓扑、进程内状态与资源模型。
 
-部署位面：`[platform_centric, business_centric]` — 运行时与部署位置无关，同一套 engine envelope 支持两种位面（ADR-0101）。
+物理视图回答以下问题：
 
-### 1.1 部署模式
+- `agent-runtime` 运行在哪类宿主进程中。
+- Runtime 作为 library artifact 时，与业务应用或独立宿主进程如何组合。
+- 当前单实例 topology 中 HTTP 接入、A2A SDK 组件、Agent 执行适配器和外部依赖位于哪里。
+- 当前 InMemory 状态对重启、故障和横向扩展有什么约束。
+- 当前线程、内存、并发和关闭排水模型是什么。
 
-| 模式 | 描述 | 典型场景 |
+本文档只描述 active 架构现状。
+
+### 1.1 当前 active 物理形态
+
+`agent-runtime` 当前是普通 Java library artifact，不生成独立 Spring Boot fat jar。它通过 `RuntimeApp`、`LocalA2aRuntimeHost` 和 Spring Boot 自动配置嵌入某个宿主 JVM 进程。
+
+当前 active 物理形态可以概括为：
+
+```text
+Host JVM process
+  -> agent-runtime library
+  -> embedded HTTP server provided by host Spring Boot application
+  -> in-process A2A SDK runtime components
+  -> in-process AgentRuntimeHandler adapters
+```
+
+### 1.2 与其他视图的边界
+
+| 视图 | 关注点 |
+|---|---|
+| `logical.md` | 领域对象、状态归属、逻辑责任面和依赖方向。 |
+| `development.md` | Maven artifact、包结构、自动配置、SPI 扩展和代码边界。 |
+| `process.md` | 请求执行流程、异步边界、Task 状态推进和并发执行路径。 |
+| `physical.md` | 宿主进程、部署形态、单实例 topology、进程内状态和资源约束。 |
+
+## 2. 部署归属与运行形态
+
+### 2.1 Library artifact 与宿主进程关系
+
+`agent-runtime` 的物理部署单元不是独立制品进程，而是被某个宿主应用加载的 library。
+
+| 物理项 | 当前 active 事实 |
+|---|---|
+| Artifact 形态 | 普通 Java library。 |
+| 进程所有者 | 宿主 Spring Boot 应用或纯 Java host。 |
+| HTTP server | 由宿主应用提供，通常是 Tomcat 或 Netty。 |
+| Runtime 启动 | 通过 `RuntimeApp`、`LocalA2aRuntimeHost` 或 Spring Boot 自动配置装配。 |
+| Runtime 状态 | 默认保存在进程内 InMemory A2A SDK 组件中。 |
+
+### 2.2 嵌入式部署
+
+嵌入式部署是当前最直接的物理形态。业务应用把 `agent-runtime` 作为依赖引入，在同一个 JVM 内暴露 A2A 接入和 Agent Card 发现能力。
+
+```text
+Business Application JVM
+  -> business controllers / services
+  -> agent-runtime
+     -> /a2a
+     -> Agent Card endpoint
+     -> A2A SDK in-memory components
+     -> AgentRuntimeHandler adapters
+```
+
+这种形态下，业务应用和 runtime 共用同一 JVM、同一进程生命周期、同一资源预算和同一部署单元。
+
+### 2.3 独立宿主部署
+
+独立宿主部署指使用一个专门的 host application 包装 `agent-runtime`，使该进程主要作为 A2A Agent 节点对外暴露。
+
+```text
+Dedicated Host JVM
+  -> Spring Boot host application
+  -> agent-runtime library
+  -> /a2a JSON-RPC endpoint
+  -> Agent Card endpoint
+```
+
+这里的“独立”来自宿主应用的部署选择，不表示 `agent-runtime` 当前自身产出独立可执行 fat jar。
+
+### 2.4 混合式部署
+
+混合式部署指同一个宿主进程既承担业务服务职责，也通过 `agent-runtime` 对外暴露 A2A Agent 能力。
+
+| 职责 | 所在位置 |
+|---|---|
+| 业务 HTTP/API | 宿主应用自身。 |
+| A2A JSON-RPC | `agent-runtime` 自动配置或 host 装配。 |
+| Agent 执行 | 同进程 `AgentRuntimeHandler` 适配器。 |
+| Task / Event 状态 | 同进程 InMemory A2A SDK 组件。 |
+
+混合式部署需要由宿主应用统一治理端口、线程、内存、限流、鉴权和生命周期。
+
+## 3. 单实例物理拓扑
+
+### 3.1 进程边界
+
+当前 active topology 是单 JVM、单 runtime 实例、进程内 InMemory 状态。
+
+```text
++------------------------------------------------+
+| Host JVM process                               |
+|                                                |
+|  +------------------------------------------+  |
+|  | Spring Boot host / LocalA2aRuntimeHost   |  |
+|  |                                          |  |
+|  |  +------------------------------------+  |  |
+|  |  | A2A JSON-RPC Controller (/a2a)     |  |  |
+|  |  | Agent Card endpoint                |  |  |
+|  |  +----------------+-------------------+  |  |
+|  |                   |                      |  |
+|  |  +----------------v-------------------+  |  |
+|  |  | A2A SDK server components          |  |  |
+|  |  | RequestHandler                     |  |  |
+|  |  | InMemoryTaskStore                  |  |  |
+|  |  | InMemoryQueueManager               |  |  |
+|  |  | MainEventBus + Processor           |  |  |
+|  |  +----------------+-------------------+  |  |
+|  |                   |                      |  |
+|  |  +----------------v-------------------+  |  |
+|  |  | A2aAgentExecutor                   |  |  |
+|  |  +----------------+-------------------+  |  |
+|  |                   |                      |  |
+|  |  +----------------v-------------------+  |  |
+|  |  | AgentRuntimeHandler SPI adapters   |  |  |
+|  |  | openJiuwen / AgentScope / others   |  |  |
+|  |  +------------------------------------+  |  |
+|  +------------------------------------------+  |
+|                                                |
+|  External calls through configured adapters     |
++------------------------------------------------+
+```
+
+### 3.2 HTTP 接入端点
+
+当前 runtime 在宿主 HTTP server 上暴露 A2A northbound 接入和 Agent Card 发现能力。
+
+| Endpoint | 用途 | 说明 |
 |---|---|---|
-| **嵌入式** | agent-runtime 作为库嵌入业务应用中 | 业务服务直接集成 Agent 能力 |
-| **独立式** | agent-runtime 作为独立进程运行，通过 A2A 协议对外暴露 | Agent 微服务独立部署和伸缩 |
-| **混合式** | 业务应用嵌入 agent-runtime，同时作为 A2A server 对外暴露 | 业务服务既是 Agent 宿主又是 A2A 节点 |
+| `/a2a` | A2A JSON-RPC over HTTP | 处理 SendMessage、SendStreamingMessage、GetTask、CancelTask、SubscribeToTask 等 A2A 请求。 |
+| Agent Card endpoint | Agent 元数据发现 | 由当前 Agent Card controller 暴露，具体路径遵循实现中的 A2A Agent Card 发现约定。 |
 
-### 1.2 进程边界
+HTTP server 的端口、TLS、反向代理、鉴权入口和网络策略由宿主应用或部署环境负责，不由 `agent-runtime` library 单独拥有。
 
-```
-┌──────────────────────────────────────────────┐
-│              agent-runtime 进程               │
-│                                               │
-│  ┌──────────────────────────────────────────┐ │
-│  │         Spring Boot (LocalA2aRuntimeHost) │ │
-│  │  ┌──────────────────────────────────────┐ │ │
-│  │  │  A2A JSON-RPC Controller (/a2a)      │ │ │
-│  │  │  Agent Card Controller              │ │ │
-│  │  └──────────────┬───────────────────────┘ │ │
-│  │                 │                          │ │
-│  │  ┌──────────────▼───────────────────────┐ │ │
-│  │  │  A2A SDK: RequestHandler             │ │ │
-│  │  │  + InMemoryTaskStore                 │ │ │
-│  │  │  + InMemoryQueueManager              │ │ │
-│  │  │  + MainEventBus + Processor          │ │ │
-│  │  └──────────────┬───────────────────────┘ │ │
-│  │                 │                          │ │
-│  │  ┌──────────────▼───────────────────────┐ │ │
-│  │  │  A2aAgentExecutor (AgentExecutor)    │ │ │
-│  │  └──────────────┬───────────────────────┘ │ │
-│  │                 │                          │ │
-│  │  ┌──────────────▼───────────────────────┐ │ │
-│  │  │  AgentRuntimeHandler (SPI)           │ │ │
-│  │  │  + openJiuwen / AgentScope adapters  │ │ │
-│  │  └──────────────────────────────────────┘ │ │
-│  └──────────────────────────────────────────┘ │
-│                                               │
-│  外部依赖（可替换）:                            │
-│  ┌──────────────────────────────────────────┐ │
-│  │  agent-bus (中立 EnginePort/编排 SPI)     │ │
-│  │  agent-service (下游，通过 agent-bus)     │ │
-│  └──────────────────────────────────────────┘ │
-└──────────────────────────────────────────────┘
+### 3.3 进程内组件分布
+
+```text
+A2A Client
+  -> Host HTTP Server
+     -> A2A JSON-RPC Controller
+        -> A2A SDK RequestHandler
+           -> InMemoryTaskStore
+           -> InMemoryQueueManager
+           -> MainEventBus
+           -> MainEventBusProcessor
+              -> A2aAgentExecutor
+                 -> AgentRuntimeHandler adapter
 ```
 
-## 2. 拓扑
+所有 active TaskStore、QueueManager、EventBus 和 Agent execution bridge 都位于同一个 JVM 内。当前 active 架构不包含跨 JVM 的 runtime 内部事件转发或远端执行节点拆分。
 
-### 2.1 单实例拓扑
+### 3.4 外部依赖边界
 
-```
-               ┌──────────────┐
-               │  A2A Client  │
-               └──────┬───────┘
-                      │ JSON-RPC over HTTP
-                      ▼
-┌─────────────────────────────────────────┐
-│           agent-runtime 实例             │
-│                                          │
-│  HTTP Server (Tomcat / Netty)            │
-│  ├─ /a2a           (JSON-RPC)            │
-│  └─ /.well-known/  (Agent Card)          │
-│                                          │
-│  内部组件（全 InMemory）:                  │
-│  ├─ InMemoryTaskStore                    │
-│  ├─ InMemoryQueueManager                 │
-│  ├─ MainEventBus                        │
-│  └─ 后台线程池 (CachedThreadPool)         │
-└─────────────────────────────────────────┘
-```
+`agent-runtime` 可以通过适配器或 engine 层调用外部能力，但这些外部能力不成为 runtime 物理状态的一部分。
 
-### 2.2 扩展拓扑（未来分布式）
+| 外部依赖类型 | Runtime 关系 |
+|---|---|
+| Agent 框架依赖 | 由对应 `AgentRuntimeHandler` 适配器加载和调用。 |
+| 远端 A2A Agent | 通过 runtime 侧目录和 outbound A2A 调用支撑能力访问。 |
+| `agent-bus` / 下游 service | 通过中立接口或 host 装配边界交互，不把下游服务状态写入 runtime InMemory TaskStore。 |
+| 模型、工具、记忆等服务 | 由具体 Agent 框架、适配器或宿主应用负责连接和治理。 |
 
-```
-               ┌──────────────┐
-               │  A2A Client  │
-               └──────┬───────┘
-                      │
-                      ▼
-┌─────────────────────────────────────────┐
-│           agent-runtime 实例 1           │
-│  (access-layer + task-centric-control)  │
-└──────────────┬──────────────────────────┘
-               │
-               ▼
-┌─────────────────────────────────────────┐
-│          分布式存储层                     │
-│  ├─ Redis (TaskStore + StateStore)      │
-│  ├─ Redis Pub/Sub (EventBus)            │
-│  └─ JDBC (持久化备份)                    │
-└──────────────┬──────────────────────────┘
-               │
-               ▼
-┌─────────────────────────────────────────┐
-│           agent-runtime 实例 2           │
-│  (engine 层 - Agent 执行)                │
-└─────────────────────────────────────────┘
+## 4. 状态与存储物理模型
+
+### 4.1 当前 InMemory 状态
+
+当前 active runtime 默认使用 A2A SDK 的 InMemory 组件保存 Task、事件队列和事件发布订阅状态。
+
+| 状态组件 | 物理位置 | 说明 |
+|---|---|---|
+| `InMemoryTaskStore` | 宿主 JVM 内存 | 保存 Task metadata、messages、status 等 runtime Task 状态。 |
+| `InMemoryQueueManager` | 宿主 JVM 内存 | 保存 Task 事件队列和 SSE 消费所需事件。 |
+| `MainEventBus` | 宿主 JVM 内存 | 连接事件发布者与消费者。 |
+| Agent checkpoint | 不由 runtime 默认持久化 | 归属具体 Agent 框架或外部状态能力。 |
+
+### 4.2 TaskStore / QueueManager / EventBus 归属
+
+TaskStore、QueueManager 和 EventBus 属于 runtime 的进程内任务生命周期基础设施。它们保存的是 runtime 层 Task 与事件状态，不保存业务应用数据库状态，也不替代 Agent 框架自己的 checkpoint。
+
+```text
+Runtime Task state
+  -> A2A SDK InMemoryTaskStore
+
+Runtime event queue
+  -> A2A SDK InMemoryQueueManager
+
+Runtime event dispatch
+  -> A2A SDK MainEventBus
+
+Agent checkpoint / memory
+  -> Agent framework or external state service
 ```
 
-当前版本采用 InMemory 实现，所有组件运行在单进程内。分布式扩展点：
-- `InMemoryTaskStore`（A2A SDK）→ 替换为分布式 TaskStore 实现
-- `InMemoryQueueManager`（A2A SDK）→ 替换为基于消息队列的实现
-- `MainEventBus`（A2A SDK）→ 替换为分布式事件总线
+### 4.3 重启与故障影响
 
-## 3. 资源模型
+由于当前 active 状态默认保存在宿主 JVM 内存中，进程重启会丢失 runtime 层 InMemory Task、事件队列和事件订阅状态。
 
-### 3.1 线程模型
+| 事件 | 影响 |
+|---|---|
+| 宿主进程正常关闭 | 在关闭排水窗口内等待在途执行结束；未完成 Task 不具备跨重启恢复保证。 |
+| 宿主进程异常退出 | InMemory TaskStore、QueueManager 和 EventBus 状态丢失。 |
+| 客户端 SSE 断开 | 客户端可按 A2A 语义重新订阅仍在内存中的 Task；若进程已重启，则原内存态不再存在。 |
+| Agent 框架内部故障 | 由 handler 或框架适配器转换为 runtime 任务层失败。 |
+
+### 4.4 存储替换边界
+
+当前实现通过 Spring 条件装配保留组件替换接缝，宿主可以在自身应用上下文中提供同类型 bean 覆盖默认 InMemory bean。
+
+```text
+A2A SDK storage abstractions
+  -> default InMemory beans
+  -> host-provided replacement beans
+```
+
+该接缝是 active 代码装配能力；本文档不展开宿主替换实现的候选设计。
+
+## 5. 资源模型
+
+### 5.1 线程资源
 
 | 组件 | 线程 | 说明 |
 |---|---|---|
-| HTTP 请求处理 | Tomcat/Netty IO 线程池 | A2A JSON-RPC 接入 |
-| `MainEventBusProcessor` | SDK 自有 daemon 线程 | 异步消费事件队列，不阻塞 JVM 退出 |
-| Agent 执行 | `A2aServerExecutor` 线程池 | `AgentRuntimeHandler.execute()` 在派发线程上执行 |
-| `RuntimeAutoConfiguration.A2aServerExecutor` | `Executors.newCachedThreadPool()`（daemon 线程） | A2A SDK 任务派发线程池；无界 cached pool，无专用配置键；关闭时先排水（10s 宽限）再强停 |
+| HTTP 请求处理 | Tomcat / Netty IO 线程池 | 由宿主 HTTP server 提供，负责 A2A JSON-RPC 接入和 SSE 连接。 |
+| `MainEventBusProcessor` | A2A SDK 后台处理线程 | 消费事件队列并触发执行路径。 |
+| Agent 执行 | `A2aServerExecutor` 线程池 | `AgentRuntimeHandler.execute()` 在派发线程上执行。 |
+| `RuntimeAutoConfiguration.A2aServerExecutor` | `Executors.newCachedThreadPool()` daemon 线程 | 无界 cached pool，无专用配置键；关闭时先排水再强停。 |
 
-**虚拟线程**：宿主应用可自行设置 `spring.threads.virtual.enabled: true` 开启 Java 21 虚拟线程支持（库不预置）。
+宿主应用可自行设置 `spring.threads.virtual.enabled: true` 开启 Java 21 虚拟线程支持。Runtime library 不预置该策略。
 
-### 3.2 内存估算（单实例 InMemory 模式）
+### 5.2 内存占用
 
 | 组件 | 内存占用特征 | 说明 |
 |---|---|---|
-| `InMemoryTaskStore`（A2A SDK） | Task 对象 × 活跃 task 数 | 每个 Task 包括 metadata、messages、status 等 |
-| `InMemoryQueueManager`（A2A SDK） | 事件队列中的待处理事件数 | 取决于并发 task 数和消息速率 |
-| `MainEventBus`（A2A SDK） | 订阅者注册 + 事件缓存 | 常量大小 |
+| `InMemoryTaskStore` | Task 对象 × 活跃 Task 数 | 每个 Task 包括 metadata、messages、status 等。 |
+| `InMemoryQueueManager` | 待处理事件数 × 事件大小 | 取决于并发 Task 数、消息速率和 SSE 消费速度。 |
+| `MainEventBus` | 订阅者注册和事件分发结构 | 通常相对 Task 与事件队列更小。 |
+| Agent 框架适配器 | 框架自身对象和执行上下文 | 由具体 handler、模型客户端、工具客户端和框架运行时决定。 |
 
-**容量参考**：
-- 单实例支持 ~1000 并发 Task（InMemory 模式）
-- 每个 Task 平均 5-50KB 内存
+### 5.3 并发容量参考
 
-### 3.3 存储接口替换
+当前 InMemory 单实例模式的容量主要受以下因素影响：
 
-当前 InMemory 实现通过 A2A SDK 的存储接口隔离，宿主以 `@ConditionalOnMissingBean` 替换 bean 即可换为分布式实现：
+- HTTP server 线程、连接数和 SSE 长连接数量。
+- `A2aServerExecutor` cached pool 在高并发执行下的线程增长。
+- 活跃 Task 数、每个 Task 消息体大小和事件队列积压。
+- Agent 框架执行耗时、模型调用耗时和外部工具调用耗时。
+- 宿主 JVM heap、GC、CPU 和网络资源。
 
+原始容量估算可按单实例约 1000 并发 Task、每个 Task 约 5-50KB 作为粗略参考，但实际容量必须由宿主压测和生产运行指标校准。
+
+### 5.4 关闭与排水
+
+Runtime 关闭时，A2A server executor 先调用 `shutdown()` 进入排水阶段，等待在途执行结束。当前宽限时间为 10s；超时后调用 `shutdownNow()` 尝试强停。
+
+```text
+close runtime
+  -> executor.shutdown()
+  -> wait in-flight executions, up to 10s
+  -> executor.shutdownNow() on timeout
 ```
-TaskStore (A2A SDK 接口)
-    ├── InMemoryTaskStore (当前默认)
-    └── 分布式实现 (未来: Redis / JDBC，由宿主提供 bean)
-```
+
+该策略保护正常关闭时的在途执行，但不提供跨进程迁移、跨重启恢复或平台级 drain coordination。
+
+## 6. 当前部署约束
+
+### 6.1 单实例状态约束
+
+当前 active runtime 的 Task 和事件状态默认存在单个宿主 JVM 内存中，因此同一个 Task 的查询、订阅、取消和恢复语义依赖该宿主进程仍然存活。
+
+如果部署多个宿主实例，每个实例拥有各自独立的 InMemory TaskStore、QueueManager 和 EventBus。外部负载均衡需要避免把同一个 Task 的后续请求随机转发到没有该 Task 内存状态的实例。
+
+### 6.2 横向扩展前提
+
+当前 active 架构支持通过增加宿主实例扩展整体接入容量，但每个实例仍是独立 runtime 状态岛。
+
+| 扩展方式 | 当前语义 |
+|---|---|
+| 多实例部署不同 Agent | 可行，各实例独立暴露自己的 Agent Card 和 A2A endpoint。 |
+| 多实例无状态负载均衡同一 Task | 当前 InMemory 默认形态不保证。 |
+| 同一 Task 跨实例订阅 / 取消 / 恢复 | 当前 InMemory 默认形态不保证。 |
+| 进程重启后 Task 恢复 | 当前 InMemory 默认形态不保证。 |

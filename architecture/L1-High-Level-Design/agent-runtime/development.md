@@ -13,10 +13,11 @@ dependency:
   - logical.md
   - process.md
   - physical.md
+  - api-appendix.md
   - spi-appendix.md
 ---
 
-# `agent-runtime` — 开发视图
+# agent-runtime L1 架构开发视图
 
 ## 1. 开发视图定位
 
@@ -244,17 +245,18 @@ forbidden_dependencies:
 
 ### 5.1 engine.spi 中立执行 SPI
 
-`engine.spi` 是框架中立扩展面，当前承担三类职责：
+`engine.spi` 是框架中立扩展面，当前承担四类职责：
 
 - Agent 执行入口和结果转换。
 - Memory 接入的窄 SPI。
 - Trajectory 事件、脱敏、sink、source 和 emitter 扩展。
+- Remote Agent 工具规格的协议中立表达。
 
 代表性类型：
 
 | 类型 | 职责 |
 |---|---|
-| `AgentRuntimeHandler` | Agent 执行入口 |
+| `AgentRuntimeHandler` | Agent 执行入口、生命周期、健康检查与协作式取消 |
 | `AbstractAgentRuntimeHandler` | Handler 基类 |
 | `AgentExecutionResult` | 中立执行结果 |
 | `StreamAdapter` | 框架结果流到中立结果流的转换 |
