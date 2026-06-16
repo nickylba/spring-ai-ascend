@@ -1,5 +1,6 @@
 package com.huawei.ascend.memopt.user;
 
+import com.huawei.ascend.memopt.obs.MemoryObserver;
 import com.huawei.ascend.memopt.resilience.Circuit;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -38,34 +39,46 @@ public final class UserMemoryKit {
     private final MemoryScope scope;
     private final Options options;
     private final Circuit circuit;
+    private final MemoryObserver observer;
 
-    private UserMemoryKit(UserMemoryStore store, MemoryScope scope, Options options, LongSupplier clock) {
+    private UserMemoryKit(UserMemoryStore store, MemoryScope scope, Options options, MemoryObserver observer,
+            LongSupplier clock) {
         this.store = store;
         this.scope = scope;
         this.options = options == null ? Options.defaults() : options;
+        this.observer = observer == null ? MemoryObserver.NOOP : observer;
         this.circuit = new Circuit(this.options.circuitFailureThreshold(), this.options.circuitOpenMs(),
                 clock == null ? System::currentTimeMillis : clock);
     }
 
     public static UserMemoryKit forUser(UserMemoryStore store, MemoryScope scope) {
-        return new UserMemoryKit(store, scope, Options.defaults(), System::currentTimeMillis);
+        return new UserMemoryKit(store, scope, Options.defaults(), MemoryObserver.NOOP, System::currentTimeMillis);
     }
 
     public static UserMemoryKit forUser(UserMemoryStore store, MemoryScope scope, Options options, LongSupplier clock) {
-        return new UserMemoryKit(store, scope, options, clock);
+        return new UserMemoryKit(store, scope, options, MemoryObserver.NOOP, clock);
+    }
+
+    public static UserMemoryKit forUser(UserMemoryStore store, MemoryScope scope, Options options,
+            MemoryObserver observer, LongSupplier clock) {
+        return new UserMemoryKit(store, scope, options, observer, clock);
     }
 
     /** Recall relevant facts; fail-open returns no hits (never throws) when the engine is down. */
     public List<MemoryHit> recall(String query, int limit) {
         if (circuit.isOpen()) {
+            observer.onDegraded("recall", scope.tenantId(), "circuit-open");
             return degradeList("recall", "circuit open", null);
         }
+        long t0 = System.nanoTime();
         try {
             List<MemoryHit> hits = store.search(scope, query, limit);
             circuit.onSuccess();
+            observer.onOperation("recall", scope.tenantId(), true, elapsedMs(t0));
             return hits;
         } catch (RuntimeException e) {
             circuit.onFailure();
+            observer.onDegraded("recall", scope.tenantId(), "backend-error");
             return degradeList("recall", e.getMessage(), e);
         }
     }
@@ -77,25 +90,36 @@ public final class UserMemoryKit {
             return;
         }
         if (circuit.isOpen()) {
+            observer.onDegraded("remember", scope.tenantId(), "circuit-open");
             degradeVoid("remember", "circuit open", null);
             return;
         }
+        long t0 = System.nanoTime();
         try {
             store.save(scope, distilled);
             circuit.onSuccess();
+            observer.onOperation("remember", scope.tenantId(), true, elapsedMs(t0));
         } catch (RuntimeException e) {
             circuit.onFailure();
+            observer.onDegraded("remember", scope.tenantId(), "backend-error");
             degradeVoid("remember", e.getMessage(), e);
         }
     }
 
     /** Delete all memory for this scope (right-to-be-forgotten). */
     public void forget() {
+        long t0 = System.nanoTime();
         try {
             store.forget(scope);
+            observer.onOperation("forget", scope.tenantId(), true, elapsedMs(t0));
         } catch (RuntimeException e) {
+            observer.onDegraded("forget", scope.tenantId(), "backend-error");
             degradeVoid("forget", e.getMessage(), e);
         }
+    }
+
+    private static long elapsedMs(long startNanos) {
+        return (System.nanoTime() - startNanos) / 1_000_000L;
     }
 
     private List<MemoryHit> degradeList(String op, String reason, RuntimeException error) {
