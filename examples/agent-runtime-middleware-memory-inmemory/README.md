@@ -36,5 +36,5 @@ http://localhost:18081
 - `createOpenJiuwenAgent(...)` 中的 promptTemplate 只是 system prompt，用来约束样例 Agent 的回答方式，
   不是用户输入。
 - 样例 handler 直接持有 `MemoryProvider`，并在 `openJiuwenRails(context)` 中注册唯一的 memory rail。
-- 执行时不 override `runOpenJiuwenAgent(...)`，仍走 OpenJiuwen 默认 Runner。
+- 执行时不 override `runOpenJiuwenAgentStreaming(...)`，仍走 OpenJiuwen 默认 streaming Runner。
 - `InMemoryMemoryProvider` 只放在 example 中，用于端到端验证；生产环境应替换成企业自己的长期记忆服务。

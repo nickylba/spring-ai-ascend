@@ -40,7 +40,7 @@ http://localhost:18082
 - `createOpenJiuwenAgent(...)` 中的 promptTemplate 只是 system prompt，用来约束样例 Agent 的回答方式，
   不是用户输入。
 - 样例 handler 直接持有 `MemoryProvider`，并在 `openJiuwenRails(context)` 中注册唯一的 memory rail。
-- 执行时不 override `runOpenJiuwenAgent(...)`，仍走 OpenJiuwen 默认 Runner。
+- 执行时不 override `runOpenJiuwenAgentStreaming(...)`，仍走 OpenJiuwen 默认 streaming Runner。
 - `Mem0RestMemoryProvider` 是 example 级适配器，用于演示 `MemoryProvider` 如何对接外部长期记忆服务。
 - `sample.mem0.api-mode=oss` 使用 `/memories` 和 `/search`；`sample.mem0.api-mode=platform` 使用 `/v1/memories/` 和 `/v2/memories/search/`。
 - 本样例是面向用户视角的 daemon + curl 验证，不是单元测试替代品。

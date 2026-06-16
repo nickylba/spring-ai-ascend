@@ -446,32 +446,6 @@ class OpenJiuwenAgentRuntimeHandlerTest {
     }
 
     @Test
-    void resultAdapterMapsDirectOpenJiuwenInteractionOutputToRemoteInvocation() {
-        TestOpenJiuwenHandler handler = new TestOpenJiuwenHandler();
-        ToolCallInterruptRequest request = new ToolCallInterruptRequest();
-        request.setInterruptId("tool-call-1");
-        request.setToolCallId("tool-call-1");
-        request.setToolName("remote-agent");
-        request.setContext(Map.of(
-                "runtime.remote.kind", "REMOTE_AGENT_INVOCATION",
-                "runtime.remote.agentId", "remote-agent",
-                "runtime.remote.toolName", "remote-agent",
-                "runtime.remote.toolCallId", "tool-call-1",
-                "runtime.remote.parentTaskId", "task-1",
-                "runtime.remote.parentContextId", "ctx-1",
-                "runtime.remote.localConversationId", "conversation-1",
-                "runtime.remote.arguments", Map.of("message", "hello remote")));
-
-        List<AgentExecutionResult> results = handler.resultAdapter().adapt(Stream.of(
-                new InteractionOutput("tool-call-1", request))).toList();
-
-        assertThat(results).extracting(AgentExecutionResult::type)
-                .containsExactly(AgentExecutionResult.Type.INTERRUPTED);
-        assertThat(results.get(0).remoteInvocation().remoteAgentId()).isEqualTo("remote-agent");
-        assertThat(results.get(0).remoteInvocation().arguments()).containsEntry("message", "hello remote");
-    }
-
-    @Test
     void resultAdapterMapsOpenJiuwenLlmOutputInteractionContentToRemoteInvocation() {
         TestOpenJiuwenHandler handler = new TestOpenJiuwenHandler();
         ToolCallInterruptRequest request = remoteInterruptRequest();

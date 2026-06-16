@@ -131,7 +131,7 @@ protected List<AgentRail> openJiuwenRails(AgentExecutionContext context) {
 }
 ```
 
-样例不 override `runOpenJiuwenAgent(...)`；handler 执行仍走 `OpenJiuwenAgentRuntimeHandler` 默认 Runner。业务侧只负责把自己的 `MemoryProvider` 接到 handler 上。
+样例不 override `runOpenJiuwenAgentStreaming(...)`；handler 执行仍走 `OpenJiuwenAgentRuntimeHandler` 默认 streaming Runner。业务侧只负责把自己的 `MemoryProvider` 接到 handler 上。
 
 ---
 

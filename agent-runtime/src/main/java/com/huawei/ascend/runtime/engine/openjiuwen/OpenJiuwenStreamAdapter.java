@@ -6,15 +6,12 @@ import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.openjiuwen.core.session.interaction.InteractionOutput;
 import com.openjiuwen.core.session.stream.OutputSchema;
 import com.openjiuwen.core.singleagent.interrupt.InterruptRequest;
-import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Maps openJiuwen's {@code Runner.runAgent} result map to a framework-neutral
- * agent result, per the execution contract in design §10.4:
- * {@code result_type ∈ {answer, error, interrupt}} →
- * completed / failed / interrupted.
+ * Maps openJiuwen streaming {@link OutputSchema} chunks to framework-neutral
+ * agent results.
  */
 public class OpenJiuwenStreamAdapter {
 
@@ -35,9 +32,8 @@ public class OpenJiuwenStreamAdapter {
             return AgentExecutionResult.completed(output);
         }
         if ("interrupt".equals(type)) {
-            Map<String, Object> remoteContext = remoteContext(result);
-            if (isRemoteInvocation(remoteContext)) {
-                return AgentExecutionResult.interrupted(remoteInvocation(remoteContext));
+            if (isRemoteInvocation(result)) {
+                return AgentExecutionResult.interrupted(remoteInvocation(result));
             }
             return AgentExecutionResult.interrupted(output);
         }
@@ -76,10 +72,6 @@ public class OpenJiuwenStreamAdapter {
         return AgentExecutionResult.output(asString(payload));
     }
 
-    AgentExecutionResult map(InteractionOutput interactionOutput) {
-        return mapInteraction(interactionOutput);
-    }
-
     private AgentExecutionResult mapInteraction(Object payload) {
         Object value = payload instanceof InteractionOutput interactionOutput
                 ? interactionOutput.getValue()
@@ -94,24 +86,6 @@ public class OpenJiuwenStreamAdapter {
         java.util.LinkedHashMap<String, Object> normalized = new java.util.LinkedHashMap<>();
         map.forEach((key, value) -> normalized.put(String.valueOf(key), value));
         return normalized;
-    }
-
-    private static Map<String, Object> remoteContext(Map<String, Object> result) {
-        if (isRemoteInvocation(result)) {
-            return result;
-        }
-        Object state = result == null ? null : result.get("state");
-        if (!(state instanceof List<?> states)) {
-            return Map.of();
-        }
-        for (Object item : states) {
-            Object payload = item instanceof OutputSchema outputSchema ? outputSchema.getPayload() : item;
-            Object value = payload instanceof InteractionOutput interactionOutput ? interactionOutput.getValue() : payload;
-            if (value instanceof InterruptRequest request && isRemoteInvocation(request.getContext())) {
-                return request.getContext();
-            }
-        }
-        return Map.of();
     }
 
     @SuppressWarnings("unchecked")

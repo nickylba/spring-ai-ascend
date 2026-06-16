@@ -13,7 +13,6 @@ import com.openjiuwen.core.context.ModelContext;
 import com.openjiuwen.core.foundation.llm.schema.BaseMessage;
 import com.openjiuwen.core.foundation.llm.schema.SystemMessage;
 import com.openjiuwen.core.runner.Runner;
-import com.openjiuwen.core.session.interaction.InteractionOutput;
 import com.openjiuwen.core.session.stream.OutputSchema;
 import com.openjiuwen.core.session.stream.StreamMode;
 import com.openjiuwen.core.singleagent.BaseAgent;
@@ -97,21 +96,18 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
                 agent.registerRail(new OpenJiuwenTrajectoryRail(trajectory));
             }
             Object input = toOpenJiuwenInput(context);
-            Object result = runOpenJiuwenAgentStreaming(
+            Iterator<Object> result = runOpenJiuwenAgentStreaming(
                     agent, input, openJiuwenConversationId(context), openJiuwenStreamModes(context));
             LOGGER.info("openjiuwen execute finished tenantId={} sessionId={} taskId={} resultType={}",
                     context.getScope().tenantId(),
                     context.getScope().sessionId(),
                     context.getScope().taskId(),
                     result == null ? "null" : result.getClass().getName());
-            if (result instanceof java.util.stream.Stream<?> stream) {
-                return stream;
+            if (result == null) {
+                return java.util.stream.Stream.of((Object) null);
             }
-            if (result instanceof Iterator<?> iterator) {
-                return java.util.stream.StreamSupport.stream(
-                        Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED), false);
-            }
-            return java.util.stream.Stream.of(result);
+            return java.util.stream.StreamSupport.stream(
+                    Spliterators.spliteratorUnknownSize(result, Spliterator.ORDERED), false);
         } catch (RuntimeException error) {
             LOGGER.warn("openjiuwen execute failed tenantId={} sessionId={} taskId={} errorClass={} message={}",
                     context.getScope().tenantId(),
@@ -248,9 +244,6 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
         }
         if (rawResult instanceof OutputSchema chunk) {
             return resultMapper.map(chunk);
-        }
-        if (rawResult instanceof InteractionOutput interactionOutput) {
-            return resultMapper.map(interactionOutput);
         }
         return AgentExecutionResult.output(String.valueOf(rawResult));
     }
