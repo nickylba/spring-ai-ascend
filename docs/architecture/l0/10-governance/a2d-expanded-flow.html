@@ -207,6 +207,11 @@
       min-width: 1560px;
     }
 
+    /* 9 步端到端块图比顶部两闸门 pipeline 更宽,单独 override */
+    .pipeline.wide {
+      min-width: 1820px;
+    }
+
     .p-node,
     .p-gate,
     .p-autonomy {
@@ -221,6 +226,16 @@
       border: 1px solid var(--line);
       min-width: 172px;
       flex: 0 0 auto;
+    }
+
+    /* 步骤 9「发布验收」收尾块:左红条强调收尾红线 + 琥珀淡底呼应人类把关 */
+    .p-finish {
+      border-left: 4px solid var(--red);
+      background: var(--amber-soft);
+    }
+
+    .p-finish .p-tag {
+      color: var(--amber);
     }
 
     .p-gate {
@@ -421,6 +436,20 @@
     .tag.no { background: var(--green-soft); color: var(--green); }
     .tag.only { background: var(--amber-soft); color: var(--amber); }
 
+    /* 工具 / skill 现状标签 */
+    .ready {
+      display: inline-block;
+      padding: 2px 8px;
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 2px;
+      white-space: nowrap;
+      margin-bottom: 5px;
+    }
+    .ready.yes { background: var(--green-soft); color: var(--green); }
+    .ready.partial { background: var(--amber-soft); color: var(--amber); }
+    .ready.no { background: var(--red-soft); color: var(--red); }
+
     /* ---------- 4+1 参与度条 ---------- */
     .participation {
       margin-bottom: 22px;
@@ -436,9 +465,9 @@
     }
     .part-bar {
       display: grid;
-      grid-template-columns: repeat(8, minmax(0, 1fr));
+      grid-template-columns: repeat(9, minmax(0, 1fr));
       gap: 6px;
-      min-width: 760px;
+      min-width: 820px;
     }
     .part-cell {
       border: 1px solid var(--line);
@@ -804,7 +833,95 @@
     <!-- ========== 端到端流程视图 ========== -->
     <section class="section" aria-label="端到端流程视图">
       <h2>端到端流程:从需求到版本交付件</h2>
-      <p class="lead">把一个需求变成版本交付件的完整路径。关键观察:4+1 不是全程参与——需求澄清和纯实现不直接碰它,但所有「架构相关」步骤都以 4+1 基线为核心。下面先看 4+1 在每一步的参与度,再看每步干什么、引用什么、产出什么交付件、用什么 skill。</p>
+      <p class="lead">把一个需求变成版本交付件的完整路径。关键观察:4+1 不是全程参与——需求澄清和纯实现不直接碰它,但所有「架构相关」步骤都以 4+1 基线为核心。下面先看 9 步流程的块图,再看 4+1 在每一步的参与度,最后看每步的完整字段(做什么、引用、产出、要求、谁做)。</p>
+
+      <div class="scroll-shell" aria-label="端到端流程块图">
+        <p class="scroll-note">横向滚动。9 个步骤的端到端流程:深色加琥珀框的是人类必须过的闸门(步骤 3、7),蓝底是 AI 自主区(步骤 6),左红条是收尾发布验收(步骤 9)。完整字段见下方表格。</p>
+        <div class="pipeline wide">
+
+          <div class="p-node">
+            <div class="p-tag">① 人类主导</div>
+            <h3>需求澄清</h3>
+            <p>一句话意图 → 结构化需求</p>
+            <p class="sub">→ 版本需求文档</p>
+          </div>
+
+          <div class="p-arrow">→</div>
+
+          <div class="p-node">
+            <div class="p-tag">② 自动</div>
+            <h3>现状扫描</h3>
+            <p>扫代码 / 契约 / 依赖 / 测试</p>
+            <p class="sub">→ 代码现状报告</p>
+          </div>
+
+          <div class="p-arrow">→</div>
+
+          <div class="p-gate">
+            <div class="p-tag">③ 闸门 1 · 人类</div>
+            <h3>架构更新稿</h3>
+            <p>需求 + 现状 → 本轮架构 delta</p>
+            <p class="sub">→ 待合并更新稿</p>
+          </div>
+
+          <div class="p-arrow">→</div>
+
+          <div class="p-node">
+            <div class="p-tag">④ 自动</div>
+            <h3>gate 派生</h3>
+            <p>更新稿 + 基线 → 边界 + gate</p>
+            <p class="sub">→ 代码边界说明 + gate 配置</p>
+          </div>
+
+          <div class="p-arrow">→</div>
+
+          <div class="p-node">
+            <div class="p-tag">⑤ AI 草案</div>
+            <h3>切片 / 计划</h3>
+            <p>gate 内拆可施工切片</p>
+            <p class="sub">→ 交付计划</p>
+          </div>
+
+          <div class="p-arrow">→</div>
+
+          <div class="p-autonomy">
+            <div class="p-tag">⑥ AI 自主</div>
+            <h3>AI 实现</h3>
+            <p>writable 内编码 / 测试</p>
+            <p class="sub">→ 实现证据包</p>
+            <div class="escalation">⚠ 升级口:越界 / 改 owner / 假设崩 → 回闸门 1</div>
+          </div>
+
+          <div class="p-arrow">→</div>
+
+          <div class="p-gate">
+            <div class="p-tag">⑦ 闸门 2 · 人类</div>
+            <h3>后置对账</h3>
+            <p>graphify / OpenAPI 反推对账</p>
+            <p class="sub">→ 对账报告</p>
+          </div>
+
+          <div class="p-arrow">→</div>
+
+          <div class="p-node">
+            <div class="p-tag">⑧ 人类确认</div>
+            <h3>基线固化</h3>
+            <p>按实际落地写 4+1</p>
+            <p class="sub">→ 更新后 4+1 基线</p>
+          </div>
+
+          <div class="p-arrow">→</div>
+
+          <div class="p-node p-finish">
+            <div class="p-tag">⑨ 人类裁决 · 收尾</div>
+            <h3>发布验收</h3>
+            <p>对照 release bar 跑端到端验证,做发布决策</p>
+            <p class="sub">→ 发布验收报告 + 版本交付件</p>
+            <div class="escalation">发布决策:release / no-release / internal-only / archive-only</div>
+          </div>
+
+        </div>
+      </div>
 
       <div class="participation">
         <div class="part-label">4+1 视图参与度(绿=核心 · 蓝=参与 · 虚线=间接 · 灰=不参与)</div>
@@ -818,6 +935,7 @@
             <div class="part-cell indirect"><span class="lvl">间接</span><span class="nm">AI 实现</span></div>
             <div class="part-cell core"><span class="lvl">核心</span><span class="nm">后置对账</span></div>
             <div class="part-cell core"><span class="lvl">核心</span><span class="nm">基线固化</span></div>
+            <div class="part-cell core"><span class="lvl">核心</span><span class="nm">发布验收</span></div>
           </div>
         </div>
       </div>
@@ -830,6 +948,7 @@
             <th>引用(输入)</th>
             <th>产出交付件</th>
             <th>交付件要求 / skill</th>
+            <th>工具 / skill 现状</th>
             <th>谁做</th>
           </tr>
         </thead>
@@ -840,6 +959,7 @@
             <td>原始意图、背景、约束(无 4+1)</td>
             <td>版本需求文档</td>
             <td>模板:目标/非目标/场景/调用方/release bar;skill:需求访谈</td>
+            <td><span class="ready yes">✓ 已有</span><br>requirement-clarifier(同事开发,需接入流程)</td>
             <td>人机密集</td>
           </tr>
           <tr>
@@ -848,6 +968,7 @@
             <td>代码库、git、schema(弱引 4+1 基线)</td>
             <td>代码现状报告</td>
             <td>模板:模块/依赖/契约/状态/测试/漂移;skill:rg、git、依赖扫描</td>
+            <td><span class="ready no">✗ 缺</span><br>编排 skill(rg / git / 构建扫描工具现成)</td>
             <td>自动(0→1 跳过)</td>
           </tr>
           <tr class="gate-row">
@@ -856,6 +977,7 @@
             <td>需求 + 现状 + <strong>4+1 基线</strong></td>
             <td>待合并更新稿</td>
             <td>模板:delta/理由/冲击不变量/gate 变更/升级标记;skill:影响分析</td>
+            <td><span class="ready no">✗ 缺</span><br>4+1 标准模板 + md→可视化渲染 skill</td>
             <td>AI 草案 → ⟨闸门 1 人类审核⟩</td>
           </tr>
           <tr>
@@ -864,6 +986,7 @@
             <td><strong>4+1 基线 + 更新稿</strong></td>
             <td>代码边界说明 + gate 配置</td>
             <td>skill:边界派生、gate 生成(ArchUnit / 依赖 gate / schema check)</td>
+            <td><span class="ready partial">◐ 部分</span><br>工具现成(ArchUnit),缺派生 skill</td>
             <td>自动</td>
           </tr>
           <tr>
@@ -872,6 +995,7 @@
             <td>更新稿 + <strong>4+1 基线</strong> + gate 配置</td>
             <td>交付计划</td>
             <td>模板:切片/writable/code·harness·schema·probe 输出/DoD;skill:切片生成</td>
+            <td><span class="ready no">✗ 缺</span><br>切片生成 skill</td>
             <td>AI 草案</td>
           </tr>
           <tr>
@@ -880,6 +1004,7 @@
             <td>计划 + 边界 + gate(4+1 间接)</td>
             <td>实现证据包</td>
             <td>模板:changed files/测试/gate 结果/漂移;skill:编码、测试</td>
+            <td><span class="ready partial">◐ 部分</span><br>编码 / 覆盖率 / 调试现成,缺证据编排</td>
             <td>AI 自主</td>
           </tr>
           <tr class="gate-row">
@@ -888,19 +1013,30 @@
             <td>代码 + <strong>4+1 基线 + 更新稿</strong></td>
             <td>对账报告</td>
             <td>skill:graphify、OpenAPI、drift 分析</td>
+            <td><span class="ready partial">◐ 部分</span><br>graphify / OpenAPI 有,缺 diff + 摘要</td>
             <td>自动 → ⟨闸门 2 人类裁决⟩</td>
           </tr>
           <tr>
             <td class="stage">8 基线固化</td>
             <td>按实际实现写 4+1</td>
             <td>证据 + 对账 + <strong>4+1 基线</strong></td>
-            <td>更新后 4+1 基线 + 决策记录</td>
+            <td>更新后 4+1 基线(accepted / deferred 草案)</td>
             <td>模板:accepted facts / deferred / release risk;skill:基线合并</td>
+            <td><span class="ready partial">◐ 部分</span><br>确定性 4+1 模板下 prompt 即可</td>
             <td>人类确认</td>
+          </tr>
+          <tr class="gate-row">
+            <td class="stage">9 发布验收</td>
+            <td>对照 release bar 跑端到端验收(验证矩阵:逻辑 / 开发 / 进程 / 物理 / 场景),汇总验证(passed / failed / skipped)+ 漂移 + 发布风险,做发布决策</td>
+            <td>实现证据包 + 后置投影检查包 + CI / 测试 / gate 结果 + release_bar</td>
+            <td>发布验收报告 + 基线决策记录 + 版本交付件</td>
+            <td>模板:验证汇总 / 漂移 / 升级项 / 发布风险 / accepted facts / deferred 项;skill:CI 汇总、发布检查、归档</td>
+            <td><span class="ready no">✗ 待澄清</span><br>需先定把关口径</td>
+            <td>人类裁决(release / no-release / internal-only / archive-only)</td>
           </tr>
         </tbody>
       </table>
-      <div class="triad-note" style="margin-top:18px;"><strong>读这张表的方法:</strong>看「引用」列里有没有 <strong>4+1</strong>——只有需求澄清(步骤 1)和纯实现(步骤 6)不直接碰 4+1,其余每一步都把 4+1 基线当核心输入或对账基准。每个交付件都配有模板和 skill,自动化步骤也有明确产出要求,不是黑盒。</div>
+      <div class="triad-note" style="margin-top:18px;"><strong>读这张表的方法:</strong>看「引用」列里有没有 <strong>4+1</strong>——只有需求澄清(步骤 1)和纯实现(步骤 6)不直接碰 4+1;发布验收(步骤 9)以 4+1 基线 + release bar 为验收基准,做最终发布决策;其余每一步都把 4+1 基线当核心输入或对账基准。每个交付件都配有模板和 skill,自动化步骤也有明确产出要求,不是黑盒。</div>
     </section>
 
     <!-- ========== 升级口 ========== -->
