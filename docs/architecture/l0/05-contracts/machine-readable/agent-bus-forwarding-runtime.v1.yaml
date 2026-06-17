@@ -4,7 +4,7 @@ version: v1
 provider: agent-bus
 consumer: agent-runtime
 candidate: C3-database-outbox-inbox
-description: "agent-bus 类 MQ 转发的运行态承载（C3 outbox/inbox）record schema：durable、可审计、tenant-scoped、broker-agnostic。Stage 7–11 交付 schema + 端口 + 状态机 + lease-safe + dispatch-loop + runtime-completion；Stage 12 落地真实持久化（Postgres JDBC adapter + Flyway migration + RLS）；Stage 13 完成 transport 投递模型候选评审（T1-T4 × 8 维度，T3 consumer-pull over DB 非裁决推荐）。真实投递绑定仍 deferred（待 H2/H3 裁决 push / pull / MQ）。"
+description: "agent-bus 类 MQ 转发的运行态承载（C3 outbox/inbox）record schema：durable、可审计、tenant-scoped、broker-agnostic。Stage 7–11 交付 schema + 端口 + 状态机 + lease-safe + dispatch-loop + runtime-completion；Stage 12 落地真实持久化（Postgres JDBC adapter + Flyway migration + RLS）；Stage 13 完成 transport 投递模型候选评审（T1-T4 × 8 维度，T3 consumer-pull over DB 非裁决推荐）；Stage 14 落地 deliver 重投策略先行（retry policy 端口 + overflow-safe 指数退避 + exhausted→DLQ + 熔断端口 deferred，§6.2 不变）。真实投递绑定仍 deferred（待 H2/H3 裁决 push / pull / MQ）。"
 authority:
   icd_design: ICD-agent-bus-forwarding.md
   l2: architecture/docs/L2/agent-bus/forwarding-outbox-inbox.md
@@ -222,6 +222,11 @@ stage13_scope:
   not_delivers: [production-code, transport-implementation, broker-binding, §6.2-lift]
   nature: decision-review  # 裁决阶段、无生产代码（性质同 Stage 5）；4 投递模型候选 × 8 维度评分矩阵；核心结论「反压内核=消费方控速，MQ 只是载体之一」；T3 consumer-pull over DB 作为非裁决推荐（唯一不破 §6.2 的强反压候选，复用 Stage 12 claim/lease/SKIP LOCKED/RLS）；deliver 异常重投策略拆为可独立先行子项
   next_stage: Stage-14-plus-or-h2h3-transport-decision
+stage14_scope:
+  delivers: [forwarding-retry-policy-port, exponential-backoff-overflow-safe, exhausted-to-dlq-routing, deliver-result-next-attempt-removed, circuit-breaker-port-deferred-not-wired]
+  not_delivers: [transport-implementation, broker-binding, circuit-breaker-wired-to-worker, real-scheduler-thread-pool]
+  path: B  # transport-independent: retry timing does not depend on push/pull/MQ (Stage 13 undecided); no transport/broker/scheduler introduced; §6.2 unchanged
+  next_stage: Stage-15-plus-or-h2h3-transport-decision
 compatibility:
   additive_fields_allowed: true
   breaking_change_requires_adr: true
@@ -254,3 +259,8 @@ contract_tests:
   - dispatch_loop_drives_ticks_from_injected_source_until_it_stops
   - worker_skips_record_when_delivery_throws
   - run_once_fails_fast_on_blank_tenant_and_loop_propagates
+  - retry_policy_backoff_is_monotonic_and_capped
+  - retry_policy_jitter_is_added_and_negative_clamped
+  - retry_policy_exhausted_flips_at_budget
+  - worker_routes_exhausted_retryable_failure_to_dlq
+  - worker_retries_then_exhausts_to_dlq

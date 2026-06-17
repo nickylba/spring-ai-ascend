@@ -1,7 +1,9 @@
 package com.huawei.ascend.bus.architecture;
 
+import com.huawei.ascend.bus.forwarding.runtime.EpochClock;
 import com.huawei.ascend.bus.forwarding.runtime.ForwardingDispatchLoop;
 import com.huawei.ascend.bus.forwarding.runtime.ForwardingDispatcherWorker;
+import com.huawei.ascend.bus.forwarding.runtime.ForwardingRetryPolicy;
 import com.huawei.ascend.bus.forwarding.runtime.ForwardingStateMachine;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingDeliveryPort;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingDeliveryResult;
@@ -454,7 +456,7 @@ class AgentBusForwardingRuntimeContractTest {
         ForwardingEnvelope retr = envelope("msg-w-retry", "tenant-a");
         outbox.enqueue(retr, SOURCE_SERVICE, TARGET_SERVICE, NOW);
         delivery.put("msg-w-retry",
-                ForwardingDeliveryResult.retry(ForwardingFailureCode.RECEIVER_UNAVAILABLE, NOW + 5_000));
+                ForwardingDeliveryResult.retry(ForwardingFailureCode.RECEIVER_UNAVAILABLE));
         worker.runOnce("tenant-a", NOW, 10, LEASE_OWNER, LEASE_UNTIL);
         assertThat(outbox.statusOf(retr.messageId(), "tenant-a")).isEqualTo(RETRY_SCHEDULED);
         assertThat(outbox.attemptCountOf(retr.messageId(), "tenant-a"))
@@ -916,11 +918,11 @@ class AgentBusForwardingRuntimeContractTest {
 
         // retry(...) rejects a non-retryable code
         assertThatThrownBy(() -> ForwardingDeliveryResult.retry(
-                ForwardingFailureCode.ROUTE_NOT_FOUND, NOW + 5_000))
+                ForwardingFailureCode.ROUTE_NOT_FOUND))
                 .isInstanceOf(IllegalArgumentException.class);
         // retry(...) rejects the dedup outcome
         assertThatThrownBy(() -> ForwardingDeliveryResult.retry(
-                ForwardingFailureCode.DUPLICATE_SUPPRESSED, NOW + 5_000))
+                ForwardingFailureCode.DUPLICATE_SUPPRESSED))
                 .isInstanceOf(IllegalArgumentException.class);
         // dlq(...) rejects the dedup outcome
         assertThatThrownBy(() -> ForwardingDeliveryResult.dlq(
@@ -1034,6 +1036,150 @@ class AgentBusForwardingRuntimeContractTest {
                 () -> OptionalLong.of(NOW), ForwardingDispatchLoop.NO_BACKOFF);
         assertThatThrownBy(() -> loop.run("", 1, LEASE_OWNER, 30_000))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    // ===== Stage 14 — deliver retry / backoff policy (separation of concerns) =====
+    //
+    // Retry timing is now governance owned by ForwardingRetryPolicy, lifted out of
+    // ForwardingDeliveryResult (which reports WHAT happened, not WHEN to retry).
+    // On a RETRY_SCHEDULED result the worker asks the policy: exhausted? -> DLQ
+    // (a retryable code is a legal DLQ code); else nextAttemptAt -> RETRY.
+
+    /**
+     * Stage 14: exponential backoff is monotonic, capped, and overflow-safe —
+     * a runaway attemptCount never yields a negative or absurd delay.
+     */
+    @Test
+    void retry_policy_backoff_is_monotonic_and_capped() {
+        ForwardingRetryPolicy.ExponentialBackoff policy =
+                new ForwardingRetryPolicy.ExponentialBackoff(100L, 1_000L, 10, () -> 0L);
+        ForwardingFailureCode code = ForwardingFailureCode.RECEIVER_UNAVAILABLE;
+        long d0 = policy.nextAttemptAt(code, 0, NOW) - NOW;
+        long d1 = policy.nextAttemptAt(code, 1, NOW) - NOW;
+        long d2 = policy.nextAttemptAt(code, 2, NOW) - NOW;
+        long d3 = policy.nextAttemptAt(code, 3, NOW) - NOW;
+        long d4 = policy.nextAttemptAt(code, 4, NOW) - NOW;
+        assertThat(d0).as("attempt 0 -> base").isEqualTo(100L);
+        assertThat(d1).as("attempt 1 -> 2*base").isEqualTo(200L);
+        assertThat(d2).as("attempt 2 -> 4*base").isEqualTo(400L);
+        assertThat(d3).as("attempt 3 -> 8*base").isEqualTo(800L);
+        assertThat(d4).as("attempt 4 -> capped (100<<4=1600 > cap 1000)").isEqualTo(1_000L);
+        assertThat(d0).isLessThanOrEqualTo(d1);
+        assertThat(d1).isLessThanOrEqualTo(d2);
+        assertThat(d2).isLessThanOrEqualTo(d3);
+        assertThat(d3).isLessThanOrEqualTo(d4);
+        assertThat(policy.nextAttemptAt(code, 100, NOW) - NOW)
+                .as("attempt 100 clamped to cap (overflow-safe)")
+                .isEqualTo(1_000L);
+    }
+
+    /** Stage 14: jitter is added to the backoff, and a negative jitter is clamped. */
+    @Test
+    void retry_policy_jitter_is_added_and_negative_clamped() {
+        ForwardingRetryPolicy.ExponentialBackoff withJitter =
+                new ForwardingRetryPolicy.ExponentialBackoff(100L, 1_000L, 5, () -> 50L);
+        assertThat(withJitter.nextAttemptAt(ForwardingFailureCode.DELIVERY_TIMEOUT, 0, NOW))
+                .as("jitter added: now + base(100) + jitter(50)")
+                .isEqualTo(NOW + 150L);
+        ForwardingRetryPolicy.ExponentialBackoff negativeJitter =
+                new ForwardingRetryPolicy.ExponentialBackoff(100L, 1_000L, 5, () -> -10L);
+        assertThat(negativeJitter.nextAttemptAt(ForwardingFailureCode.DELIVERY_TIMEOUT, 0, NOW))
+                .as("negative jitter clamped to 0: now + base(100)")
+                .isEqualTo(NOW + 100L);
+    }
+
+    /** Stage 14: exhausted() flips at the budget; maxAttempts=0 disables retry. */
+    @Test
+    void retry_policy_exhausted_flips_at_budget() {
+        ForwardingRetryPolicy.ExponentialBackoff budget =
+                new ForwardingRetryPolicy.ExponentialBackoff(100L, 1_000L, 2, () -> 0L);
+        assertThat(budget.exhausted(0)).as("attempt 0 under budget").isFalse();
+        assertThat(budget.exhausted(1)).as("attempt 1 under budget").isFalse();
+        assertThat(budget.exhausted(2)).as("attempt 2 == budget -> exhausted").isTrue();
+        ForwardingRetryPolicy.ExponentialBackoff noRetry =
+                new ForwardingRetryPolicy.ExponentialBackoff(100L, 1_000L, 0, () -> 0L);
+        assertThat(noRetry.exhausted(0))
+                .as("maxAttempts=0 disables retry: the first failure is exhausted").isTrue();
+    }
+
+    /**
+     * Stage 14: a retryable failure whose retries are exhausted is routed to DLQ
+     * (a retryable code is a legal DLQ code), not RETRY. maxAttempts=0 disables
+     * retry entirely — the first failure goes straight to DLQ.
+     */
+    @Test
+    void worker_routes_exhausted_retryable_failure_to_dlq() {
+        InMemoryForwardingOutbox outbox = new InMemoryForwardingOutbox();
+        InMemoryForwardingDelivery delivery = new InMemoryForwardingDelivery();
+        ForwardingRetryPolicy noRetry =
+                new ForwardingRetryPolicy.ExponentialBackoff(100L, 1_000L, 0, () -> 0L);
+        ForwardingDispatcherWorker worker = new ForwardingDispatcherWorker(
+                outbox, outbox, delivery,
+                ForwardingDispatcherWorker.DispatchLeasePolicy.DISABLED, EpochClock.SYSTEM, noRetry);
+
+        ForwardingEnvelope env = envelope("msg-exh", "tenant-a");
+        outbox.enqueue(env, SOURCE_SERVICE, TARGET_SERVICE, NOW);
+        delivery.put("msg-exh",
+                ForwardingDeliveryResult.retry(ForwardingFailureCode.BACKPRESSURE_REJECTED));
+
+        ForwardingDispatcherWorker.DispatchTickResult tick =
+                worker.runOnce("tenant-a", NOW, 10, LEASE_OWNER, LEASE_UNTIL);
+
+        assertThat(tick.claimed()).isEqualTo(1);
+        assertThat(tick.retried())
+                .as("an exhausted retryable failure is not retried")
+                .isZero();
+        assertThat(tick.dlqd())
+                .as("an exhausted retryable failure goes to DLQ")
+                .isEqualTo(1);
+        assertThat(outbox.statusOf(env.messageId(), "tenant-a")).isEqualTo(DLQ);
+        assertThat(outbox.recordOf(env.messageId(), "tenant-a").lastFailureCode())
+                .isEqualTo(ForwardingFailureCode.BACKPRESSURE_REJECTED);
+    }
+
+    /**
+     * Stage 14: with a real retry budget, a retryable failure first RETRY-schedules
+     * (attemptCount increments) and only reaches DLQ once the budget is spent.
+     * maxAttempts=2: attempts 0 and 1 retry; attempt 2 is exhausted -> DLQ.
+     */
+    @Test
+    void worker_retries_then_exhausts_to_dlq() {
+        InMemoryForwardingOutbox outbox = new InMemoryForwardingOutbox();
+        InMemoryForwardingDelivery delivery = new InMemoryForwardingDelivery();
+        ForwardingRetryPolicy budget =
+                new ForwardingRetryPolicy.ExponentialBackoff(100L, 1_000L, 2, () -> 0L);
+        long[] clockNow = {NOW};
+        ForwardingDispatcherWorker worker = new ForwardingDispatcherWorker(
+                outbox, outbox, delivery,
+                ForwardingDispatcherWorker.DispatchLeasePolicy.DISABLED,
+                (EpochClock) () -> clockNow[0], budget);
+
+        ForwardingEnvelope env = envelope("msg-budget", "tenant-a");
+        outbox.enqueue(env, SOURCE_SERVICE, TARGET_SERVICE, NOW);
+        delivery.put("msg-budget",
+                ForwardingDeliveryResult.retry(ForwardingFailureCode.RECEIVER_UNAVAILABLE));
+
+        // attempt 0: not exhausted (0 < 2) -> RETRY, attemptCount -> 1, nextAttemptAt = NOW+100
+        worker.runOnce("tenant-a", clockNow[0], 10, LEASE_OWNER, clockNow[0] + 30_000);
+        assertThat(outbox.statusOf(env.messageId(), "tenant-a")).isEqualTo(RETRY_SCHEDULED);
+        assertThat(outbox.attemptCountOf(env.messageId(), "tenant-a")).isEqualTo(1);
+
+        // advance past the scheduled nextAttemptAt (NOW + 100) and reclaim
+        clockNow[0] = NOW + 200;
+        worker.runOnce("tenant-a", clockNow[0], 10, LEASE_OWNER, clockNow[0] + 30_000);
+        assertThat(outbox.statusOf(env.messageId(), "tenant-a")).isEqualTo(RETRY_SCHEDULED);
+        assertThat(outbox.attemptCountOf(env.messageId(), "tenant-a"))
+                .as("attempt 1: still under budget -> retry again, attemptCount -> 2")
+                .isEqualTo(2);
+
+        // attempt 2: exhausted (2 >= 2) -> DLQ
+        clockNow[0] = NOW + 1_000;
+        ForwardingDispatcherWorker.DispatchTickResult tick =
+                worker.runOnce("tenant-a", clockNow[0], 10, LEASE_OWNER, clockNow[0] + 30_000);
+        assertThat(tick.dlqd())
+                .as("attempt 2: budget exhausted -> DLQ")
+                .isEqualTo(1);
+        assertThat(outbox.statusOf(env.messageId(), "tenant-a")).isEqualTo(DLQ);
     }
 
     // ===== helpers =====

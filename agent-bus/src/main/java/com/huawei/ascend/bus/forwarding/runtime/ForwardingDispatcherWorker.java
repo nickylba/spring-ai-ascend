@@ -1,5 +1,6 @@
 package com.huawei.ascend.bus.forwarding.runtime;
 
+import com.huawei.ascend.bus.forwarding.spi.ForwardingFailureCode;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingDeliveryPort;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingDeliveryResult;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingLeaseException;
@@ -72,18 +73,21 @@ public final class ForwardingDispatcherWorker {
     private final ForwardingDeliveryPort deliveryPort;
     private final DispatchLeasePolicy leasePolicy;
     private final EpochClock clock;
+    private final ForwardingRetryPolicy retryPolicy;
 
     public ForwardingDispatcherWorker(ForwardingOutboxClaimPort claimPort,
                                       ForwardingOutboxPort outboxPort,
                                       ForwardingDeliveryPort deliveryPort) {
-        this(claimPort, outboxPort, deliveryPort, DispatchLeasePolicy.DISABLED);
+        this(claimPort, outboxPort, deliveryPort, DispatchLeasePolicy.DISABLED,
+                EpochClock.SYSTEM, ForwardingRetryPolicy.DEFAULT);
     }
 
     public ForwardingDispatcherWorker(ForwardingOutboxClaimPort claimPort,
                                       ForwardingOutboxPort outboxPort,
                                       ForwardingDeliveryPort deliveryPort,
                                       DispatchLeasePolicy leasePolicy) {
-        this(claimPort, outboxPort, deliveryPort, leasePolicy, EpochClock.SYSTEM);
+        this(claimPort, outboxPort, deliveryPort, leasePolicy, EpochClock.SYSTEM,
+                ForwardingRetryPolicy.DEFAULT);
     }
 
     /** Stage 11 (MI11-001): inject the wall clock the renewal check reads. */
@@ -92,11 +96,26 @@ public final class ForwardingDispatcherWorker {
                                       ForwardingDeliveryPort deliveryPort,
                                       DispatchLeasePolicy leasePolicy,
                                       EpochClock clock) {
+        this(claimPort, outboxPort, deliveryPort, leasePolicy, clock, ForwardingRetryPolicy.DEFAULT);
+    }
+
+    /**
+     * Stage 14: full constructor — inject the retry / backoff policy alongside
+     * the lease policy and clock. On a {@code RETRY_SCHEDULED} result the policy
+     * decides whether the record retries (and when) or is exhausted to DLQ.
+     */
+    public ForwardingDispatcherWorker(ForwardingOutboxClaimPort claimPort,
+                                      ForwardingOutboxPort outboxPort,
+                                      ForwardingDeliveryPort deliveryPort,
+                                      DispatchLeasePolicy leasePolicy,
+                                      EpochClock clock,
+                                      ForwardingRetryPolicy retryPolicy) {
         this.claimPort = Objects.requireNonNull(claimPort, "claimPort is required");
         this.outboxPort = Objects.requireNonNull(outboxPort, "outboxPort is required");
         this.deliveryPort = Objects.requireNonNull(deliveryPort, "deliveryPort is required");
         this.leasePolicy = Objects.requireNonNull(leasePolicy, "leasePolicy is required");
         this.clock = Objects.requireNonNull(clock, "clock is required");
+        this.retryPolicy = Objects.requireNonNull(retryPolicy, "retryPolicy is required");
     }
 
     /**
@@ -186,9 +205,23 @@ public final class ForwardingDispatcherWorker {
                         acked++;
                     }
                     case RETRY_SCHEDULED -> {
-                        outboxPort.scheduleRetry(record.messageId(), tenantId, leaseOwner,
-                                result.failureCode(), result.nextAttemptAtMillisEpoch());
-                        retried++;
+                        // Stage 14: retry governance is the policy's job, not the
+                        // delivery result's. A retryable failure whose retries are
+                        // exhausted goes to DLQ (a retryable code is a legal DLQ
+                        // code); otherwise the policy picks the next-attempt instant
+                        // (record.attemptCount() is the retries already recorded —
+                        // scheduleRetry increments it).
+                        ForwardingFailureCode retryCode = result.failureCode();
+                        if (retryPolicy.exhausted(record.attemptCount())) {
+                            outboxPort.moveToDlq(record.messageId(), tenantId, leaseOwner, retryCode);
+                            dlqd++;
+                        } else {
+                            long nextAttemptAt =
+                                    retryPolicy.nextAttemptAt(retryCode, record.attemptCount(), clockNow);
+                            outboxPort.scheduleRetry(record.messageId(), tenantId, leaseOwner,
+                                    retryCode, nextAttemptAt);
+                            retried++;
+                        }
                     }
                     case DLQ -> {
                         outboxPort.moveToDlq(record.messageId(), tenantId, leaseOwner,

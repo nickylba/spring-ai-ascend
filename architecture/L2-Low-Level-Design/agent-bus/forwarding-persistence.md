@@ -106,7 +106,7 @@ target_module: agent-bus
 1. `claimDue` 声明到期记录（已原子迁移到 `DISPATCHING` 并 stamped lease）。
 2. **Stage 10（MI10-002）/ Stage 11（MI11-001）**：deliver 前按 `DispatchLeasePolicy` 检查剩余 lease TTL——低于阈值则 `claimPort.renewLease(...)` 续约；renew 返回 false（lease 已被 reclaim / 不再 DISPATCHING）则 skip 该 record，不投递。剩余 TTL `remaining = leaseUntilMillisEpoch − clock.epochMillis()` 读注入的 `EpochClock`（真实墙钟），`claimDue` 仍以 tick 起始时刻 `nowMillisEpoch` 为 claim 时刻——真实运行时一个耗时 deliver 接近 lease TTL 时续约能自然触发（Stage 11 修复：此前续约判断用 tick 入参 `nowMillisEpoch`，整个 tick 不变，而自然 dispatch loop 每次 tick 用 `leaseUntil = now + leaseDurationMillis` 构造 → `remaining` 恒定，续约永不触发，只能靠 harness 构造接近过期 leaseUntil 间接覆盖）。
 3. 逐条调用抽象 `ForwardingDeliveryPort.deliver(record, clockNow)`，仅消费 `routeHandle`（**不**暴露物理 endpoint）；`clockNow` 取自注入 `EpochClock`（与续约判断同一时刻）。
-4. 按 `ForwardingDeliveryResult.outcome()` 路由：`ACKED → markAcked`、`RETRY_SCHEDULED → scheduleRetry`（更新 attemptCount / nextAttemptAt / lastFailureCode）、`DLQ → moveToDlq`、`EXPIRED → markExpired`。
+4. 按 `ForwardingDeliveryResult.outcome()` 路由：`ACKED → markAcked`、`DLQ → moveToDlq`、`EXPIRED → markExpired`；`RETRY_SCHEDULED → 询问注入的 `ForwardingRetryPolicy`（Stage 14，§15）：`exhausted(attemptCount)` 为真则 `moveToDlq`（retryable 码耗尽是合法 DLQ 码），否则 `scheduleRetry`（`nextAttemptAt` 由 policy 计算，`attemptCount` / `lastFailureCode` 一并更新）。
 5. **Stage 10（MI10-001）/ Stage 11（MI11-002）**：deliver / mark* 包在 per-record try-catch 中——lease guard 抛 `ForwardingLeaseException`（reclaim / stale / foreign / expired owner），或 `deliver` 违约抛非 lease `RuntimeException`（真实 transport 绑定应把网络 / 超时 / 反序列化异常映射为 `ForwardingDeliveryResult`、不应抛，见 ICD；worker 兜底是防御性）时，均 skip 该 record（留 `DISPATCHING`，lease 过期被 reclaim 重投，**不丢消息**），tick 继续其余 record。`DispatchTickResult(claimed, acked, retried, dlqd, expired, skipped)` 校验 `claimed == acked + retried + dlqd + expired + skipped`，保证计数自洽、可观测。
 
 边界：worker 无线程、无 scheduler、无 registry、无 transport；唯一时间依赖是注入的 `EpochClock`（默认 `System::currentTimeMillis`），用于 lease 续约判断与 deliver 时刻——`claimDue` 仍以 tick 起始时刻为 claim 时刻。真实 polling cadence / threading / backpressure / 具体 delivery 绑定 deferred 后续阶段。worker 不写 Task execution state。异常契约（Stage 11，MI11-003）：`runOnce` 仅在入参非法（`tenantId` / `leaseOwner` blank、`limit <= 0`）时抛 `IllegalArgumentException`（调用方 bug，fail-fast），tick 内 deliver / lease 异常已兜底为 `skipped` 不抛；`ForwardingDispatchLoop.run` 传播 fail-fast 是正确语义（不静默吞调用方 bug，不加 loop 级兜底）。fake delivery（`InMemoryForwardingDelivery`）仅在 test fixture，让 ACK / RETRY / DLQ / EXPIRED 与 lease 续约 / skip / deliver 异常路径在无网络下可被 harness 覆盖。
@@ -392,6 +392,57 @@ Stage 12 DoD 自检：
 - ✓ **153 tests green**（Stage 11 的 136 + real-SQL 17），ArchUnit 纯度 green。
 - ✓ **不引入** concrete broker / MQ（transport 拆出）；**不写** Task execution state；**不**跨 tenant fallback；**不放** payload body（`§6.2` 始终不得，不变）。
 - ✓ Stage 12 实现完成（切片 0 裁决 + 1 依赖 + 2 adapter + 3 migration + 4 real-SQL + 5/6 文档/提交）；transport / 真实投递绑定 / agent-runtime 集成 deferred 独立议题。
+
+## 15. Stage 14 决策（deliver 重投策略先行：retry policy 端口）
+
+Stage 14（无 MI 编号，对应 Stage 13 拆出的「可独立于投递模型先行」子项）把 deliver 异常重投的治理从 `ForwardingDeliveryPort.deliver`（交付动作）中分离，落到独立的 `ForwardingRetryPolicy` 端口（重试治理）。**独立于 Stage 13 未裁决的 transport 模型**（push / pull / MQ 不影响重投时机——retryable 失败无论下一次由 dispatcher push 还是 receiver pull，都排一个更晚的到期时刻）；**不引入** transport / broker / scheduler，**不破 §6.2**。
+
+| 关注点 | Stage 14 前 | Stage 14 |
+|---|---|---|
+| 交付是否到达 receiver | `ForwardingDeliveryResult` | 不变 |
+| 重投时机（when） | `ForwardingDeliveryResult.nextAttemptAtMillisEpoch`（delivery binding 决定） | `ForwardingRetryPolicy.nextAttemptAt(...)`（policy 决定） |
+| 重投耗尽（give up） | 隐含在 delivery binding | `ForwardingRetryPolicy.exhausted(attemptCount)` |
+
+### 15.1 `ForwardingRetryPolicy` 端口
+
+纯 Java 接口（`forwarding/runtime`，与 worker 同包，无需 import），两个方法 + 一个默认实现，照 `DispatchLeasePolicy` / `EpochClock` 的注入范式（构造器链式 + DEFAULT 静态实例）：
+
+- `long nextAttemptAt(ForwardingFailureCode code, int attemptCount, long nowMillisEpoch)`——下一次次到期时刻（写入 outbox `nextAttemptAt`，被下一次 `claimDue` 门控）。`code` 保留供未来 per-code 退避（如 `backpressure_rejected` 退避更久），默认实现仅依赖 `attemptCount`。
+- `boolean exhausted(int attemptCount)`——重试预算是否耗尽；`true` 则 worker 路由到 DLQ（非 RETRY）。
+- `ForwardingRetryPolicy.DEFAULT = new ExponentialBackoff(100ms base, 60s cap, maxAttempts=5, 无 jitter)`。
+
+`ExponentialBackoff` record（不可变值类型；canonical constructor 校验 `baseMillis>0` / `capMillis>=baseMillis` / `maxAttempts>=0` / `jitterMillis` 非空，错误配置在构造期而非首次重投暴露）：
+
+- **退避公式**：`delay = min(cap, base << shift) + jitter`，其中 `shift = min(attemptCount, 62 − highestSetBit(base))`。
+- **overflow-safe**：固定 shift 上限 62 对多 bit base 是错的——`100 << 62` 把 100 的所有位（最高位 bit 6）移出 64-bit `long` 得 `0`（非负数），逃过符号检查，被 `min(0, cap)=0`。动态上限 `62 − (63 − Long.numberOfLeadingZeros(baseMillis))` 保证 `base << shift` 恒正；任意 ≥ cap 的值 clamp 到 cap，runaway `attemptCount` 永不产生负 / 零 / 荒谬 delay。不用 `Math.pow`（`double`→`long` 强转会静默溢出）。
+- **可测 jitter**：`LongSupplier` 注入——测试传固定值观测精确 `now + delay + jitter`，生产传有界随机源；负 jitter clamp 到 `0`。
+
+### 15.2 worker RETRY 分支接入
+
+`ForwardingDeliveryResult` 移除第三字段 `nextAttemptAtMillisEpoch`（重投时机不再归 delivery binding）；工厂 `retry(code)` 简化为单参（只接 retryable 码，MI9-004 不变）。worker 在 `RETRY_SCHEDULED` 分支：
+
+```text
+retryPolicy.exhausted(record.attemptCount()) ?
+    outboxPort.moveToDlq(...)            // retryable 耗尽 → DLQ（retryable 码是合法 DLQ 码）
+  : outboxPort.scheduleRetry(..., retryPolicy.nextAttemptAt(retryCode, record.attemptCount(), clockNow))
+```
+
+`record.attemptCount()` 是已记录重试次数（`scheduleRetry` 内部 +1）；`exhausted(attempt) = attempt >= maxAttempts`；`maxAttempts` = 最大重试次数（不含首次投递），`0` 表示任何失败直接 DLQ。`nextAttemptAt` 用 deliver 时刻 `clockNow`（注入 `EpochClock`，与续约判断同一时刻，MI11-001）。worker 新增第 6 参构造器注入 `retryPolicy`，3/4/5 参构造器委托到 6 参并用 `ForwardingRetryPolicy.DEFAULT`，现有调用不破坏。
+
+> outbox record 的 `nextAttemptAtMillisEpoch`（DB 列 `next_attempt_at`，§3.1）**仍是** persisted 字段——它是 policy 决策的存储；与 delivery result 解耦（重投时机归 policy）是两个独立关注点。`nextAttemptAt` 字段的「条件必填（仅 RETRY_SCHEDULED）」语义不变。
+
+### 15.3 `ForwardingCircuitBreaker` 端口（deferred，未接入）
+
+Stage 14 另落一个 deferred 端口 `ForwardingCircuitBreaker`（`allowsDelivery(routeHandle)` + `ALWAYS_CLOSED` no-op），**不接入 worker**：真实熔断需 per-`routeHandle` 失败率状态，且其形态依赖 Stage 13 未裁决的 transport 模型——push（T1/T2）需 breaker 主动短路故障 route；consumer-pull（T3）天然自调速（receiver 停止 claim 即是其 backpressure / break），显式 breaker 大体冗余。接入前会 bake in transport 假设，故 deferred 至 H2/H3 transport 裁决。
+
+Stage 14 DoD 自检：
+
+- ✓ `ForwardingRetryPolicy` 端口 + `ExponentialBackoff` 默认实现（纯 Java，forwarding 纯度合规）。
+- ✓ overflow-safe 指数退避（动态 shift 上限，clamp cap）；可测 jitter（注入 `LongSupplier`，负值 clamp 0）。
+- ✓ worker RETRY 分支接入：`exhausted` → DLQ，否则 `nextAttemptAt` → `scheduleRetry`；`ForwardingDeliveryResult.retry(code)` 简化（移除 `nextAttemptAtMillisEpoch` 字段）。
+- ✓ 熔断端口 deferred（`ALWAYS_CLOSED` no-op，未接入 worker，待 transport 裁决）。
+- ✓ **158 tests green**（Stage 12 的 153 + 5 个 Stage 14 行为测试），ArchUnit 纯度 green。
+- ✓ §6.2 不变：不引入 transport / broker / scheduler；不写 Task state；不跨 tenant fallback；不放 payload body。
 
 相关文档：
 

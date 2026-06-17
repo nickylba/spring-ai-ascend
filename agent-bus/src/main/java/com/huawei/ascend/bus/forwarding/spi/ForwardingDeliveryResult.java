@@ -11,19 +11,30 @@ import java.util.Objects;
  * <ul>
  *   <li>{@link Outcome#ACKED} → mark ACKED (terminal-success).</li>
  *   <li>{@link Outcome#RETRY_SCHEDULED} → schedule a retry (retryable failure;
- *       carries the failure code and the next attempt instant).</li>
+ *       carries the failure code; <em>when</em> to retry is decided by
+ *       {@code ForwardingRetryPolicy}, Stage 14 — the result no longer carries a
+ *       next-attempt instant).</li>
  *   <li>{@link Outcome#DLQ} → move to DLQ (non-retryable failure or retries
  *       exhausted; carries the failure code).</li>
  *   <li>{@link Outcome#EXPIRED} → mark EXPIRED (envelope deadline exceeded).</li>
  * </ul>
- * The compact constructor pins the failure-code / next-attempt invariants per
- * outcome so the worker can switch on {@link #outcome()} without re-validating.
+ * The compact constructor pins the failure-code invariants per outcome so the
+ * worker can switch on {@link #outcome()} without re-validating.
+ *
+ * <p><b>Stage 14 (separation of concerns).</b> Before Stage 14 this record also
+ * carried {@code nextAttemptAtMillisEpoch} on a {@code RETRY_SCHEDULED} result,
+ * so the delivery binding chose when to retry. Retry timing is governance owned
+ * by {@code ForwardingRetryPolicy}; the result reports <em>what</em> happened (a
+ * retryable failure), the policy decides <em>when</em> to retry. The
+ * {@code nextAttemptAt} field has been removed accordingly. (The outbox record
+ * still carries {@code nextAttemptAtMillisEpoch} as a persisted DB field — that
+ * is the storage of the policy's decision, a separate concern from the delivery
+ * result.)
  *
  * <p>Authority: {@code architecture/L2-Low-Level-Design/agent-bus/forwarding-outbox-inbox.md §4.1/§7};
  * {@code architecture/L2-Low-Level-Design/agent-bus/forwarding-persistence.md §5}.
  */
-public record ForwardingDeliveryResult(Outcome outcome, ForwardingFailureCode failureCode,
-                                       long nextAttemptAtMillisEpoch) {
+public record ForwardingDeliveryResult(Outcome outcome, ForwardingFailureCode failureCode) {
 
     public ForwardingDeliveryResult {
         Objects.requireNonNull(outcome, "outcome is required");
@@ -42,10 +53,6 @@ public record ForwardingDeliveryResult(Outcome outcome, ForwardingFailureCode fa
                     throw new IllegalArgumentException(
                             "RETRY_SCHEDULED result requires a retryable failureCode; "
                             + failureCode + " is not retryable (MI9-004)");
-                }
-                if (nextAttemptAtMillisEpoch <= 0) {
-                    throw new IllegalArgumentException(
-                            "RETRY_SCHEDULED result requires a positive nextAttemptAtMillisEpoch");
                 }
             }
             case DLQ -> {
@@ -73,16 +80,17 @@ public record ForwardingDeliveryResult(Outcome outcome, ForwardingFailureCode fa
 
     /** Successful synchronous ack (ICD Delivery Model). */
     public static ForwardingDeliveryResult acked() {
-        return new ForwardingDeliveryResult(Outcome.ACKED, null, 0L);
+        return new ForwardingDeliveryResult(Outcome.ACKED, null);
     }
 
     /**
-     * Retryable failure; retried at {@code nextAttemptAtMillisEpoch}. The code
-     * MUST be {@link ForwardingFailureCode#retryable() retryable} (MI9-004).
+     * Retryable failure. The code MUST be {@link ForwardingFailureCode#retryable()
+     * retryable} (MI9-004). <em>When</em> the retry fires is decided by
+     * {@code ForwardingRetryPolicy} (Stage 14); the result no longer carries a
+     * next-attempt instant.
      */
-    public static ForwardingDeliveryResult retry(ForwardingFailureCode failureCode,
-                                                 long nextAttemptAtMillisEpoch) {
-        return new ForwardingDeliveryResult(Outcome.RETRY_SCHEDULED, failureCode, nextAttemptAtMillisEpoch);
+    public static ForwardingDeliveryResult retry(ForwardingFailureCode failureCode) {
+        return new ForwardingDeliveryResult(Outcome.RETRY_SCHEDULED, failureCode);
     }
 
     /**
@@ -92,11 +100,11 @@ public record ForwardingDeliveryResult(Outcome outcome, ForwardingFailureCode fa
      * outcome (MI9-004).
      */
     public static ForwardingDeliveryResult dlq(ForwardingFailureCode failureCode) {
-        return new ForwardingDeliveryResult(Outcome.DLQ, failureCode, 0L);
+        return new ForwardingDeliveryResult(Outcome.DLQ, failureCode);
     }
 
     /** Envelope deadline exceeded → EXPIRED. */
     public static ForwardingDeliveryResult expired() {
-        return new ForwardingDeliveryResult(Outcome.EXPIRED, null, 0L);
+        return new ForwardingDeliveryResult(Outcome.EXPIRED, null);
     }
 }
