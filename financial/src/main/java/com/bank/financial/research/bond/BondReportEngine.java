@@ -1,19 +1,19 @@
-package com.bank.financial.research.fund;
+package com.bank.financial.research.bond;
 
-import com.bank.financial.research.data.FundData;
-import com.bank.financial.research.data.FundDataSource;
+import com.bank.financial.research.bond.agent.BondComplianceAgent;
+import com.bank.financial.research.bond.agent.BondCriticAgent;
+import com.bank.financial.research.bond.agent.BondDataAgent;
+import com.bank.financial.research.bond.agent.BondPlannerAgent;
+import com.bank.financial.research.bond.agent.BondRatingManagerAgent;
+import com.bank.financial.research.bond.agent.BondWriterAgent;
+import com.bank.financial.research.bond.agent.CreditAgent;
+import com.bank.financial.research.bond.agent.RatesAgent;
+import com.bank.financial.research.data.BondData;
+import com.bank.financial.research.data.BondDataSource;
 import com.bank.financial.research.engine.PipelineProgress;
 import com.bank.financial.research.engine.ReportRequest;
 import com.bank.financial.research.engine.ReportSection;
 import com.bank.financial.research.engine.ResearchReport;
-import com.bank.financial.research.fund.agent.FundComplianceAgent;
-import com.bank.financial.research.fund.agent.FundCriticAgent;
-import com.bank.financial.research.fund.agent.FundPlannerAgent;
-import com.bank.financial.research.fund.agent.FundRatingManagerAgent;
-import com.bank.financial.research.fund.agent.FundRiskAgent;
-import com.bank.financial.research.fund.agent.FundWriterAgent;
-import com.bank.financial.research.fund.agent.NavIngestionAgent;
-import com.bank.financial.research.fund.agent.PerformanceAgent;
 import com.bank.financial.research.model.ReportModel;
 import com.huawei.ascend.a2a.memory.experience.CollaborationSignature;
 import com.huawei.ascend.a2a.memory.experience.ExperienceMemoryKit;
@@ -35,24 +35,24 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Orchestrates the fund / FOF research desk over the shared-memory blackboard,
- * reusing the engine discipline: computed metrics ({@code FundCalc}) are the
- * spine, the model only narrates, every step is fault-isolated, budget-bounded,
- * instrumented, and distilled into cross-run experience.
+ * Orchestrates the bond / fixed-income research desk over the shared-memory
+ * blackboard, reusing the engine discipline: computed metrics ({@code BondCalc})
+ * are the spine, the model only narrates, every step is fault-isolated,
+ * budget-bounded, instrumented, and distilled into cross-run experience.
  *
- * <pre>PLAN → INGEST → PERFORMANCE → RISK → RATE → WRITE → CRITIQUE → COMPLY → ASSEMBLE</pre>
+ * <pre>PLAN → INGEST → RATES → CREDIT → RATE → WRITE → CRITIQUE → COMPLY → ASSEMBLE</pre>
  */
-public final class FundReportEngine {
+public final class BondReportEngine {
 
     private static final Logger log = LoggerFactory.getLogger("research.engine");
 
-    private final FundDataSource source;
+    private final BondDataSource source;
     private final ReportModel model;
     private final ExperienceStore experienceStore;
     private final MemoryObserver observer;
     private final LongSupplier clock;
 
-    public FundReportEngine(FundDataSource source, ReportModel model, ExperienceStore experienceStore,
+    public BondReportEngine(BondDataSource source, ReportModel model, ExperienceStore experienceStore,
             MemoryObserver observer, LongSupplier clock) {
         this.source = source;
         this.model = model;
@@ -61,32 +61,32 @@ public final class FundReportEngine {
         this.clock = clock == null ? System::currentTimeMillis : clock;
     }
 
-    public FundReport generate(ReportRequest request) {
+    public BondReport generate(ReportRequest request) {
         return generate(request, PipelineProgress.NOOP);
     }
 
-    public FundReport generate(ReportRequest request, PipelineProgress progress) {
+    public BondReport generate(ReportRequest request, PipelineProgress progress) {
         if (progress == null) {
             progress = PipelineProgress.NOOP;
         }
         Timer.Sample sample = Timer.start(Metrics.globalRegistry);
         boolean ok = false;
-        log.info("fund-report start run={} fund={} model={}",
+        log.info("bond-report start run={} bond={} model={}",
                 request.collaborationId(), request.ticker(), model.name());
         try {
-            FundReport r = doGenerate(request, progress);
+            BondReport r = doGenerate(request, progress);
             ok = true;
             return r;
         } finally {
-            sample.stop(Metrics.timer("research.report.latency", "type", "fund"));
-            Metrics.counter("research.report.count", "type", "fund", "outcome", ok ? "ok" : "error").increment();
+            sample.stop(Metrics.timer("research.report.latency", "type", "bond"));
+            Metrics.counter("research.report.count", "type", "bond", "outcome", ok ? "ok" : "error").increment();
         }
     }
 
-    private FundReport doGenerate(ReportRequest request, PipelineProgress progress) {
-        FundData.Dataset dataset = source.load(request.ticker(), request.asOfEpochMs());
+    private BondReport doGenerate(ReportRequest request, PipelineProgress progress) {
+        BondData.Dataset dataset = source.load(request.ticker(), request.asOfEpochMs());
         SharedMemoryStore store = new InMemorySharedMemoryStore();
-        FundContext ctx = new FundContext(request, dataset, model, store, observer, clock);
+        BondContext ctx = new BondContext(request, dataset, model, store, observer, clock);
 
         CollaborationSignature signature = signature(request);
         ExperienceMemoryKit experience = ExperienceMemoryKit.forTenant(experienceStore, request.tenantId());
@@ -101,24 +101,21 @@ public final class FundReportEngine {
             ctx.degraded("experience:recall", e.getMessage());
         }
 
-        safe(ctx, new FundPlannerAgent(), progress, "planner", 1);
-        safe(ctx, new NavIngestionAgent(), progress, "data", 2);
-        ctx.memory("data").recordHandover("performance", "NAV series ingested → performance");
-        safe(ctx, new PerformanceAgent(), progress, "performance", 3);
-        ctx.memory("performance").recordHandover("risk", "performance metrics set → risk");
-        // Dependency edge: the risk agent reads the volatility performance computed (records READ risk→performance).
-        ctx.memory("risk").get(FundBb.ANN_VOL);
-        safe(ctx, new FundRiskAgent(), progress, "risk", 4);
-        ctx.memory("risk").recordHandover("lead-manager", "risk level set → rating");
-        // Dependency edge: the manager reads the Sharpe before rating (records READ lead-manager→performance).
-        ctx.memory("lead-manager").get(FundBb.SHARPE);
-        safe(ctx, new FundRatingManagerAgent(), progress, "lead-manager", 5);
-        ctx.memory("lead-manager").recordHandover("writer", "rating set → drafting");
+        safe(ctx, new BondPlannerAgent(), progress, "planner", 1);
+        safe(ctx, new BondDataAgent(), progress, "data", 2);
+        ctx.memory("data").recordHandover("rates", "债券要素已录入 → 利率分析");
+        safe(ctx, new RatesAgent(), progress, "rates", 3);
+        ctx.memory("rates").recordHandover("credit", "YTM/久期已算 → 信用分析");
+        safe(ctx, new CreditAgent(), progress, "credit", 4);
+        ctx.memory("credit").recordHandover("lead-manager", "利差/信用已评 → 定调");
+        safe(ctx, new BondRatingManagerAgent(), progress, "lead-manager", 5);
+        ctx.memory("lead-manager").get(BondBb.YTM); // READ edge: lead-manager → rates
+        ctx.memory("lead-manager").recordHandover("writer", "配置评级已定 → 撰写");
 
-        FundWriterAgent writer = new FundWriterAgent();
-        FundCriticAgent critic = new FundCriticAgent();
-        ctx.memory("writer").recordHandover("critic", "draft written → review");
+        BondWriterAgent writer = new BondWriterAgent();
+        BondCriticAgent critic = new BondCriticAgent();
         safe(ctx, writer, progress, "writer", 6);
+        ctx.memory("writer").recordHandover("critic", "初稿完成 → 评审");
         emit(progress, "critic", "running", 7);
         List<String> criticBefore = new ArrayList<>(ctx.blackboardKeys());
         List<String> findings = reviewSafe(ctx, critic);
@@ -131,7 +128,7 @@ public final class FundReportEngine {
             findings = reviewSafe(ctx, critic);
         }
 
-        FundComplianceAgent compliance = new FundComplianceAgent();
+        BondComplianceAgent compliance = new BondComplianceAgent();
         emit(progress, "compliance", "running", 8);
         List<String> complianceBefore = new ArrayList<>(ctx.blackboardKeys());
         List<String> notes;
@@ -145,10 +142,8 @@ public final class FundReportEngine {
         emit(progress, "compliance", "done", 8);
         emitDone(progress, ctx, "compliance", complianceBefore);
 
-        FundReport report = assemble(ctx, rounds, findings, notes);
-        ctx.memory("lead-manager").recordOutcome("fund report assembled: " + report.overallRating());
-
-        // Expose the collaboration interaction graph (handover/read/outcome) — fault-isolated.
+        BondReport report = assemble(ctx, rounds, findings, notes);
+        ctx.memory("lead-manager").recordOutcome("bond report assembled: " + report.stance());
         emitInteractions(progress, store, request);
 
         try {
@@ -161,7 +156,7 @@ public final class FundReportEngine {
         return report;
     }
 
-    private void safe(FundContext ctx, FundSubAgent agent, PipelineProgress progress, String role, int index) {
+    private void safe(BondContext ctx, BondSubAgent agent, PipelineProgress progress, String role, int index) {
         emit(progress, role, "running", index);
         List<String> before = new ArrayList<>(ctx.blackboardKeys());
         try {
@@ -174,7 +169,7 @@ public final class FundReportEngine {
     }
 
     /** Diff the blackboard against {@code before} and report newly-written key→value pairs. Fault-isolated. */
-    private void emitDone(PipelineProgress progress, FundContext ctx, String role, List<String> before) {
+    private void emitDone(PipelineProgress progress, BondContext ctx, String role, List<String> before) {
         try {
             java.util.Map<String, String> wrote = new java.util.LinkedHashMap<>();
             Set<String> seen = new java.util.HashSet<>(before);
@@ -189,7 +184,15 @@ public final class FundReportEngine {
         }
     }
 
-    /** Map the collaboration's interaction record into the progress edge view. Fault-isolated. */
+    private void safeNoEmit(BondContext ctx, BondSubAgent agent) {
+        try {
+            agent.contribute(ctx);
+        } catch (RuntimeException e) {
+            ctx.degraded(agent.role(), e.getMessage());
+        }
+    }
+
+    /** Expose the run's agent-interaction edges (handover/READ/outcome) to the UI. Fault-isolated. */
     private void emitInteractions(PipelineProgress progress, SharedMemoryStore store, ReportRequest request) {
         try {
             List<InteractionEntry> entries = store.interactions(request.tenantId(), request.collaborationId());
@@ -208,15 +211,7 @@ public final class FundReportEngine {
         }
     }
 
-    private void safeNoEmit(FundContext ctx, FundSubAgent agent) {
-        try {
-            agent.contribute(ctx);
-        } catch (RuntimeException e) {
-            ctx.degraded(agent.role(), e.getMessage());
-        }
-    }
-
-    private List<String> reviewSafe(FundContext ctx, FundCriticAgent critic) {
+    private List<String> reviewSafe(BondContext ctx, BondCriticAgent critic) {
         try {
             return critic.review(ctx);
         } catch (RuntimeException e) {
@@ -235,33 +230,32 @@ public final class FundReportEngine {
 
     private CollaborationSignature signature(ReportRequest request) {
         return new CollaborationSignature(
-                Set.of("planning", "data-ingestion", "performance-analytics", "risk-analytics",
+                Set.of("planning", "data-ingestion", "rates-analytics", "credit-analytics",
                         "house-view", "writing", "review", "compliance"),
-                "research-report:FUND");
+                "research-report:BOND");
     }
 
-    private FundReport assemble(FundContext ctx, int criticRounds, List<String> findings, List<String> notes) {
-        FundData.Dataset ds = ctx.dataset();
-        String rating = FundBb.ratingLabel(ctx.latest(FundBb.OVERALL_RATING).orElse("NEUTRAL"));
-        String thesis = ctx.latest(FundBb.THESIS).orElse("(观点未生成)");
-        FundReport.Metrics metrics = new FundReport.Metrics(
-                ctx.latestNum(FundBb.CUM_RETURN).orElse(0), ctx.latestNum(FundBb.ANN_RETURN).orElse(0),
-                ctx.latestNum(FundBb.ANN_VOL).orElse(0), ctx.latestNum(FundBb.SHARPE).orElse(0),
-                ctx.latestNum(FundBb.MAX_DD).orElse(0), ctx.latestNum(FundBb.CALMAR).orElse(0),
-                ctx.latestNum(FundBb.BETA).orElse(0), ctx.latestNum(FundBb.ALPHA).orElse(0));
+    private BondReport assemble(BondContext ctx, int criticRounds, List<String> findings, List<String> notes) {
+        BondData.Dataset ds = ctx.dataset();
+        String stance = BondBb.stanceLabel(ctx.latest(BondBb.STANCE).orElse("NEUTRAL"));
+        String thesis = ctx.latest(BondBb.THESIS).orElse("(观点未生成)");
+        BondReport.Metrics metrics = new BondReport.Metrics(
+                ctx.latestNum(BondBb.YTM).orElse(0), ctx.latestNum(BondBb.CURRENT_YIELD).orElse(0),
+                ctx.latestNum(BondBb.MACAULAY).orElse(0), ctx.latestNum(BondBb.MODIFIED).orElse(0),
+                ctx.latestNum(BondBb.CONVEXITY).orElse(0), ctx.latestNum(BondBb.CREDIT_SPREAD).orElse(0));
 
         List<ReportSection> sections = new ArrayList<>();
-        String outline = ctx.latest(FundBb.OUTLINE).orElse(FundBb.OUTLINE_DEFAULT);
+        String outline = ctx.latest(BondBb.OUTLINE).orElse(BondBb.OUTLINE_DEFAULT);
         int order = 0;
         for (String id : outline.split(",")) {
             id = id.trim();
-            String body = ctx.latest(FundBb.SECTION_PREFIX + id).orElse("(本节未生成)");
-            sections.add(new ReportSection(id, FundBb.titleOf(id), body, order++));
+            String body = ctx.latest(BondBb.SECTION_PREFIX + id).orElse("(本节未生成)");
+            sections.add(new ReportSection(id, BondBb.titleOf(id), body, order++));
         }
 
         ResearchReport.Metadata metadata = new ResearchReport.Metadata(
-                model.name(), source.name(), ctx.modelCalls(), criticRounds, "FUND-ANALYTICS",
+                model.name(), source.name(), ctx.modelCalls(), criticRounds, "BOND-ANALYTICS",
                 ds.freshnessWarnings(), notes, findings, ctx.degradations(), ctx.now());
-        return new FundReport(ds.code(), ds.name(), ds.type(), rating, thesis, metrics, sections, metadata);
+        return new BondReport(ds.code(), ds.name(), ds.issuer(), ds.rating(), stance, thesis, metrics, sections, metadata);
     }
 }

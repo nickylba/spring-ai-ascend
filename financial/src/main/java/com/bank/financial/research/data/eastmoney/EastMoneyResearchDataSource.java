@@ -29,10 +29,18 @@ import java.util.List;
  *
  * <p><b>Honest limits.</b> Unofficial public endpoints: no SLA, rate-limited,
  * shapes can change. East Money/Sina expose no sell-side consensus or peer
- * multiples here (those throw → transparent gaps), and EBITDA / FCF / net debt
- * are documented proxies (EBITDA≈revenue×grossMargin, FCF≈revenue×0.12,
- * netDebt=0). For institutional accuracy use a licensed feed (Wind / 朝阳永续) via
- * a gateway. Ticker formats: {@code 600519}, {@code 600519.SH}, {@code sh600519}.
+ * multiples here (those throw → transparent gaps). FCF now uses the real
+ * operating cash flow per share (MGJYXJJE, 每股经营现金净额) scaled by diluted
+ * shares — no longer a revenue×0.12 proxy. Because the free F10 indicator set
+ * carries no capital-expenditure line, FCF≈OCF (capex is not subtracted), which
+ * is deliberately conservative for DCF (understates free cash a high-capex name
+ * burns, overstates it for an asset-light one). EBITDA≈revenue×grossMargin
+ * remains a gross-profit proxy. netDebt and minorityInterest stay 0: the free
+ * balance-sheet endpoint's reportName is not stably retrievable, so they are
+ * documented as unavailable rather than guessed. If MGJYXJJE is missing the code
+ * falls back to the revenue×0.12 proxy. For institutional accuracy use a licensed
+ * feed (Wind / 朝阳永续) via a gateway. Ticker formats: {@code 600519},
+ * {@code 600519.SH}, {@code sh600519}.
  */
 public final class EastMoneyResearchDataSource implements ResearchDataSource {
 
@@ -140,13 +148,14 @@ public final class EastMoneyResearchDataSource implements ResearchDataSource {
 
     // ── financials (East Money datacenter F10 main indicators) ──────────────────
 
-    private record Annual(String date, double revenue, double eps, double netProfit, double grossMarginPct) {
+    private record Annual(String date, double revenue, double eps, double netProfit, double grossMarginPct,
+                          double ocfPerShare) {
     }
 
     private List<Annual> annuals(Symbol s) {
         String url = "https://datacenter.eastmoney.com/securities/api/data/v1/get"
                 + "?reportName=RPT_F10_FINANCE_MAINFINADATA"
-                + "&columns=SECURITY_NAME_ABBR,REPORT_DATE,TOTALOPERATEREVE,PARENTNETPROFIT,EPSJB,XSMLL"
+                + "&columns=SECURITY_NAME_ABBR,REPORT_DATE,TOTALOPERATEREVE,PARENTNETPROFIT,EPSJB,XSMLL,MGJYXJJE"
                 + "&filter=(SECUCODE%3D%22" + s.secucode() + "%22)"
                 + "&pageNumber=1&pageSize=24&sortColumns=REPORT_DATE&sortTypes=-1&source=HSF10&client=PC";
         JsonNode rows;
@@ -170,7 +179,8 @@ public final class EastMoneyResearchDataSource implements ResearchDataSource {
             if (date.contains("-12-31")) { // annual reports only
                 out.add(new Annual(date.substring(0, 10),
                         r.path("TOTALOPERATEREVE").asDouble(0), r.path("EPSJB").asDouble(0),
-                        r.path("PARENTNETPROFIT").asDouble(0), r.path("XSMLL").asDouble(0)));
+                        r.path("PARENTNETPROFIT").asDouble(0), r.path("XSMLL").asDouble(0),
+                        r.path("MGJYXJJE").asDouble(0)));
             }
         }
         if (out.isEmpty()) {
@@ -190,7 +200,12 @@ public final class EastMoneyResearchDataSource implements ResearchDataSource {
         double dilutedShares = latest.netProfit() / latest.eps();  // derived (net profit / EPS)
         double grossMargin = latest.grossMarginPct() > 0 ? latest.grossMarginPct() / 100.0 : 0.30;
         double ebitda = latest.revenue() * grossMargin;            // gross-profit proxy
-        double fcfBase = latest.revenue() * 0.12;                  // documented proxy
+        // Real operating cash flow: OCF/share (MGJYXJJE) × diluted shares. No capex line in
+        // the free F10 set, so FCF≈OCF (conservative). Fall back to the revenue×0.12 proxy
+        // only when MGJYXJJE is missing.
+        double fcfBase = latest.ocfPerShare() != 0
+                ? latest.ocfPerShare() * dilutedShares
+                : latest.revenue() * 0.12;
 
         List<Double> revenueHistory = new ArrayList<>();           // oldest-first, up to 4y
         int take = Math.min(4, annual.size());

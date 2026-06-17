@@ -20,6 +20,7 @@ import com.huawei.ascend.a2a.memory.experience.Lesson;
 import com.huawei.ascend.a2a.memory.hook.DefaultCollaborationMemoryHook;
 import com.huawei.ascend.a2a.memory.obs.MemoryObserver;
 import com.huawei.ascend.a2a.memory.shared.InMemorySharedMemoryStore;
+import com.huawei.ascend.a2a.memory.shared.InteractionEntry;
 import com.huawei.ascend.a2a.memory.shared.SharedMemoryKit;
 import com.huawei.ascend.a2a.memory.shared.SharedMemoryStore;
 import io.micrometer.core.instrument.Metrics;
@@ -125,17 +126,25 @@ public final class ResearchReportEngine {
         // ── PLAN → INGEST → ANALYZE ───────────────────────────────────────────
         safe(ctx, new PlannerAgent(), progress, "planner", 1);
         safe(ctx, new DataIngestionAgent(), progress, "data", 2);
+        ctx.memory("data").recordHandover("quant-model", "dataset ingested → estimates");
         safe(ctx, new QuantModelAgent(), progress, "quant-model", 3);
+        ctx.memory("quant-model").recordHandover("valuation", "estimates set → valuation");
+        // Dependency edge: valuation reads the quant estimate it builds on (records READ valuation→quant-model).
+        ctx.memory("valuation").get(Bb.REVENUE_FY1);
         safe(ctx, new ValuationAgent(), progress, "valuation", 4);
+        ctx.memory("valuation").recordHandover("lead-manager", "valuation done → house view");
         safe(ctx, new SectorMacroAgent(), progress, "sector-macro", 5);
 
         // ── CONVERGE: the manager forms the house view (sole decision-maker) ──
+        // Dependency edge: the manager reads valuation's verdict before deciding (records READ lead-manager→valuation).
+        ctx.memory("lead-manager").get(Bb.CONVERGENCE_VERDICT);
         safe(ctx, new LeadManagerAgent(), progress, "lead-manager", 6);
         ctx.memory("lead-manager").recordHandover("writer", "house view set (rating + target)");
 
         // ── WRITE → CRITIQUE (bounded writer↔critic revision loop) ────────────
         WriterAgent writer = new WriterAgent();
         CriticAgent critic = new CriticAgent();
+        ctx.memory("writer").recordHandover("critic", "draft written → review");
         // The revision loop re-runs writer/critic; progress is emitted once for the
         // first pass (index 7/8) and not re-incremented across rounds.
         safe(ctx, writer, progress, "writer", 7);
@@ -174,6 +183,9 @@ public final class ResearchReportEngine {
         // ── ASSEMBLE from the blackboard ──────────────────────────────────────
         ResearchReport report = assemble(ctx, rounds, findings, complianceNotes, dataGaps);
         ctx.memory("lead-manager").recordOutcome("report assembled: " + report.rating());
+
+        // Expose the collaboration interaction graph (handover/read/outcome) — fault-isolated.
+        emitInteractions(progress, store, request);
 
         // Distill this run's blackboard into cross-run experience (PII-stripped, fail-soft).
         try {
@@ -221,6 +233,25 @@ public final class ResearchReportEngine {
         } catch (RuntimeException e) {
             log.debug("research-report progress callback failed role={} state={} err={}",
                     role, state, e.getMessage());
+        }
+    }
+
+    /** Map the collaboration's interaction record into the progress edge view. Fault-isolated. */
+    private void emitInteractions(PipelineProgress progress, SharedMemoryStore store, ReportRequest request) {
+        try {
+            List<InteractionEntry> entries = store.interactions(request.tenantId(), request.collaborationId());
+            List<java.util.Map<String, String>> edges = new ArrayList<>(entries.size());
+            for (InteractionEntry e : entries) {
+                java.util.Map<String, String> edge = new java.util.LinkedHashMap<>();
+                edge.put("type", e.type().name());
+                edge.put("actor", e.actorAgentId());
+                edge.put("target", e.targetAgentId());
+                edge.put("detail", e.detail());
+                edges.add(edge);
+            }
+            progress.onInteractions(edges);
+        } catch (RuntimeException ignored) {
+            // interaction exposure must never affect the run
         }
     }
 

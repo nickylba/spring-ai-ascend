@@ -8,6 +8,9 @@ import com.bank.financial.research.data.eastmoney.EastMoneyFundDataSource;
 import com.bank.financial.research.data.eastmoney.EastMoneyResearchDataSource;
 import com.bank.financial.research.data.stub.StubFundDataSource;
 import com.bank.financial.research.data.tushare.TushareResearchDataSource;
+import com.bank.financial.research.bond.BondReport;
+import com.bank.financial.research.bond.BondReportEngine;
+import com.bank.financial.research.data.stub.StubBondDataSource;
 import com.bank.financial.research.fund.FundReport;
 import com.bank.financial.research.fund.FundReportEngine;
 import com.bank.financial.research.data.stub.StubResearchDataSource;
@@ -59,6 +62,12 @@ public final class ResearchWebServer {
     private static final List<Map<String, String>> FUND_AGENTS = List.of(
             Map.of("role", "planner", "label", "规划"), Map.of("role", "data", "label", "数据"),
             Map.of("role", "performance", "label", "业绩"), Map.of("role", "risk", "label", "风险"),
+            Map.of("role", "lead-manager", "label", "首席"), Map.of("role", "writer", "label", "撰写"),
+            Map.of("role", "critic", "label", "评审"), Map.of("role", "compliance", "label", "合规"));
+
+    private static final List<Map<String, String>> BOND_AGENTS = List.of(
+            Map.of("role", "planner", "label", "规划"), Map.of("role", "data", "label", "数据"),
+            Map.of("role", "rates", "label", "利率"), Map.of("role", "credit", "label", "信用"),
             Map.of("role", "lead-manager", "label", "首席"), Map.of("role", "writer", "label", "撰写"),
             Map.of("role", "critic", "label", "评审"), Map.of("role", "compliance", "label", "合规"));
 
@@ -153,6 +162,11 @@ public final class ResearchWebServer {
                     data.put("wrote", wrote);
                     send(out, "agent-detail", data);
                 }
+
+                @Override
+                public void onInteractions(List<Map<String, String>> edges) {
+                    send(out, "interactions", Map.of("edges", edges));
+                }
             };
 
             Map<String, Object> report = new LinkedHashMap<>();
@@ -184,6 +198,20 @@ public final class ResearchWebServer {
                 report.put("modelCalls", fr.metadata().modelCalls());
                 report.put("criticRounds", fr.metadata().criticRounds());
                 report.put("degradations", fr.metadata().degradations().size());
+            } else if ("bond".equals(type)) {
+                send(out, "pipeline", Map.of("agents", BOND_AGENTS));
+                String code = orDefault(q.get("ticker"), "DEMOBOND");
+                BondReport br = new BondReportEngine(new StubBondDataSource(now), new ScriptedReportModel(),
+                        null, MemoryObserver.NOOP, () -> now)
+                        .generate(ReportRequest.equity(code, "web", now), progress);
+                report.put("html", MdHtml.render(br.toMarkdown()));
+                report.put("rating", br.stance());
+                report.put("metric1", "YTM " + com.bank.financial.research.engine.Bb.pct(br.metrics().ytm()));
+                report.put("metric2", "修正久期 " + com.bank.financial.research.engine.Bb.fmt(br.metrics().modified()));
+                report.put("metric3", "信用利差 " + com.bank.financial.research.engine.Bb.pct(br.metrics().creditSpread()));
+                report.put("modelCalls", br.metadata().modelCalls());
+                report.put("criticRounds", br.metadata().criticRounds());
+                report.put("degradations", br.metadata().degradations().size());
             } else {
                 send(out, "pipeline", Map.of("agents", EQUITY_AGENTS));
                 ResearchDataSource src;
@@ -411,6 +439,7 @@ public final class ResearchWebServer {
                   <label>报告类型</label>
                   <label class="opt"><input type="radio" name="type" value="equity" checked/> 个股研报</label>
                   <label class="opt"><input type="radio" name="type" value="fund"/> 基金 / FOF</label>
+                  <label class="opt"><input type="radio" name="type" value="bond"/> 债券 / 固收</label>
                 </div>
                 <div class="field">
                   <label>数据源</label>
@@ -447,6 +476,13 @@ public final class ResearchWebServer {
                   <div id="blackboard"><div class="bb-empty">运行后将实时累积各智能体写入的共享记忆 ——</div></div>
                 </div>
                 <div class="card">
+                  <div class="pipe-head">
+                    <h2 style="margin:0">智能体协作流 / Interactions</h2>
+                    <span class="count" id="ixcount">0 条</span>
+                  </div>
+                  <div id="interactions"><div class="bb-empty">运行后展示智能体间的协作边(分派/读取/交接/产出)——</div></div>
+                </div>
+                <div class="card">
                   <h2>报告预览</h2>
                   <div class="badges" id="badges"></div>
                   <div class="preview" id="preview"><div class="empty">点击「生成研报」开始 ——</div></div>
@@ -459,11 +495,13 @@ public final class ResearchWebServer {
               var SOURCES={
                 equity:[["eastmoney","东方财富(免费真实)"],["stub","桩(离线演示)"],
                         ["tushare","Tushare(需积分)"],["wind","Wind(规划中)"],["choice","Choice(规划中)"]],
-                fund:[["eastmoney","天天基金(免费真实)"],["stub","桩(离线演示)"]]
+                fund:[["eastmoney","天天基金(免费真实)"],["stub","桩(离线演示)"]],
+                bond:[["stub","桩(离线演示)"]]
               };
-              var DEFTICK={equity:"600519.SH",fund:"110011"};
+              var DEFTICK={equity:"600519.SH",fund:"110011",bond:"DEMOBOND"};
               var HINT={equity:"真实 A 股用 6 位代码(如 600519.SH);桩演示用 DEMO",
-                        fund:"真实基金用 6 位代码(如 110011);桩演示任意"};
+                        fund:"真实基金用 6 位代码(如 110011);桩演示任意",
+                        bond:"债券为合成样例(免费实时债券数据难取);桩演示"};
               function renderSources(){
                 var type=document.querySelector('input[name=type]:checked').value;
                 var box=document.getElementById('sources'); box.innerHTML='';
@@ -484,6 +522,19 @@ public final class ResearchWebServer {
               var chipEl={}, total=0;
               var agentWrote={};   // role -> {key:value,...} accumulated from agent-detail
               var board={};        // key -> {value, owner} live shared blackboard
+              var IXLABEL={DISPATCH:"分派",HANDOVER:"交接",READ:"读取",VALIDATE:"校验",OUTCOME:"产出"};
+              function renderIx(edges){
+                document.getElementById('ixcount').textContent=edges.length+' 条';
+                var box=document.getElementById('interactions');
+                if(!edges.length){ box.innerHTML='<div class="bb-empty">无协作边</div>'; return; }
+                box.innerHTML='<table class="bbtable"><tbody>'+edges.map(function(e){
+                  var t=IXLABEL[e.type]||e.type;
+                  return '<tr><td class="owner"><span class="owner-tag">'+esc(e.actor)+'</span></td>'+
+                    '<td class="k" style="text-align:center">→['+esc(t)+']→</td>'+
+                    '<td class="owner"><span class="owner-tag">'+esc(e.target||'')+'</span></td>'+
+                    '<td class="v">'+esc(trunc(e.detail||''))+'</td></tr>';
+                }).join('')+'</tbody></table>';
+              }
               function buildChips(agents){
                 var c=document.getElementById('chips'); c.innerHTML=''; chipEl={}; total=agents.length;
                 agents.forEach(function(a){
@@ -559,6 +610,9 @@ public final class ResearchWebServer {
                 document.getElementById('count').textContent='运行中 0 · 完成 0 / 0';
                 document.getElementById('lifecycle').innerHTML='';
                 renderBoard();
+                document.getElementById('ixcount').textContent='0 条';
+                document.getElementById('interactions').innerHTML=
+                  '<div class="bb-empty">运行后展示智能体间的协作边 ——</div>';
                 document.getElementById('badges').innerHTML='';
                 document.getElementById('note').textContent='';
                 document.getElementById('preview').innerHTML='<div class="empty">流水线运行中 ——</div>';
@@ -588,6 +642,9 @@ public final class ResearchWebServer {
                 });
                 es.addEventListener('note',function(e){
                   document.getElementById('note').textContent=JSON.parse(e.data).message||'';
+                });
+                es.addEventListener('interactions',function(e){
+                  var d=JSON.parse(e.data); renderIx(d.edges||[]);
                 });
                 es.addEventListener('report',function(e){
                   var d=JSON.parse(e.data), degClass=(d.degradations>0)?'badge warn':'badge';

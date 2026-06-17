@@ -21,6 +21,7 @@ import com.huawei.ascend.a2a.memory.experience.InMemoryExperienceStore;
 import com.huawei.ascend.a2a.memory.hook.DefaultCollaborationMemoryHook;
 import com.huawei.ascend.a2a.memory.obs.MemoryObserver;
 import com.huawei.ascend.a2a.memory.shared.InMemorySharedMemoryStore;
+import com.huawei.ascend.a2a.memory.shared.InteractionEntry;
 import com.huawei.ascend.a2a.memory.shared.SharedMemoryKit;
 import com.huawei.ascend.a2a.memory.shared.SharedMemoryStore;
 import io.micrometer.core.instrument.Metrics;
@@ -109,12 +110,19 @@ public final class ThematicReportEngine {
 
         safe(ctx, new ThematicPlannerAgent(), progress);
         safe(ctx, new MacroIngestionAgent(), progress);
+        ctx.memory("data").recordHandover("sector-impact", "macro factors ingested → scoring");
+        // Dependency edge: the scorer reads the macro factors it scores against (records READ sector-impact→data).
+        ctx.memory("sector-impact").get(ThematicBb.FACTORS_SUMMARY);
         safe(ctx, new SectorImpactAgent(), progress);
+        ctx.memory("sector-impact").recordHandover("lead-manager", "sub-sector scores set → strategy");
+        // Dependency edge: the strategist reads the overall score before forming the view (records READ lead-manager→sector-impact).
+        ctx.memory("lead-manager").get(ThematicBb.OVERALL_SCORE);
         safe(ctx, new StrategyManagerAgent(), progress);
         ctx.memory("lead-manager").recordHandover("writer", "sector view set");
 
         ThematicWriterAgent writer = new ThematicWriterAgent();
         ThematicCriticAgent critic = new ThematicCriticAgent();
+        ctx.memory("writer").recordHandover("critic", "draft written → review");
         safe(ctx, writer, progress);
         List<String> criticBefore = new ArrayList<>(ctx.blackboardKeys());
         List<String> findings = reviewSafe(ctx, critic);
@@ -143,6 +151,9 @@ public final class ThematicReportEngine {
 
         ThematicReport report = assemble(ctx, rounds, findings, notes, gaps);
         ctx.memory("lead-manager").recordOutcome("thematic report assembled: " + report.overallRating());
+
+        // Expose the collaboration interaction graph (handover/read/outcome) — fault-isolated.
+        emitInteractions(progress, store, request);
 
         try {
             SharedMemoryKit blackboard = SharedMemoryKit.forCollaboration(
@@ -180,6 +191,25 @@ public final class ThematicReportEngine {
             progress.onAgentDone(role, wrote);
         } catch (RuntimeException ignored) {
             // progress reporting must never affect the run
+        }
+    }
+
+    /** Map the collaboration's interaction record into the progress edge view. Fault-isolated. */
+    private void emitInteractions(PipelineProgress progress, SharedMemoryStore store, ReportRequest request) {
+        try {
+            List<InteractionEntry> entries = store.interactions(request.tenantId(), request.collaborationId());
+            List<java.util.Map<String, String>> edges = new ArrayList<>(entries.size());
+            for (InteractionEntry e : entries) {
+                java.util.Map<String, String> edge = new java.util.LinkedHashMap<>();
+                edge.put("type", e.type().name());
+                edge.put("actor", e.actorAgentId());
+                edge.put("target", e.targetAgentId());
+                edge.put("detail", e.detail());
+                edges.add(edge);
+            }
+            progress.onInteractions(edges);
+        } catch (RuntimeException ignored) {
+            // interaction exposure must never affect the run
         }
     }
 

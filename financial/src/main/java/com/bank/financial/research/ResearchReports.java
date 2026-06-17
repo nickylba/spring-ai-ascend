@@ -5,9 +5,11 @@ import com.bank.financial.research.data.DataIngestionService;
 import com.bank.financial.research.data.FreshnessPolicy;
 import com.bank.financial.research.data.ResearchDataSource;
 import com.bank.financial.research.data.http.HttpResearchDataSource;
+import com.bank.financial.research.data.stub.StubBondDataSource;
 import com.bank.financial.research.data.stub.StubFundDataSource;
 import com.bank.financial.research.data.stub.StubResearchDataSource;
 import com.bank.financial.research.data.stub.StubThematicDataSource;
+import com.bank.financial.research.bond.BondReportEngine;
 import com.bank.financial.research.engine.ResearchReportEngine;
 import com.bank.financial.research.fund.FundReportEngine;
 import com.bank.financial.research.thematic.ThematicReportEngine;
@@ -100,6 +102,14 @@ public final class ResearchReports {
     public static FundReportEngine fundOffline(long asOfEpochMs) {
         return new FundReportEngine(
                 new StubFundDataSource(asOfEpochMs), new ScriptedReportModel(), null, MemoryObserver.NOOP, null);
+    }
+
+    // ── Bond / fixed-income engine ────────────────────────────────────────────
+
+    /** Fully offline bond engine (synthetic credit-issue stub + scripted model). */
+    public static BondReportEngine bondOffline(long asOfEpochMs) {
+        return new BondReportEngine(
+                new StubBondDataSource(asOfEpochMs), new ScriptedReportModel(), null, MemoryObserver.NOOP, null);
     }
 
     static boolean liveModel() {
