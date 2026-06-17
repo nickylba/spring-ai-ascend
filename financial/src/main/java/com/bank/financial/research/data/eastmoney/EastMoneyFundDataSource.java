@@ -72,33 +72,48 @@ public final class EastMoneyFundDataSource implements FundDataSource {
                 List.of());
     }
 
+    // The lsjz endpoint caps results at 20 per page (a larger pageSize returns an
+    // empty Data), so we paginate at 20/page up to the target point count.
+    private static final int PAGE = 20;
+
     private List<Double> navHistory(String code) {
-        String url = "https://api.fund.eastmoney.com/f10/lsjz?fundCode=" + code
-                + "&pageIndex=1&pageSize=" + pageSize;
+        int pages = Math.max(1, (pageSize + PAGE - 1) / PAGE);
+        List<Double> navs = new ArrayList<>(); // accumulate newest-first across pages
         try {
-            HttpRequest req = HttpRequest.newBuilder()
-                    .uri(URI.create(url)).timeout(requestTimeout)
-                    .header("User-Agent", UA).header("Referer", "https://fundf10.eastmoney.com/")
-                    .header("Accept", "application/json").GET().build();
-            HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
-            if (resp.statusCode() != 200) {
-                throw new ResearchDataSource.DataUnavailableException("lsjz HTTP " + resp.statusCode());
-            }
-            JsonNode list = json.readTree(resp.body()).path("Data").path("LSJZList");
-            List<Double> navs = new ArrayList<>(); // API is newest-first
-            for (JsonNode r : list) {
-                double v = parse(r.path("LJJZ").asText("")); // cumulative NAV
-                if (v > 0) {
-                    navs.add(v);
+            for (int page = 1; page <= pages; page++) {
+                String url = "https://api.fund.eastmoney.com/f10/lsjz?fundCode=" + code
+                        + "&pageIndex=" + page + "&pageSize=" + PAGE;
+                HttpRequest req = HttpRequest.newBuilder()
+                        .uri(URI.create(url)).timeout(requestTimeout)
+                        .header("User-Agent", UA).header("Referer", "https://fundf10.eastmoney.com/")
+                        .header("Accept", "application/json").GET().build();
+                HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+                if (resp.statusCode() != 200) {
+                    throw new ResearchDataSource.DataUnavailableException("lsjz HTTP " + resp.statusCode());
+                }
+                JsonNode list = json.readTree(resp.body()).path("Data").path("LSJZList");
+                if (!list.isArray() || list.isEmpty()) {
+                    break; // past the last page (or no data)
+                }
+                int added = 0;
+                for (JsonNode r : list) {
+                    double v = parse(r.path("LJJZ").asText("")); // cumulative NAV
+                    if (v > 0) {
+                        navs.add(v);
+                        added++;
+                    }
+                }
+                if (added < PAGE) {
+                    break; // last (partial) page reached
                 }
             }
-            Collections.reverse(navs); // oldest-first
-            return navs;
         } catch (ResearchDataSource.DataUnavailableException e) {
             throw e;
         } catch (Exception e) {
             throw new ResearchDataSource.DataUnavailableException("lsjz error: " + e.getClass().getSimpleName());
         }
+        Collections.reverse(navs); // oldest-first
+        return navs;
     }
 
     private String fundName(String code, String fallback) {
