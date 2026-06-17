@@ -3,6 +3,7 @@ package com.bank.financial.research.web;
 import com.bank.financial.research.data.DataIngestionService;
 import com.bank.financial.research.data.FreshnessPolicy;
 import com.bank.financial.research.data.ResearchDataSource;
+import com.bank.financial.research.data.eastmoney.EastMoneyResearchDataSource;
 import com.bank.financial.research.data.tushare.TushareResearchDataSource;
 import com.bank.financial.research.data.stub.StubResearchDataSource;
 import com.bank.financial.research.engine.PipelineProgress;
@@ -93,8 +94,8 @@ public final class ResearchWebServer {
         try {
             Map<String, String> q = parseQuery(ex.getRequestURI().getRawQuery());
             String type = q.getOrDefault("type", "equity");
-            String source = q.getOrDefault("source", "tushare");
-            String ticker = orDefault(q.get("ticker"), "DEMO");
+            String source = q.getOrDefault("source", "eastmoney");
+            String ticker = orDefault(q.get("ticker"), "600519.SH");
             long pace = parseLong(q.get("pace"), 250L);
 
             ex.getResponseHeaders().set("Content-Type", "text/event-stream;charset=utf-8");
@@ -111,18 +112,20 @@ public final class ResearchWebServer {
             String token = System.getenv("TUSHARE_TOKEN");
             switch (source) {
                 case "stub" -> src = new StubResearchDataSource(now);
+                case "tushare" -> {
+                    if (token != null && !token.isBlank()) {
+                        src = new TushareResearchDataSource(token, now);
+                    } else {
+                        sendNote(out, "Tushare 需积分(未配置 TUSHARE_TOKEN),演示回退桩数据。");
+                        src = new StubResearchDataSource(now);
+                    }
+                }
                 case "wind", "choice" -> {
                     sendNote(out, "该源规划中(sidecar 网关),演示回退桩数据。");
                     src = new StubResearchDataSource(now);
                 }
-                default -> { // "tushare"
-                    if (token != null && !token.isBlank()) {
-                        src = new TushareResearchDataSource(token, now);
-                    } else {
-                        sendNote(out, "Tushare 未配置 token,演示回退桩数据。");
-                        src = new StubResearchDataSource(now);
-                    }
-                }
+                default -> // "eastmoney" — free, token-less real A-share data
+                    src = new EastMoneyResearchDataSource(now);
             }
 
             ResearchReportEngine engine = new ResearchReportEngine(
@@ -328,14 +331,16 @@ public final class ResearchWebServer {
                 </div>
                 <div class="field">
                   <label>数据源</label>
-                  <label class="opt"><input type="radio" name="source" value="tushare" checked/> Tushare(缺省)</label>
-                  <label class="opt"><input type="radio" name="source" value="wind"/> Wind</label>
-                  <label class="opt"><input type="radio" name="source" value="choice"/> 东方财富 Choice</label>
-                  <label class="opt"><input type="radio" name="source" value="stub"/> 桩(离线)</label>
+                  <label class="opt"><input type="radio" name="source" value="eastmoney" checked/> 东方财富(免费真实)</label>
+                  <label class="opt"><input type="radio" name="source" value="stub"/> 桩(离线演示)</label>
+                  <label class="opt"><input type="radio" name="source" value="tushare"/> Tushare(需积分)</label>
+                  <label class="opt"><input type="radio" name="source" value="wind"/> Wind(规划中)</label>
+                  <label class="opt"><input type="radio" name="source" value="choice"/> Choice(规划中)</label>
                 </div>
                 <div class="field">
                   <label>标的代码</label>
-                  <input type="text" id="ticker" value="DEMO" autocomplete="off"/>
+                  <input type="text" id="ticker" value="600519.SH" autocomplete="off"/>
+                  <div style="font-size:11px;color:var(--muted);margin-top:5px;">真实 A 股用 6 位代码(如 600519.SH);桩演示用 DEMO</div>
                 </div>
                 <div class="field">
                   <label>演示节奏 <span class="paceval" id="paceval">250 ms</span></label>
