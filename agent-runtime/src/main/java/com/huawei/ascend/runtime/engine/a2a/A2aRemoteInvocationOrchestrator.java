@@ -52,7 +52,7 @@ final class A2aRemoteInvocationOrchestrator {
         }
         LOG.info("[A2A] remote tool invocation start taskId={} toolName={} remoteAgentId={} toolCallId={}",
                 taskId, invocation.toolName(), invocation.remoteAgentId(), invocation.toolCallId());
-        Map<String, Object> requestMetadata = messageMetadata(requestContext);
+        Map<String, Object> requestMetadata = outboundMetadata(requestContext);
         List<RemoteAgentInvocationService.RemoteAgentResult> results =
                 invocationService.invoke(invocation, requestMetadata,
                         result -> {
@@ -85,7 +85,7 @@ final class A2aRemoteInvocationOrchestrator {
         }
         LOG.info("[A2A] remote tool invocation resume taskId={} remoteAgentId={} remoteTaskId={} toolCallId={}",
                 taskId, route.remoteAgentId(), route.remoteTaskId(), route.toolCallId());
-        Map<String, Object> requestMetadata = messageMetadata(ctx);
+        Map<String, Object> requestMetadata = outboundMetadata(ctx);
         List<RemoteAgentInvocationService.RemoteAgentResult> results =
                 invocationService.resumeRemoteInput(route, Messages.text(ctx.getMessage()),
                         requestMetadata,
@@ -189,16 +189,11 @@ final class A2aRemoteInvocationOrchestrator {
     }
 
     /**
-     * Extracts the caller's A2A message metadata so it can be forwarded to the
-     * remote agent. Returns an empty map when the message or its metadata is null.
+     * Extracts the caller's A2A request metadata so it can be forwarded to the
+     * remote agent. Message metadata is retained as a legacy/business fallback,
+     * but it must not overwrite request-level runtime metadata.
      */
-    private static Map<String, Object> messageMetadata(RequestContext ctx) {
-        if (ctx.getMessage() != null) {
-            Map<String, Object> md = ctx.getMessage().metadata();
-            if (md != null) {
-                return md;
-            }
-        }
-        return Map.of();
+    private Map<String, Object> outboundMetadata(RequestContext ctx) {
+        return A2aAgentExecutor.normalizedMetadata(ctx, agentId);
     }
 }
