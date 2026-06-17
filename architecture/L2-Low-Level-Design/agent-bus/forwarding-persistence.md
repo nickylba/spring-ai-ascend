@@ -26,6 +26,8 @@ target_module: agent-bus
 
 ## 2. 非目标（Stage 8 §6 护栏）
 
+> **Stage 12 更新（H2/H3 裁决，2026-06）：本节路径 B 护栏已被 Stage 12 打破** —— 数据库产品（Postgres）/ migration·adapter 归属（agent-bus 自有 + Spring JDBC）/ RLS（启用纵深防御）三项已由人类裁决确认，真实 JDBC adapter + Flyway migration 进入许可范围（见 §14 Stage 12 决策表、[`decision §4 / §8`](../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md)）。**transport / 真实投递绑定仍 deferred**（拆出 Stage 12 单独议）。**§6.2 始终不得项不变。** 以下 Stage 8 护栏作为路径 B 历史记录保留。
+
 > 「如果数据库产品或 migration 归属无法确认，则停在 schema 草案 + repository port + in-memory lease harness，不要直接引入生产数据库依赖。」
 
 `agent-bus` 当前 **未接入 Flyway、未声明 JDBC driver / ORM 依赖**（`agent-bus/pom.xml` 仅含 `spring-boot-starter-test` + `archunit-junit5`）。因此 Stage 8 **不引入生产数据库依赖**：
@@ -109,7 +111,7 @@ target_module: agent-bus
 
 边界：worker 无线程、无 scheduler、无 registry、无 transport；唯一时间依赖是注入的 `EpochClock`（默认 `System::currentTimeMillis`），用于 lease 续约判断与 deliver 时刻——`claimDue` 仍以 tick 起始时刻为 claim 时刻。真实 polling cadence / threading / backpressure / 具体 delivery 绑定 deferred 后续阶段。worker 不写 Task execution state。异常契约（Stage 11，MI11-003）：`runOnce` 仅在入参非法（`tenantId` / `leaseOwner` blank、`limit <= 0`）时抛 `IllegalArgumentException`（调用方 bug，fail-fast），tick 内 deliver / lease 异常已兜底为 `skipped` 不抛；`ForwardingDispatchLoop.run` 传播 fail-fast 是正确语义（不静默吞调用方 bug，不加 loop 级兜底）。fake delivery（`InMemoryForwardingDelivery`）仅在 test fixture，让 ACK / RETRY / DLQ / EXPIRED 与 lease 续约 / skip / deliver 异常路径在无网络下可被 harness 覆盖。
 
-> **in-memory vs JDBC**：in-memory lease harness 按 owner（不按 `lease_until` 过期）裁决 lease-guarded mutation；故"renew-or-lose-the-ack"（`WHERE lease_until > now`）是 §7.2 的 SQL contract，不在 in-memory 断言。lease 续约的"renew 后超 TTL 仍丢 ack"语义同样由 §7.2 SQL 编码，真实 adapter 落地后补 Testcontainers 覆盖。
+> **in-memory vs JDBC**：in-memory lease harness 按 owner（不按 `lease_until` 过期）裁决 lease-guarded mutation；故"renew-or-lose-the-ack"（`WHERE lease_until > now`）是 §7.2 的 SQL contract，不在 in-memory 断言。lease 续约的"renew 后超 TTL 仍丢 ack"语义同样由 §7.2 SQL 编码，**真实 adapter 落地后已由 real-SQL 集成测试覆盖**（Stage 12，§14 MI12-004：Zonky embedded-postgres 承载真实 PG 16.2 in-process，见 §7.4）。
 
 ### 5.1 dispatch 调度责任（Stage 10，MI10-004）
 
@@ -130,9 +132,9 @@ target_module: agent-bus
 | MI8-004 | `idempotencyKey` 降级为审计字段；去重键不变 `(tenantId, messageId, consumerServiceId)` | §3.2 注；ICD / L2 §5 同步 |
 | MI8-005 | C3 最终确认为 `adopted-c3`；DB 产品 / migration 归属延期 Stage 9+ | decision.md；本文档 §2 护栏 |
 
-## 7. Postgres DDL 草稿（未执行）
+## 7. Postgres DDL
 
-> 以下 DDL 是 **设计草稿**，Stage 8 **不执行**（`agent-bus` 未接 Flyway / JDBC）。真实 migration 归属确认后（Stage 9+），落入受治理的 migration 路径（如 `agent-bus/src/main/resources/db/migration/` 或共享 schema 模块），版本号 / 命名遵循该路径约定。
+> **Stage 12（MI12-003）已执行**：DDL 落地为真实 Flyway migration `agent-bus/src/main/resources/db/migration/V1__create_agent_bus_forwarding_outbox_inbox.sql`（含 MI9-006 全部条件 CHECK + `ix_outbox_claim_due` 部分索引 + §7.3 RLS，迁移顺序遵循 §7.3）。以下代码块是同一 DDL 的设计态镜像——Stage 8-11 为「未执行草稿」，Stage 12 后为已执行 migration 的文档副本；列定义 / CHECK / 索引与 `V1` migration 逐字一致（RLS 段见 §7.3）。
 
 ```sql
 -- agent_bus_forwarding_outbox —— 发送端 durable queue
@@ -247,6 +249,8 @@ WHERE tenant_id   = :tenantId
 -- last_failure_code = :retryableCode, lease_owner/lease_until = NULL (MI9-002).
 ```
 
+> **releaseLease 在 JDBC adapter 的过期语义差异（Stage 12 实施发现）**：`ck_outbox_lease_status` 强制 `DISPATCHING` 行携带非空 `lease_owner`。in-memory 替身的 `releaseLease` 清空 lease 字段（对它内部可变行合法），但落到 DB 会违反该 CHECK。故 JDBC adapter 的 `releaseLease` 改为**过期 lease**（`lease_until = -1`，保留 `lease_owner` 使行 CHECK-valid），使其立即落入 §7.1 `lease_until <= now` 的 stuck-holder reclaim 路径。行为契约（release ⇒ 他人可 reclaim；releaser 不再能 mutate）不变，仅存储表示不同；编码于 `JdbcForwardingOutbox.releaseLease`，real-SQL 测试 `release_lease_expires_it_so_another_owner_can_reclaim` 覆盖（§14 MI12-004）。
+
 ### 7.3 RLS（Postgres Row-Level Security）
 
 若采用 Postgres 且启用 RLS 做 tenant 行级隔离：
@@ -254,7 +258,16 @@ WHERE tenant_id   = :tenantId
 - **何时启用**：在两张表上启用 RLS，policy 按 `tenant_id = current_setting('app.tenant_id')` 过滤；`app.tenant_id` 由应用连接设置。
 - **迁移顺序**：先建表 + 数据 → 再 `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` + `CREATE POLICY`；应用层仍带 `tenantId` 过滤（纵深防御，RLS 不替代应用层隔离）。
 - **回滚**：`DROP POLICY` + `ALTER TABLE ... DISABLE ROW LEVEL SECURITY`；不丢数据。
-- **是否启用**：Stage 8 **不决定**；RLS 启用与否、与 registry 隔离策略的一致性，随数据库产品确认在 Stage 9+ 裁决（§2 护栏）。
+- **是否启用**：**Stage 12 已裁决启用且已落地**（Postgres RLS 纵深防御：应用层 `WHERE tenant_id=?` 主路径 + DB 层 RLS 兜底，R-C.c 硬隔离）；迁移顺序遵循本节（先建表 → 再 `ENABLE ROW LEVEL SECURITY` + `CREATE POLICY`），已落地于 `V1` migration 末尾，回滚不丢数据。real-SQL 测试 `rls_policy_filters_rows_by_session_tenant_setting` 覆盖（含 fail-closed：未设 `app.tenant_id` session 不可见任何行）。
+
+### 7.4 real-SQL 验证：embedded-postgres（Stage 12，MI12-004）
+
+§5 / §14 MI12-004 兑现的「真实 adapter 落地后补 real-SQL 集成验证」由 **Zonky embedded-postgres**（`io.zonky.test:embedded-postgres:2.0.7` + `embedded-postgres-binaries-linux-arm64v8:16.2.0`）承载，**非 Testcontainers**：
+
+- **原因（实施发现）**：执行环境的 Docker daemon 对所有 registry（Docker Hub + 内网 SWR 镜像源）走需认证代理（HTTP 407），host 无 sudo 重配 daemon、无本地 PG on 5432——Docker 路径在此环境不可用（计划 §6 预案的 embedded 退路）。
+- **等价保真**：embedded-postgres 跑真实 PostgreSQL 16.2 二进制（aarch64）in-process，与 Testcontainers 同一 PG 引擎——`FOR UPDATE SKIP LOCKED`、RLS、部分索引、CHECK、`ON CONFLICT` 行为一致。
+- **可下载性**：平台二进制是普通 Maven artifact，经 `~/.m2/settings.xml` 认证代理解析（已验证 14 MB arm64 binary 下载成功）。Zonky 默认仅声明 amd64/darwin/windows，Linux aarch64 需显式声明 `embedded-postgres-binaries-linux-arm64v8`（否则 "Missing embedded postgres binaries"）；x86_64 CI 同理加 `-linux-amd64`。
+- **覆盖**：`ForwardingJdbcIntegrationTest`（17 tests）覆盖 6 类 MI12-004 + migration + RLS。生产环境（可达 Docker / 外部 PG）可换回 Testcontainers——adapter 与 migration 不依赖测试载体。
 
 ## 8. migration / rollback 说明
 
@@ -356,6 +369,29 @@ Stage 11 DoD 自检：
 - ✓ `runOnce` 异常契约明确（入参非法 fail-fast），loop 传播是正确语义（harness 覆盖）。
 - ✓ 136 tests green（`AgentBusForwardingRuntimeContractTest` 34 → 36，+2 Stage 11 行为测试）；ArchUnit 纯度仍 green（`EpochClock` 用 `System::currentTimeMillis` 不在禁止列表）。
 - ✓ 路径 B 不变：不引入 JDBC / Flyway / transport / scheduler；DDL / SQL 仍 contract / draft。
+
+## 14. Stage 12 决策（真实持久化：打破路径 B）
+
+Stage 12（MI12-001/002/003/004/006）打破路径 B，正式启动真实持久化：H2/H3 裁决 4 项选型，落地 Postgres JDBC adapter（Spring JDBC）+ Flyway migration + Testcontainers + RLS。**transport / 真实投递绑定拆出 Stage 12 单独议**（独立 H2/H3 议题，见 [`decision §8 transport 议题段`](../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md)）。
+
+| MI | 决策 | 落点 |
+|---|---|---|
+| MI12-001 | H2/H3 裁决 4 项：① DB = **Postgres**；② migration·adapter 归属 = **agent-bus 自有 + Spring JDBC**；③ transport = **拆出 Stage 12 单独议**；④ RLS = **启用纵深防御** | [`decision §4`](../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md)（许可范围扩展 JDBC / Flyway / Spring JDBC）/ `§6.1`（「不引入 JDBC」约束解除，加注）/ `§8`（Stage 12 行 + transport 议题段）；本文 §2（护栏更新注）/ §7.3（RLS 已裁决启用）/ §14 |
+| MI12-002 | 真实 Postgres JDBC adapter（Spring `JdbcTemplate` + 注入 `DataSource`）：claim 走 §7.1 `FOR UPDATE SKIP LOCKED RETURNING`、状态变更走 §7.2 lease-owner guarded `WHERE`（0 行 → `ForwardingLeaseException` 分类 RECORD_NOT_FOUND / NO_LEASE / OWNER_MISMATCH / NOT_DISPATCHING）、reclaim 走 `lease_until <= now`、renew / release 只对当前持有人；adapter 调 `ForwardingStateMachine` 校验迁移后再 persist；tenant 行级显式 `tenant_id=?` + RLS 纵深防御 | `agent-bus` 新增 JDBC adapter 实现 `ForwardingOutboxPort` / `ForwardingOutboxClaimPort`（+ inbox）；in-memory 替身保留为 fast test double |
+| MI12-003 | Flyway migration 落地：`agent-bus/src/main/resources/db/migration/V<n>__create_agent_bus_forwarding_outbox_inbox.sql`，含 MI9-006 全部条件 CHECK + `ix_outbox_claim_due` + RLS（§7.3 顺序） | §7 DDL 草案 → 真实 migration（归属 = agent-bus 自有） |
+| MI12-004 | real-SQL 验证（**实际由 embedded-postgres 承载**，非 Testcontainers——Docker daemon 经认证代理不可达，见 §7.4）：并发 claim 无重复（`SKIP LOCKED`）/ lease guard（stale ACK → 0 行 / `ForwardingLeaseException` 分类）/ reclaim（过期被第二 worker 抢）/ renew-or-lose-ack（§7.2）/ releaseLease 过期语义（§7.2）/ CHECK 兜底 / tenant 隔离（含 §7.3 RLS fail-closed）；兑现 §5「真实 adapter 落地后补 real-SQL 集成验证」 | `ForwardingJdbcIntegrationTest`（17 tests green，Zonky embedded-postgres PG 16.2，§7.4） |
+| MI12-006 | pom 引入 `spring-boot-starter-jdbc` + Postgres driver + Flyway（production）+ Testcontainers Postgres（test）；ArchUnit 纯度规则**精确化**（允许 JDBC / Flyway / Spring JDBC，仍禁 concrete broker / MQ client + Task execution state）；ContractTest 纯度断言从「禁 `java.sql.`」改为「禁 concrete broker client + Task state」—— 护栏从「禁一切外部依赖」精确化为「禁 broker 绑定 + Task state 越权」，**不放松 §6.2** | `agent-bus/pom.xml`；ArchUnit 规则；`AgentBusForwardingRuntimeContractTest` 纯度断言 |
+
+Stage 12 DoD 自检：
+
+- ✓ 4 项选型裁决落位（Postgres + agent-bus 自有 Spring JDBC + RLS；transport 拆出）。
+- ✓ JDBC adapter 实现 outbox / claim（+ inbox），claim / lease-guarded mutation / reclaim / renew / release 走真实 SQL（`JdbcForwardingOutbox` / `JdbcForwardingInbox` / `ForwardingSqlCodec`）。
+- ✓ Flyway migration 落地 `V1__create_agent_bus_forwarding_outbox_inbox.sql`（DDL CHECK + 索引 + RLS）。
+- ✓ real-SQL 验证 17 tests green（embedded-postgres PG 16.2，§7.4），覆盖 6 类 MI12-004 + migration + RLS（含 §7.2 releaseLease 过期语义）。
+- ✓ pom 引入 JDBC / Flyway / embedded-postgres（+ arm64v8 平台二进制）；ArchUnit 护栏精确化（允许 JDBC 限于 `persistence.jdbc` 子包，禁 broker / Task state）。
+- ✓ **153 tests green**（Stage 11 的 136 + real-SQL 17），ArchUnit 纯度 green。
+- ✓ **不引入** concrete broker / MQ（transport 拆出）；**不写** Task execution state；**不**跨 tenant fallback；**不放** payload body（`§6.2` 始终不得，不变）。
+- ✓ Stage 12 实现完成（切片 0 裁决 + 1 依赖 + 2 adapter + 3 migration + 4 real-SQL + 5/6 文档/提交）；transport / 真实投递绑定 / agent-runtime 集成 deferred 独立议题。
 
 相关文档：
 

@@ -330,12 +330,13 @@ class AgentBusForwardingRuntimeContractTest {
                 .as("forwarding production sources must be discovered")
                 .isNotEmpty();
         assertThat(forwardingSources)
-                .as("Stage 7 production code: no payload body field, no Task execution state, "
-                  + "no JDBC driver, no concrete broker / MQ client (decision §6.2)")
+                .as("forwarding production code: no payload body field, no Task execution state, "
+                  + "no concrete broker / MQ client (decision §6.2 — always forbidden). JDBC is "
+                  + "now licensed for the persistence.jdbc adapter (Stage 12); its package-level "
+                  + "confinement is enforced by AgentBusForwardingSpiPurityTest, not this scan.")
                 .allSatisfy(src -> assertThat(src)
                         .doesNotContain("payloadBody", "payload_body")
                         .doesNotContain("TaskExecutionState", "TaskExecution", "TaskStatus")
-                        .doesNotContain("java.sql.", "javax.sql.")
                         .doesNotContain("org.apache.kafka", "com.rabbitmq",
                                         "org.apache.rocketmq", "io.nats.client"));
     }
@@ -705,11 +706,12 @@ class AgentBusForwardingRuntimeContractTest {
     void forwarding_persistence_does_not_write_task_state_nor_introduce_broker() {
         // re-assert the production-source purity boundary for the Stage 8 additions
         assertThat(forwardingSources)
-                .as("Stage 8 additions keep forwarding production code free of Task state, "
-                  + "JDBC driver, and concrete broker / MQ client (decision §6.1)")
+                .as("forwarding production code stays free of Task state and concrete broker / "
+                  + "MQ client (decision §6.2 — always forbidden). JDBC is licensed only for the "
+                  + "persistence.jdbc adapter (Stage 12); package-level confinement is enforced "
+                  + "by AgentBusForwardingSpiPurityTest.")
                 .allSatisfy(src -> assertThat(src)
                         .doesNotContain("TaskExecutionState", "TaskExecution", "TaskStatus")
-                        .doesNotContain("java.sql.", "javax.sql.")
                         .doesNotContain("org.apache.kafka", "com.rabbitmq",
                                         "org.apache.rocketmq", "io.nats.client"));
     }

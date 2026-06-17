@@ -27,9 +27,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <b>and</b> {@code agent-bus/module-metadata.yaml} and asserts the two agree:
  *
  * <ul>
- *   <li>{@code module-metadata.yaml#allowed_dependencies} is {@code []} and the
- *       POM has no {@code com.huawei.ascend:*} sibling at production scope — the
- *       same invariant, asserted from both ends.
+ *   <li>{@code module-metadata.yaml#allowed_dependencies} matches the Stage 12
+ *       real-persistence scope (Spring JDBC + Flyway + Postgres driver; Stage 7-11
+ *       kept it {@code []}), and the POM has no {@code com.huawei.ascend:*} sibling
+ *       at production scope — the same invariant, asserted from both ends.
  *   <li>{@code module-metadata.yaml#forbidden_dependencies} is a non-empty,
  *       intact set, and each declared forbidden sibling is metadata-driven
  *       absent from the POM production graph — so a newly-added forbidden entry
@@ -120,16 +121,27 @@ class AgentBusModuleMetadataDriftTest {
     // ---- module-metadata.yaml drift (MI-FU-001) ---------------------------
 
     @Test
-    void metadata_allowed_dependencies_is_empty() {
+    void metadata_allowed_dependencies_match_stage12_persistence_scope() {
         assertThat(allowedDependenciesMeta.present())
                 .as("module-metadata.yaml must declare an allowed_dependencies key (MI3-004) — a "
                   + "missing key must fail the build, not be silently read as []. The key itself "
                   + "is the invariant; absence is drift, not an empty list.")
                 .isTrue();
-        assertThat(allowedDependenciesMeta.values())
-                .as("module-metadata.yaml allowed_dependencies must be [] — agent-bus is a pure "
-                  + "contract module; opening it would break the SPI-first boundary (R-C.b)")
-                .isEmpty();
+        List<String> allowed = allowedDependenciesMeta.values();
+        assertThat(allowed)
+                .as("module-metadata.yaml allowed_dependencies must list the Stage 12 real-"
+                  + "persistence dependencies (decision §4 Stage 12 permit); Stage 7-11 kept this "
+                  + "list empty. Spring JDBC + Flyway + Postgres driver are now licensed, confined "
+                  + "to the persistence.jdbc package by AgentBusForwardingSpiPurityTest.")
+                .contains("org.springframework.boot:spring-boot-starter-jdbc",
+                          "org.flywaydb:flyway-core",
+                          "org.flywaydb:flyway-database-postgresql",
+                          "org.postgresql:postgresql");
+        assertThat(allowed)
+                .as("allowed_dependencies must never admit a concrete broker / MQ client "
+                  + "(decision §6.2 always-forbidden; transport is split out of Stage 12)")
+                .noneMatch(d -> d.contains("kafka") || d.contains("rabbitmq")
+                              || d.contains("rocketmq") || d.contains("nats"));
     }
 
     @Test

@@ -16,7 +16,17 @@ spi_packages:
   - com.huawei.ascend.bus.spi.s2c        # S2cCallbackTransport + S2cCallbackEnvelope + S2cCallbackResponse per ADR-0088 (relocated from agent-runtime-core); rc27: + ReflectionEnvelopeRouter per ADR-0102
   - com.huawei.ascend.bus.spi.federation # rc27 fix (rc22-3): FederationGateway per ADR-0101 Mode B Business-Centric deployment
   - com.huawei.ascend.bus.spi.engine     # EnginePort + neutral execution model (ExecutorDefinition / RunContext / SuspendSignal / Checkpointer / Orchestrator / RunMode / TraceContext) relocated from agent-execution-engine per ADR-0158 (transport-agnostic engine boundary)
-allowed_dependencies: []
+# Stage 12 (decision §4 permit): real persistence licensed — Spring JDBC adapter +
+# Flyway migration + Postgres driver. Confined to package
+# com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc by ArchUnit
+# (AgentBusForwardingSpiPurityTest). §6.2 still forbids concrete broker / MQ,
+# Task state, cross-tenant fallback, payload body. Stage 7-11 kept this list
+# empty (path B); Stage 12 breaks path B.
+allowed_dependencies:
+  - org.springframework.boot:spring-boot-starter-jdbc
+  - org.flywaydb:flyway-core
+  - org.flywaydb:flyway-database-postgresql
+  - org.postgresql:postgresql
 forbidden_dependencies:
   - agent-service           # bus is upstream of compute_control plane
   - agent-execution-engine

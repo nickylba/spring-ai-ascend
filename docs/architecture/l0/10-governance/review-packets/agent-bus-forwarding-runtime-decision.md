@@ -84,7 +84,21 @@ Stage 8 允许写生产代码的范围（正向许可，[`Stage 8 计划 §3`](.
 - outbox / inbox **schema / migration 草案**（DDL 草稿，**未执行**）与持久化 L2（[`forwarding-persistence`](../../../../architecture/docs/L2/agent-bus/forwarding-persistence.md)）。
 - in-memory lease harness + fake delivery（test source set，non-production）。
 
-允许范围与禁止范围同时存在，且均可被 review（§6 与 Stage 7 / Stage 8 计划 §3/§4）。
+Stage 12 允许写生产代码的范围（正向许可，[`Stage 12 计划 §4`](../delivery-projections/agent-bus-stage11-review-and-stage12-plan.md)）—— **正式启动真实持久化，打破路径 B**（`§6.1`「不引入 JDBC driver」约束由 Stage 12 H2/H3 裁决**解除**）：
+
+- **Postgres JDBC adapter（Spring JDBC）**：`ForwardingOutboxPort` / `ForwardingOutboxClaimPort`（+ inbox）的真实实现，`spring-boot-starter-jdbc` + `JdbcTemplate` + 注入 `DataSource`；claim 走 §7.1 `FOR UPDATE SKIP LOCKED RETURNING`，状态变更走 §7.2 lease-owner guarded `WHERE`（0 行 → `ForwardingLeaseException`）。**adapter + migration 归属 = agent-bus 自有**（agent-bus 从纯 Java 模块变为 Spring 模块）。
+- **Flyway migration**：`agent-bus/src/main/resources/db/migration/V<n>__create_agent_bus_forwarding_outbox_inbox.sql`，含 MI9-006 全部条件 CHECK + `ix_outbox_claim_due` 索引 + RLS。
+- **Postgres RLS 纵深防御**：应用层 `WHERE tenant_id=?` 主路径 + DB 层 RLS 兜底（R-C.c 硬隔离）。
+- **Testcontainers（test）**：真实 SQL 行为验证（并发 claim / lease guard / reclaim / renew-or-lose-ack / CHECK 兜底 / tenant 隔离）。
+- in-memory 替身保留为 fast test double。
+
+Stage 12 **不允许**写生产代码的范围（反向禁止，不变）：
+
+- **不引入** concrete broker / MQ client（Kafka / RabbitMQ / RocketMQ / NATS）—— transport **拆出 Stage 12 单独议**（投递模型 push vs pull / 是否引 MQ 触及 C3/C4 根本裁决，可能需 review packet 复议；`§2` 预留 C3+broker hybrid 路径）。
+- **不接** 真实 receiver transport / 投递绑定（dispatcher worker → receiver 的 HTTP/gRPC/MQ 投递 deferred，独立议题）。
+- **不写** Task execution state；**不绕过** `routeHandle`；**不放** payload body（`§6.2` 始终不得）。
+
+允许范围与禁止范围同时存在，且均可被 review（§6 与 Stage 7 / Stage 8 / Stage 12 计划 §3/§4）。
 
 ## 5. 最小实现范围（C3 已激活）
 
@@ -101,6 +115,8 @@ C3 分支已由本裁决激活。Stage 7 的最小实现切片（见 Stage 7 计
 ## 6. 禁止范围
 
 ### 6.1 Stage 7 生产代码许可的边界（C3 裁决下适用）
+
+> **Stage 12 更新（H2/H3 裁决，2026-06）**：本节「不得」第 2 项「引入 JDBC driver / 真实数据库实现（停在端口接口 + 状态机）」已被 Stage 12 裁决**解除** —— 真实 Postgres JDBC adapter（Spring JDBC）+ Flyway migration + RLS 已进入许可范围（见 §4 Stage 12 段、§8）。第 4 项「真实投递绑定」**仍 deferred**（transport 拆出 Stage 12 单独议）。**§6.2 始终不得项不变。** 本节其余约束作为 Stage 7 历史边界保留。
 
 即使已裁决 C3，Stage 7 仍**不得**：
 
@@ -135,7 +151,9 @@ C3 分支已由本裁决激活。Stage 7 的最小实现切片（见 Stage 7 计
 - Stage 9（已完成，**路径 B**）：lease-safe / persistence-ready —— lease-owner guarded mutation（`markAcked` / `scheduleRetry` / `moveToDlq` / `markExpired` 带 `leaseOwner`，`markDispatching` 移除）、lease 生命周期闭环（terminal + retry 清 lease）、record 条件不变量（Java 构造器 + DDL CHECK + harness）、failure-code classification（retryable / non-retryable / dedup）、claim / state-update SQL contract、in-memory lease-guard harness；收口 MI9-001..006（[`forwarding-persistence §11`](../../../../architecture/docs/L2/agent-bus/forwarding-persistence.md)）。**DB / migration 归属未由人类确认 → 路径 B：不引入 JDBC / Flyway；DDL / SQL 仍为 contract / draft。**
 - Stage 10（已完成，**路径 B**）：dispatch-loop runtime —— worker lease 异常恢复（per-record catch `ForwardingLeaseException` + skip，`DispatchTickResult.skipped` 计数自洽可观测，MI10-001）、lease 续约契约（`DispatchLeasePolicy`：deliver 前按阈值 `renewLease`，renew 失败同 skip，MI10-002）、dispatch 调度责任（`ForwardingDispatchLoop` 骨架：`TickSource` / `IdleStrategy` 注入，无 clock / scheduler / 线程，MI10-004）；收口 MI10-001..005（[`forwarding-persistence §12`](../../../../architecture/L2-Low-Level-Design/agent-bus/forwarding-persistence.md)、[`forwarding-outbox-inbox §8/§10`](../../../../architecture/L2-Low-Level-Design/agent-bus/forwarding-outbox-inbox.md)）。**DB / migration 归属经人类再确认为路径 B**（Stage 10 切片 4 裁决）：不引入 JDBC / Flyway；DDL / SQL 仍为 contract / draft；真实持久化（JDBC adapter / Flyway / 真实投递绑定）deferred 后续阶段，独立批次。
 - Stage 11（已完成，**路径 B**）：runtime-completion —— lease 续约触发时机改读注入 `EpochClock`（`ForwardingDispatcherWorker` 注入 `EpochClock`，`remaining = leaseUntilMillisEpoch − clock.epochMillis()`；自然 dispatch loop 下耗时 deliver 接近 lease TTL 时续约能真正触发，MI11-001）、`deliver` 非 lease `RuntimeException` 兜底为 `skipped`（record 留 DISPATCHING，lease 过期重投，不丢消息；契约：真实 transport 绑定应把网络 / 超时 / 反序列化异常映射为 `ForwardingDeliveryResult`，**不应抛**非 lease 异常，MI11-002）、`runOnce` 异常契约（仅入参非法 fail-fast 抛 `IllegalArgumentException`，`ForwardingDispatchLoop` 传播，无循环级吞没，MI11-003）；收口 MI11-001/002/003（[`forwarding-persistence §13`](../../../../architecture/L2-Low-Level-Design/agent-bus/forwarding-persistence.md)、[`forwarding-outbox-inbox §8/§10`](../../../../architecture/L2-Low-Level-Design/agent-bus/forwarding-outbox-inbox.md)）。**DB / migration / transport 归属未变（路径 B）**：不引入 JDBC / Flyway / 真实投递绑定。
-- 后续 deferred：真实持久化实现（JDBC adapter / Flyway migration 归属 / lease store 物理实现 / polling / 并发抢占原语 / backpressure 参数 / 是否独立 adapter module / 接入 agent-runtime 受控调用路径 / 数据库产品 + RLS 确认）。**§6 护栏：数据库产品或 migration 归属未确认前，不引入生产数据库依赖。**
+- Stage 12（**已完成，打破路径 B**，2026-06）：真实持久化 —— H2/H3 裁决 4 项选型（① DB = **Postgres**；② migration·adapter 归属 = **agent-bus 自有 + Spring JDBC**（`NamedParameterJdbcTemplate` + 注入 `DataSource`）；③ transport = **拆出 Stage 12 单独议**；④ RLS = **启用纵深防御**）。落地 Postgres JDBC adapter（`JdbcForwardingOutbox` / `JdbcForwardingInbox` / `ForwardingSqlCodec`，claim §7.1 `FOR UPDATE SKIP LOCKED RETURNING` / lease-guarded §7.2 / reclaim / renew / release 过期语义）、Flyway migration `V1__create_agent_bus_forwarding_outbox_inbox.sql`（MI9-006 全部 CHECK + `ix_outbox_claim_due` 索引 + §7.3 RLS）、real-SQL 验证（[`forwarding-persistence §7.4/§14`](../../../../architecture/L2-Low-Level-Design/agent-bus/forwarding-persistence.md)）。**real-SQL 载体用 Zonky embedded-postgres（PG 16.2 in-process），非 Testcontainers**——执行环境 Docker daemon 经认证代理（407）不可达、host 无 sudo、无本地 PG（§7.4）；adapter / migration 不依赖测试载体，生产可换回 Testcontainers。**153 tests green**（Stage 11 的 136 + real-SQL 17），ArchUnit 纯度 green（Spring/JDBC 限制在 `persistence.jdbc` 子包）。**`§6.1`「不引入 JDBC driver」约束由 Stage 12 裁决解除**（真实 JDBC adapter / Flyway / Spring JDBC 进入许可范围）；**`§6.2` 始终不得项不变**。
+- 后续 deferred（持久化剩余项）：lease store 物理实现 / polling cadence / 并发 worker 分片 / backpressure 参数 / `ForwardingDispatchLoop` 接真实 scheduler / 接入 agent-runtime 受控调用路径。
+- **transport / 投递模型议题（独立 H2/H3，不进 Stage 12）**：人类提出「基于 MQ 以获反压 / 降低接收方压力」，但 MQ 撞 §3 对 C4 的拒绝 + §6.1 禁 broker；且诉求触及 C3 投递模型根本裁决 —— dispatcher-push（投递速率由发送方控制）无消费方控速能力，真正的反压需 consumer-pull / MQ（投递/消费速率解耦）。裁决：transport / 投递模型（push vs pull / 是否引 MQ / C3+broker hybrid，`§2` 预留路径）作为独立议题单独议，**可能需新的 review packet 复议 C3 dispatcher-push 模型**；deliver 异常重投策略（attemptCount 递增 / 退避 / 熔断）、续约真实耗时验证随此议题一并 deferred。不阻塞 Stage 12 持久化。
 
 相关文档：
 

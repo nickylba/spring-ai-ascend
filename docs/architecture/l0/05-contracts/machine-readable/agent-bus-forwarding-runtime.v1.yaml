@@ -4,7 +4,7 @@ version: v1
 provider: agent-bus
 consumer: agent-runtime
 candidate: C3-database-outbox-inbox
-description: "agent-bus 类 MQ 转发的运行态承载（C3 outbox/inbox）record schema：durable、可审计、tenant-scoped、broker-agnostic。Stage 7 只交付 schema 草案 + 端口 + 状态机 + harness；真实持久化（JDBC/migration/polling/lease/并发抢占）是 Stage 8。"
+description: "agent-bus 类 MQ 转发的运行态承载（C3 outbox/inbox）record schema：durable、可审计、tenant-scoped、broker-agnostic。Stage 7–11 交付 schema + 端口 + 状态机 + lease-safe + dispatch-loop + runtime-completion；Stage 12 落地真实持久化（Postgres JDBC adapter + Flyway migration + RLS）。transport / 真实投递绑定仍 deferred。"
 authority:
   icd_design: ICD-agent-bus-forwarding.md
   l2: architecture/docs/L2/agent-bus/forwarding-outbox-inbox.md
@@ -212,6 +212,11 @@ stage11_scope:
   not_delivers: [jdbc-driver, flyway-migration, real-db-implementation, real-delivery-binding, real-scheduler-thread-pool]
   path: B  # DB/migration/transport ownership not human-confirmed; runtime-completion only; no JDBC/Flyway/transport in agent-bus
   next_stage: Stage-12-plus
+stage12_scope:
+  delivers: [postgres-jdbc-adapter-spring-jdbc, flyway-migration-v1, rls-defence-in-depth, real-sql-verification]
+  not_delivers: [concrete-broker-mq, real-delivery-binding, real-scheduler-thread-pool]
+  path: real-persistence  # §6.1 "no JDBC" lifted by Stage 12 H2/H3; agent-bus becomes a Spring module; ArchUnit confines Spring/JDBC to persistence.jdbc subpackage; §6.2 unchanged
+  next_stage: Stage-13-plus-or-transport-review-packet
 compatibility:
   additive_fields_allowed: true
   breaking_change_requires_adr: true

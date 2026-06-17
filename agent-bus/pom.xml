@@ -28,6 +28,35 @@
   <description>Bus and State Hub plane — three-track channel isolation (control / data / rhythm per Rule R-E). Owns cross-plane control surfaces in both directions: ingress (C2S, IngressGateway per ADR-0089) and s2c (S2C, S2cCallbackTransport per ADR-0074 + ADR-0088). Workflow primitives deferred to W2 per ADR-0050.</description>
 
   <dependencies>
+    <!--
+      Stage 12 (decision §4 permit): real persistence — Postgres JDBC adapter
+      (Spring JdbcTemplate) + Flyway migration. §6.1 "no JDBC driver" lifted;
+      §6.2 unchanged (still forbids concrete broker / MQ, Task state, cross-tenant
+      fallback, payload body). The Spring/JDBC surface is ArchUnit-confined to
+      com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc (see
+      AgentBusForwardingSpiPurityTest); the forwarding ports / state machine /
+      worker / loop stay pure Java. Transport / real delivery is split out of
+      Stage 12.
+    -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-jdbc</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-database-postgresql</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
@@ -36,6 +65,39 @@
     <dependency>
       <groupId>com.tngtech.archunit</groupId>
       <artifactId>archunit-junit5</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!--
+      Stage 12 slice 4: real-SQL verification. Plan §6 prescribed Testcontainers
+      (Docker) first with Zonky embedded-postgres as the documented fallback.
+      The execution host's Docker daemon pulls every registry through a proxy
+      that requires authentication (HTTP 407, and SWR mirrors too); the host has
+      no sudo to reconfigure the daemon, and there is no local Postgres on 5432.
+      So the Docker path is dead here. embedded-postgres runs the real PostgreSQL
+      binary in-process — same SQL semantics under test (FOR UPDATE SKIP LOCKED,
+      RLS, partial index, CHECK, ON CONFLICT) — and resolves its platform binary
+      as a plain Maven artifact through ~/.m2/settings.xml's authenticated proxy,
+      so it works without Docker. The arm64 platform binary is selected at runtime
+      from os.arch. Recorded as a Stage 12 finding (forwarding-persistence §7.4).
+    -->
+    <dependency>
+      <groupId>io.zonky.test</groupId>
+      <artifactId>embedded-postgres</artifactId>
+      <version>2.0.7</version>
+      <scope>test</scope>
+    </dependency>
+    <!--
+      Zonky ships platform binaries only for amd64 / darwin / windows by default;
+      on Linux aarch64 the resolver needs the arm64v8 binary declared explicitly
+      or it fails with "Missing embedded postgres binaries". It is resolved as a
+      plain Maven artifact, so the settings.xml authenticated proxy applies.
+      PG 16.2 matches the migration's assumptions (SKIP LOCKED / RLS / partial
+      index / CHECK, all ≥ 9.5). x86_64 CI can add -linux-amd64 the same way.
+    -->
+    <dependency>
+      <groupId>io.zonky.test.postgres</groupId>
+      <artifactId>embedded-postgres-binaries-linux-arm64v8</artifactId>
+      <version>16.2.0</version>
       <scope>test</scope>
     </dependency>
   </dependencies>

@@ -19,11 +19,14 @@ agent-bus/
     forwarding/
       spi/        # C3 转发运行态领域模型 + 端口 + record 模型 + claim/lease + delivery（Stage 7 + Stage 8，纯 Java）
       runtime/    # C3 转发状态机 + dispatcher worker + dispatch loop + EpochClock（Stage 7 + Stage 8 + Stage 10 + Stage 11，纯 Java）
+        persistence/jdbc/  # Stage 12: Postgres JDBC adapter（Spring JDBC）；唯一允许 Spring/JDBC 的子包，ArchUnit 豁免
     spi/
       engine/
       federation/
       ingress/
       s2c/
+  src/main/resources/
+    db/migration/  # Stage 12 Flyway: V1__create_agent_bus_forwarding_outbox_inbox.sql（MI9-006 CHECK + 索引 + RLS）
   src/test/java/com/huawei/ascend/bus/
     forwarding/
       test/       # in-memory 测试替身（non-production）
@@ -43,8 +46,9 @@ agent-bus/
 | `bus.spi.s2c` | S2C callback envelope、response、transport、reflection router | SPI 已存在，S2C tenant 已迁移，runtime 构造点待后续波次 |
 | `bus.spi.federation` | 跨网络 federation gateway | SPI 已存在，运行时实现待定 |
 | `bus.spi.engine` | service-engine 中立执行边界和相关基础类型 | SPI 已存在，被 engine/service 消费 |
-| `bus.forwarding.spi` | C3 转发运行态领域模型（envelope / route handle / status / failure code / receipt）+ outbox / inbox / dispatcher 端口；Stage 8 增 record 模型（outbox / inbox / lease）+ claim / lease 端口 + delivery 端口 | 纯 Java 已落地（Stage 7 + Stage 8），真实 JDBC 持久化 deferred Stage 9+ |
+| `bus.forwarding.spi` | C3 转发运行态领域模型（envelope / route handle / status / failure code / receipt）+ outbox / inbox / dispatcher 端口；Stage 8 增 record 模型（outbox / inbox / lease）+ claim / lease 端口 + delivery 端口 | 纯 Java 已落地（Stage 7 + Stage 8）；Stage 12 真实 JDBC adapter 落地于 sibling 子包 `persistence.jdbc` |
 | `bus.forwarding.runtime` | C3 转发状态机（outbox / inbox 转换表）+ Stage 8 dispatcher worker（claim / deliver / ack / retry）+ Stage 10 dispatch loop（lease 异常恢复 / 续约 / 调度责任，`TickSource` / `IdleStrategy` 注入） | 纯 Java 状态机 + worker + dispatch loop 已落地，真实投递绑定 deferred 后续阶段 |
+| `bus.forwarding.runtime.persistence.jdbc` | C3 真实持久化：`JdbcForwardingOutbox`（含 claim / lease）/ `JdbcForwardingInbox` / `ForwardingSqlCodec`（Stage 12，Spring JDBC） | 已落地（Stage 12）；Spring / JDBC / Flyway / Postgres driver 仅限本子包 |
 
 ## 3. 依赖规则
 
@@ -71,8 +75,9 @@ agent-bus/
 | ingress 测试 | 暂缺 | 需要补 required fields、trace、tenant、response status |
 | federation 测试 | 暂缺 | 需要补 broker-agnostic 和 ingress carrier type |
 | reflection 测试 | 暂缺 | 需要决定 map validator 或 typed record |
-| `AgentBusForwardingRuntimeContractTest` | C3 outbox / inbox 记录字段、唯一键、去重键、禁止字段、状态机、失败码；Stage 8 增 record source/target、claim / lease 语义、dispatcher worker、persistence 纯度；Stage 9 增 lease-owner guarded mutation、record 不变量、failure-code 分类、SQL contract；Stage 10 增 worker lease 异常恢复 skip、lease 续约、dispatch loop；Stage 11 增 deliver 异常兜底 skip、`runOnce` fail-fast / loop 传播、续约 EpochClock 重写 | 7 契约（方法名镜像 ICD）+ Stage 7 / Stage 8 / Stage 9 / Stage 10 / Stage 11 行为，36 tests 已 green |
-| `AgentBusForwardingSpiPurityTest` | forwarding 生产代码纯 Java（无 Spring / JDBC / broker client） | 10 纯度 + 1 活跃度守卫，已 green（Stage 8 新增 record / claim / delivery / worker 均满足） |
+| `AgentBusForwardingRuntimeContractTest` | C3 outbox / inbox 记录字段、唯一键、去重键、禁止字段、状态机、失败码；Stage 8 增 record source/target、claim / lease 语义、dispatcher worker、persistence 纯度；Stage 9 增 lease-owner guarded mutation、record 不变量、failure-code 分类、SQL contract；Stage 10 增 worker lease 异常恢复 skip、lease 续约、dispatch loop；Stage 11 增 deliver 异常兜底 skip、`runOnce` fail-fast / loop 传播、续约 EpochClock 重写 | 7 契约（方法名镜像 ICD）+ Stage 7 / Stage 8 / Stage 9 / Stage 10 / Stage 11 行为，36 tests 已 green（Stage 12 real-SQL 由独立 `ForwardingJdbcIntegrationTest` 覆盖，17 tests） |
+| `AgentBusForwardingSpiPurityTest` | forwarding 生产代码纯 Java（无 Spring / JDBC / broker client）；**Stage 12 精确化**：Spring/JDBC 限于 `persistence.jdbc` 子包豁免，`bus.forwarding..` 主体仍纯 | 11 纯度 + 1 活跃度守卫，已 green（Stage 12 把 Spring/JDBC 圈进 `persistence.jdbc`；hikari/jackson/reactor/kafka/nats/servlet/netty 仍全局禁） |
+| `ForwardingJdbcIntegrationTest` | Stage 12 real-SQL：Flyway migration / enqueue-claim-ack round-trip / 并发 claim 无重复（`SKIP LOCKED`）/ lease guard 分类 / stuck-holder reclaim / renew-or-lose-ack / release 过期语义 / CHECK 兜底 / tenant 隔离 / §7.3 RLS fail-closed / inbox | embedded-postgres PG 16.2 in-process（Docker 不可达环境），17 tests 已 green |
 
 ## 5. 生成物边界
 
@@ -107,7 +112,7 @@ Stage 2 已完成的迁移（commit `d894f494`）：
 
 本迁移已通知所有冲突方（CN-001..CN-007）；不改变 `agent-runtime` 对 Task lifecycle 的所有权。
 
-## 7. C3 转发运行态（Stage 7 最小骨架 → Stage 8 持久化准备 → Stage 9 lease-safe → Stage 10 dispatch-loop runtime → Stage 11 runtime-completion）
+## 7. C3 转发运行态（Stage 7 最小骨架 → Stage 8 持久化准备 → Stage 9 lease-safe → Stage 10 dispatch-loop runtime → Stage 11 runtime-completion → Stage 12 real persistence）
 
 C3（database outbox / inbox）已最终确认为类 MQ 转发的生产候选路径（裁决见 [`agent-bus-forwarding-runtime-decision`](../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md)，`adopted-c3`）。Stage 7 交付最小可测运行态骨架；Stage 8 补齐持久化准备（[`forwarding-persistence`](../../L2-Low-Level-Design/agent-bus/forwarding-persistence.md)）。
 
@@ -119,10 +124,10 @@ C3（database outbox / inbox）已最终确认为类 MQ 转发的生产候选路
 
 **仅测试夹具（non-production）：**
 
-- `bus.forwarding.test`：`InMemoryForwardingOutbox`（同时实现 outbox + claim / lease 端口，验证并发抢占语义）/ `InMemoryForwardingInbox` / `InMemoryForwardingDispatcher` / `InMemoryForwardingDelivery`（fake delivery port），HashMap 支撑。明确标注 non-production，真实持久化实现为 Stage 9+。
+- `bus.forwarding.test`：`InMemoryForwardingOutbox`（同时实现 outbox + claim / lease 端口，验证并发抢占语义）/ `InMemoryForwardingInbox` / `InMemoryForwardingDispatcher` / `InMemoryForwardingDelivery`（fake delivery port），HashMap 支撑。明确标注 non-production（Stage 12 真实 JDBC adapter 落地后仍保留为 fast test double）。
 
 **边界（Stage 7 / Stage 8，与 Stage 4 / 6 一致，强化）：**
 
-- 生产代码不引入 concrete broker / MQ / JDBC driver / Flyway（由 `AgentBusForwardingSpiPurityTest` ArchUnit 强制）。
+- 生产代码不引入 concrete broker / MQ（由 `AgentBusForwardingSpiPurityTest` ArchUnit 强制）。**Stage 12 精确化**：Spring JDBC / Flyway / Postgres driver 已引入，ArchUnit 把它们圈在 `bus.forwarding.runtime.persistence.jdbc` 子包；`bus.forwarding..` 主体仍纯 Java。
 - 不改变远端 Task lifecycle owner；不写 Task execution state；不携带 payload body / token stream / physical endpoint。
-- 真实 JDBC adapter / Flyway migration 归属 / lease store 物理实现 / polling / 并发抢占原语 / 真实投递绑定（dispatcher worker → receiver transport）均 deferred 到 Stage 9+。**§6 护栏：数据库产品或 migration 归属未确认前，停在 schema 草案 + repository port + in-memory lease harness，不引入生产数据库依赖。**
+- **Stage 12 已落地真实持久化**：Postgres JDBC adapter（Spring JDBC）+ Flyway migration `V1` + §7.3 RLS（real-SQL 验证 embedded-postgres PG 16.2，17 tests green）；`§6.1`「不引入 JDBC」解除，`§6.2` 不变。**仍 deferred**：真实投递绑定（dispatcher worker → receiver transport；push vs pull / 是否引 MQ，独立 H2/H3 议题）、polling cadence、并发 worker 分片、backpressure 参数、`ForwardingDispatchLoop` 接真实 scheduler。

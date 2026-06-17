@@ -13,10 +13,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * <p>Symmetric to {@link AgentBusSpiPurityTest} but scoped to
  * {@code com.huawei.ascend.bus.forwarding..} (the forwarding SPI + runtime
- * package): Stage 7 ships the pure-Java domain model, ports and state machine
- * only — no Spring, no JDBC, no broker client, no HTTP / serialisation
- * framework. The real persistent / delivery binding (JDBC driver, migration,
- * polling, lease, broker transport) is Stage 8 (decision §6.1 / §6.2).
+ * package). Stage 7-11 shipped the pure-Java domain model, ports, state machine,
+ * worker and loop only — no Spring, no JDBC, no broker client. Stage 12 (decision
+ * §4 permit) licenses Spring JDBC inside ONE subpackage —
+ * {@code com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc} — so the
+ * Spring / JDBC / javax.sql rules below exempt that adapter package; everything
+ * else (ports, state machine, worker, loop) stays pure Java. §6.2 always-forbids
+ * concrete broker / MQ, Task state, payload body everywhere (those rules are NOT
+ * exempted). Transport / real delivery binding is split out of Stage 12.
  *
  * <p>One {@code @Test} per forbidden technology so a violation reports the exact
  * offending dependency. Test classes are excluded — the rule constrains the
@@ -37,29 +41,35 @@ class AgentBusForwardingSpiPurityTest {
             .importPackages("com.huawei.ascend.bus.forwarding");
 
     @Test
-    void forwarding_does_not_import_spring() {
+    void forwarding_core_does_not_import_spring_outside_jdbc_adapter() {
         noClasses().that().resideInAPackage("com.huawei.ascend.bus.forwarding..")
+                .and().resideOutsideOfPackage("com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc..")
                 .should().dependOnClassesThat().resideInAPackage("org.springframework..")
-                .because("Stage 7 forwarding must stay pure Java; Spring belongs in Stage 8 "
-                       + "runtime bindings, never in the contract / state-machine surface.")
+                .because("Stage 12: Spring JDBC is licensed only inside the persistence.jdbc "
+                       + "adapter subpackage; the forwarding ports / state machine / worker / loop "
+                       + "stay pure Java (decision §4 Stage 12 permit, §6.2 unchanged).")
                 .check(FORWARDING);
     }
 
     @Test
-    void forwarding_does_not_import_jdbc() {
+    void forwarding_core_does_not_import_jdbc_outside_jdbc_adapter() {
         noClasses().that().resideInAPackage("com.huawei.ascend.bus.forwarding..")
+                .and().resideOutsideOfPackage("com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc..")
                 .should().dependOnClassesThat().resideInAPackage("java.sql..")
-                .because("Stage 7 forwarding must not depend on JDBC; real persistence is "
-                       + "Stage 8 (decision §6.1).")
+                .because("Stage 12: java.sql is licensed only inside the persistence.jdbc adapter; "
+                       + "the forwarding core (ports / state machine / worker / loop) must not "
+                       + "depend on JDBC (decision §4 Stage 12 permit).")
                 .check(FORWARDING);
     }
 
     @Test
-    void forwarding_does_not_import_javax_sql() {
+    void forwarding_core_does_not_import_javax_sql_outside_jdbc_adapter() {
         noClasses().that().resideInAPackage("com.huawei.ascend.bus.forwarding..")
+                .and().resideOutsideOfPackage("com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc..")
                 .should().dependOnClassesThat().resideInAPackage("javax.sql..")
-                .because("Stage 7 forwarding must not depend on javax.sql (DataSource etc.); "
-                       + "real persistence is Stage 8.")
+                .because("Stage 12: javax.sql (DataSource etc.) is licensed only inside the "
+                       + "persistence.jdbc adapter; the forwarding core stays pure Java "
+                       + "(decision §4 Stage 12 permit).")
                 .check(FORWARDING);
     }
 
