@@ -5,9 +5,11 @@ import com.bank.financial.research.data.DataIngestionService;
 import com.bank.financial.research.data.FreshnessPolicy;
 import com.bank.financial.research.data.ResearchDataSource;
 import com.bank.financial.research.data.http.HttpResearchDataSource;
+import com.bank.financial.research.data.stub.StubFundDataSource;
 import com.bank.financial.research.data.stub.StubResearchDataSource;
 import com.bank.financial.research.data.stub.StubThematicDataSource;
 import com.bank.financial.research.engine.ResearchReportEngine;
+import com.bank.financial.research.fund.FundReportEngine;
 import com.bank.financial.research.thematic.ThematicReportEngine;
 import com.bank.financial.research.model.OpenJiuwenReportModel;
 import com.bank.financial.research.model.ReportModel;
@@ -90,6 +92,14 @@ public final class ResearchReports {
                         Duration.ofSeconds(envInt("RESEARCH_MODEL_TIMEOUT_S", 60))),
                 envInt("RESEARCH_MODEL_RETRIES", 3),
                 envInt("RESEARCH_MODEL_BACKOFF_MS", 1500));
+    }
+
+    // ── Fund / FOF engine ─────────────────────────────────────────────────────
+
+    /** Fully offline fund engine (synthetic NAV stub + scripted model). */
+    public static FundReportEngine fundOffline(long asOfEpochMs) {
+        return new FundReportEngine(
+                new StubFundDataSource(asOfEpochMs), new ScriptedReportModel(), null, MemoryObserver.NOOP, null);
     }
 
     static boolean liveModel() {

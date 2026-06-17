@@ -3,8 +3,13 @@ package com.bank.financial.research.web;
 import com.bank.financial.research.data.DataIngestionService;
 import com.bank.financial.research.data.FreshnessPolicy;
 import com.bank.financial.research.data.ResearchDataSource;
+import com.bank.financial.research.data.FundDataSource;
+import com.bank.financial.research.data.eastmoney.EastMoneyFundDataSource;
 import com.bank.financial.research.data.eastmoney.EastMoneyResearchDataSource;
+import com.bank.financial.research.data.stub.StubFundDataSource;
 import com.bank.financial.research.data.tushare.TushareResearchDataSource;
+import com.bank.financial.research.fund.FundReport;
+import com.bank.financial.research.fund.FundReportEngine;
 import com.bank.financial.research.data.stub.StubResearchDataSource;
 import com.bank.financial.research.engine.PipelineProgress;
 import com.bank.financial.research.engine.ReportRequest;
@@ -20,6 +25,7 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 
@@ -42,6 +48,19 @@ import java.util.concurrent.Executors;
 public final class ResearchWebServer {
 
     private static final ObjectMapper JSON = new ObjectMapper();
+
+    private static final List<Map<String, String>> EQUITY_AGENTS = List.of(
+            Map.of("role", "planner", "label", "规划"), Map.of("role", "data", "label", "数据"),
+            Map.of("role", "quant-model", "label", "建模"), Map.of("role", "valuation", "label", "估值"),
+            Map.of("role", "sector-macro", "label", "行业宏观"), Map.of("role", "lead-manager", "label", "首席"),
+            Map.of("role", "writer", "label", "撰写"), Map.of("role", "critic", "label", "评审"),
+            Map.of("role", "compliance", "label", "合规"));
+
+    private static final List<Map<String, String>> FUND_AGENTS = List.of(
+            Map.of("role", "planner", "label", "规划"), Map.of("role", "data", "label", "数据"),
+            Map.of("role", "performance", "label", "业绩"), Map.of("role", "risk", "label", "风险"),
+            Map.of("role", "lead-manager", "label", "首席"), Map.of("role", "writer", "label", "撰写"),
+            Map.of("role", "critic", "label", "评审"), Map.of("role", "compliance", "label", "合规"));
 
     private ResearchWebServer() {
     }
@@ -107,32 +126,7 @@ public final class ResearchWebServer {
 
             long now = System.currentTimeMillis();
 
-            // ── choose the data source (transparent fallback to the offline stub) ──
-            ResearchDataSource src;
-            String token = System.getenv("TUSHARE_TOKEN");
-            switch (source) {
-                case "stub" -> src = new StubResearchDataSource(now);
-                case "tushare" -> {
-                    if (token != null && !token.isBlank()) {
-                        src = new TushareResearchDataSource(token, now);
-                    } else {
-                        sendNote(out, "Tushare 需积分(未配置 TUSHARE_TOKEN),演示回退桩数据。");
-                        src = new StubResearchDataSource(now);
-                    }
-                }
-                case "wind", "choice" -> {
-                    sendNote(out, "该源规划中(sidecar 网关),演示回退桩数据。");
-                    src = new StubResearchDataSource(now);
-                }
-                default -> // "eastmoney" — free, token-less real A-share data
-                    src = new EastMoneyResearchDataSource(now);
-            }
-
-            ResearchReportEngine engine = new ResearchReportEngine(
-                    new DataIngestionService(src, FreshnessPolicy.days(90)), src.name(),
-                    new ScriptedReportModel(), null, MemoryObserver.NOOP, () -> now);
-
-            // ── progress callback: one SSE line per agent transition ──────────────
+            // progress callback: one SSE line per agent transition (+ optional pacing)
             PipelineProgress progress = (role, state, index, total) -> {
                 Map<String, Object> data = new LinkedHashMap<>();
                 data.put("role", role);
@@ -149,19 +143,69 @@ public final class ResearchWebServer {
                 }
             };
 
-            ResearchReport r = engine.generate(ReportRequest.equity(ticker, "web", now), progress);
-
             Map<String, Object> report = new LinkedHashMap<>();
-            report.put("html", MdHtml.render(r.toMarkdown()));
-            report.put("rating", r.rating());
-            report.put("priceTarget", r.priceTarget());
-            report.put("currentPrice", r.currentPrice());
-            report.put("upsidePct", r.upsidePct());
-            report.put("modelCalls", r.metadata().modelCalls());
-            report.put("criticRounds", r.metadata().criticRounds());
-            report.put("degradations", r.metadata().degradations().size());
+            if ("fund".equals(type)) {
+                send(out, "pipeline", Map.of("agents", FUND_AGENTS));
+                String code = orDefault(q.get("ticker"), "110011");
+                FundReport fr;
+                if ("stub".equals(source)) {
+                    fr = new FundReportEngine(new StubFundDataSource(now), new ScriptedReportModel(),
+                            null, MemoryObserver.NOOP, () -> now)
+                            .generate(ReportRequest.equity(code, "web", now), progress);
+                } else {
+                    try {
+                        fr = new FundReportEngine(new EastMoneyFundDataSource(now), new ScriptedReportModel(),
+                                null, MemoryObserver.NOOP, () -> now)
+                                .generate(ReportRequest.equity(code, "web", now), progress);
+                    } catch (RuntimeException fundErr) {
+                        sendNote(out, "实时基金数据获取失败(" + fundErr.getMessage() + "),回退桩数据演示。");
+                        fr = new FundReportEngine(new StubFundDataSource(now), new ScriptedReportModel(),
+                                null, MemoryObserver.NOOP, () -> now)
+                                .generate(ReportRequest.equity("DEMOFUND", "web", now), progress);
+                    }
+                }
+                report.put("html", MdHtml.render(fr.toMarkdown()));
+                report.put("rating", fr.overallRating());
+                report.put("metric1", "夏普 " + com.bank.financial.research.engine.Bb.fmt(fr.metrics().sharpe()));
+                report.put("metric2", "年化 " + com.bank.financial.research.engine.Bb.pct(fr.metrics().annReturn()));
+                report.put("metric3", "回撤 " + com.bank.financial.research.engine.Bb.pct(fr.metrics().maxDrawdown()));
+                report.put("modelCalls", fr.metadata().modelCalls());
+                report.put("criticRounds", fr.metadata().criticRounds());
+                report.put("degradations", fr.metadata().degradations().size());
+            } else {
+                send(out, "pipeline", Map.of("agents", EQUITY_AGENTS));
+                ResearchDataSource src;
+                String token = System.getenv("TUSHARE_TOKEN");
+                switch (source) {
+                    case "stub" -> src = new StubResearchDataSource(now);
+                    case "tushare" -> {
+                        if (token != null && !token.isBlank()) {
+                            src = new TushareResearchDataSource(token, now);
+                        } else {
+                            sendNote(out, "Tushare 需积分(未配置 TUSHARE_TOKEN),演示回退桩数据。");
+                            src = new StubResearchDataSource(now);
+                        }
+                    }
+                    case "wind", "choice" -> {
+                        sendNote(out, "该源规划中(sidecar 网关),演示回退桩数据。");
+                        src = new StubResearchDataSource(now);
+                    }
+                    default -> src = new EastMoneyResearchDataSource(now);
+                }
+                ResearchReportEngine engine = new ResearchReportEngine(
+                        new DataIngestionService(src, FreshnessPolicy.days(90)), src.name(),
+                        new ScriptedReportModel(), null, MemoryObserver.NOOP, () -> now);
+                ResearchReport r = engine.generate(ReportRequest.equity(ticker, "web", now), progress);
+                report.put("html", MdHtml.render(r.toMarkdown()));
+                report.put("rating", r.rating());
+                report.put("metric1", "目标价 " + com.bank.financial.research.engine.Bb.fmt(r.priceTarget()));
+                report.put("metric2", "现价 " + com.bank.financial.research.engine.Bb.fmt(r.currentPrice()));
+                report.put("metric3", "空间 " + com.bank.financial.research.engine.Bb.pct(r.upsidePct()));
+                report.put("modelCalls", r.metadata().modelCalls());
+                report.put("criticRounds", r.metadata().criticRounds());
+                report.put("degradations", r.metadata().degradations().size());
+            }
             send(out, "report", report);
-
             send(out, "done", Map.of());
         } catch (Exception e) {
             if (os != null) {
@@ -328,19 +372,16 @@ public final class ResearchWebServer {
                 <div class="field">
                   <label>报告类型</label>
                   <label class="opt"><input type="radio" name="type" value="equity" checked/> 个股研报</label>
+                  <label class="opt"><input type="radio" name="type" value="fund"/> 基金 / FOF</label>
                 </div>
                 <div class="field">
                   <label>数据源</label>
-                  <label class="opt"><input type="radio" name="source" value="eastmoney" checked/> 东方财富(免费真实)</label>
-                  <label class="opt"><input type="radio" name="source" value="stub"/> 桩(离线演示)</label>
-                  <label class="opt"><input type="radio" name="source" value="tushare"/> Tushare(需积分)</label>
-                  <label class="opt"><input type="radio" name="source" value="wind"/> Wind(规划中)</label>
-                  <label class="opt"><input type="radio" name="source" value="choice"/> Choice(规划中)</label>
+                  <div id="sources"></div>
                 </div>
                 <div class="field">
                   <label>标的代码</label>
                   <input type="text" id="ticker" value="600519.SH" autocomplete="off"/>
-                  <div style="font-size:11px;color:var(--muted);margin-top:5px;">真实 A 股用 6 位代码(如 600519.SH);桩演示用 DEMO</div>
+                  <div id="tickhint" style="font-size:11px;color:var(--muted);margin-top:5px;"></div>
                 </div>
                 <div class="field">
                   <label>演示节奏 <span class="paceval" id="paceval">250 ms</span></label>
@@ -369,96 +410,97 @@ public final class ResearchWebServer {
 
             <script>
             (function(){
-              var AGENTS=[
-                ["planner","规划"],["data","数据"],["quant-model","建模"],
-                ["valuation","估值"],["sector-macro","行业宏观"],["lead-manager","首席"],
-                ["writer","撰写"],["critic","评审"],["compliance","合规"]
-              ];
-              var chipEl={};
-              function buildChips(){
-                var c=document.getElementById('chips'); c.innerHTML='';
-                chipEl={};
-                AGENTS.forEach(function(a){
-                  var d=document.createElement('div');
-                  d.className='chip'; d.id='chip-'+a[0];
-                  d.innerHTML='<span class="dot"></span>'+a[1];
-                  c.appendChild(d); chipEl[a[0]]=d;
+              var SOURCES={
+                equity:[["eastmoney","东方财富(免费真实)"],["stub","桩(离线演示)"],
+                        ["tushare","Tushare(需积分)"],["wind","Wind(规划中)"],["choice","Choice(规划中)"]],
+                fund:[["eastmoney","天天基金(免费真实)"],["stub","桩(离线演示)"]]
+              };
+              var DEFTICK={equity:"600519.SH",fund:"110011"};
+              var HINT={equity:"真实 A 股用 6 位代码(如 600519.SH);桩演示用 DEMO",
+                        fund:"真实基金用 6 位代码(如 110011);桩演示任意"};
+              function renderSources(){
+                var type=document.querySelector('input[name=type]:checked').value;
+                var box=document.getElementById('sources'); box.innerHTML='';
+                SOURCES[type].forEach(function(s,i){
+                  var lab=document.createElement('label'); lab.className='opt';
+                  lab.innerHTML='<input type="radio" name="source" value="'+s[0]+'"'+
+                    (i===0?' checked':'')+'/> '+s[1];
+                  box.appendChild(lab);
                 });
+                document.getElementById('ticker').value=DEFTICK[type];
+                document.getElementById('tickhint').textContent=HINT[type];
+              }
+              Array.prototype.forEach.call(document.querySelectorAll('input[name=type]'),function(r){
+                r.addEventListener('change',renderSources);
+              });
+              renderSources();
+
+              var chipEl={}, total=0;
+              function buildChips(agents){
+                var c=document.getElementById('chips'); c.innerHTML=''; chipEl={}; total=agents.length;
+                agents.forEach(function(a){
+                  var d=document.createElement('div'); d.className='chip';
+                  d.innerHTML='<span class="dot"></span>'+a.label;
+                  c.appendChild(d); chipEl[a.role]=d;
+                });
+                recount();
               }
               function recount(){
                 var running=0,done=0;
-                AGENTS.forEach(function(a){
-                  var cl=chipEl[a[0]].className;
-                  if(cl.indexOf('done')>=0) done++;
-                  else if(cl.indexOf('running')>=0) running++;
+                Object.keys(chipEl).forEach(function(k){
+                  var cl=chipEl[k].className;
+                  if(cl.indexOf('done')>=0) done++; else if(cl.indexOf('running')>=0) running++;
                 });
                 document.getElementById('count').textContent=
-                  '运行中 '+running+' · 完成 '+done+' / 9';
+                  '运行中 '+running+' · 完成 '+done+' / '+(total||0);
               }
-              var pace=document.getElementById('pace');
-              var paceval=document.getElementById('paceval');
+              var pace=document.getElementById('pace'), paceval=document.getElementById('paceval');
               pace.addEventListener('input',function(){paceval.textContent=pace.value+' ms';});
 
-              var go=document.getElementById('go');
-              var es=null;
+              var go=document.getElementById('go'), es=null;
               go.addEventListener('click',function(){
                 if(es){es.close();}
-                buildChips(); recount();
+                document.getElementById('chips').innerHTML=''; chipEl={}; total=0;
+                document.getElementById('count').textContent='运行中 0 · 完成 0 / 0';
                 document.getElementById('badges').innerHTML='';
                 document.getElementById('note').textContent='';
-                document.getElementById('preview').innerHTML=
-                  '<div class="empty">流水线运行中 ——</div>';
+                document.getElementById('preview').innerHTML='<div class="empty">流水线运行中 ——</div>';
                 go.disabled=true; go.textContent='生成中…';
-
                 var type=document.querySelector('input[name=type]:checked').value;
                 var source=document.querySelector('input[name=source]:checked').value;
-                var ticker=encodeURIComponent(document.getElementById('ticker').value||'DEMO');
-                var p=pace.value;
-                es=new EventSource('/api/run?type='+type+'&source='+source+
-                  '&ticker='+ticker+'&pace='+p);
-
+                var ticker=encodeURIComponent(document.getElementById('ticker').value||'');
+                es=new EventSource('/api/run?type='+type+'&source='+source+'&ticker='+ticker+'&pace='+pace.value);
+                es.addEventListener('pipeline',function(e){ buildChips(JSON.parse(e.data).agents); });
                 es.addEventListener('agent',function(e){
-                  var d=JSON.parse(e.data);
-                  var el=chipEl[d.role];
-                  if(!el) return;
+                  var d=JSON.parse(e.data), el=chipEl[d.role]; if(!el) return;
                   el.classList.remove('running','done');
-                  el.classList.add(d.state==='done'?'done':'running');
-                  recount();
+                  el.classList.add(d.state==='done'?'done':'running'); recount();
                 });
                 es.addEventListener('note',function(e){
                   document.getElementById('note').textContent=JSON.parse(e.data).message||'';
                 });
                 es.addEventListener('report',function(e){
-                  var d=JSON.parse(e.data);
-                  var pt=(d.priceTarget!=null)?Number(d.priceTarget).toFixed(2):'-';
-                  var up=(d.upsidePct!=null)?(Number(d.upsidePct)*100).toFixed(1)+'%':'-';
-                  var degClass=(d.degradations>0)?'badge warn':'badge';
+                  var d=JSON.parse(e.data), degClass=(d.degradations>0)?'badge warn':'badge';
                   document.getElementById('badges').innerHTML=
                     '<span class="badge">评级 <b>'+esc(d.rating)+'</b></span>'+
-                    '<span class="badge">目标价 <b>'+pt+'</b></span>'+
-                    '<span class="badge">潜在空间 <b>'+up+'</b></span>'+
+                    '<span class="badge">'+esc(d.metric1)+'</span>'+
+                    '<span class="badge">'+esc(d.metric2)+'</span>'+
+                    '<span class="badge">'+esc(d.metric3)+'</span>'+
                     '<span class="badge">模型调用 <b>'+d.modelCalls+'</b></span>'+
                     '<span class="badge">改稿轮数 <b>'+d.criticRounds+'</b></span>'+
                     '<span class="'+degClass+'">降级 <b>'+d.degradations+'</b></span>';
                   document.getElementById('preview').innerHTML=d.html;
                 });
                 es.addEventListener('error',function(e){
-                  var msg='连接中断';
-                  try{ if(e.data){ msg=JSON.parse(e.data).message||msg; } }catch(_){}
-                  document.getElementById('note').textContent='出错:'+msg;
-                  finish();
+                  var msg='连接中断'; try{ if(e.data){ msg=JSON.parse(e.data).message||msg; } }catch(_){}
+                  document.getElementById('note').textContent='出错:'+msg; finish();
                 });
                 es.addEventListener('done',function(){ finish(); });
               });
-              function finish(){
-                if(es){es.close();es=null;}
-                go.disabled=false; go.textContent='生成研报';
-              }
+              function finish(){ if(es){es.close();es=null;} go.disabled=false; go.textContent='生成研报'; }
               function esc(s){
-                return String(s==null?'':s).replace(/&/g,'&amp;')
-                  .replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
               }
-              buildChips();
             })();
             </script>
             </body>
