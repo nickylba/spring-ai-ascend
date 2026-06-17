@@ -90,6 +90,35 @@ class ThematicReportEngineTest {
         assertFalse(r.metadata().degradations().isEmpty(), "outage must be recorded");
     }
 
+    @Test
+    void criticTriggersRevisionWhenProseDriftsFromComputedNumbers() {
+        // Round-1 writer output omits the computed numbers → the critic flags the
+        // missing headlines and the engine fires a revision; round-2 output embeds
+        // the brief (numbers present) → clean. Proves the writer↔critic loop is live.
+        ReportModel revisionLoop = new ReportModel() {
+            private int calls = 0;
+
+            @Override
+            public String name() {
+                return "revision-loop";
+            }
+
+            @Override
+            public String generate(ModelTask task) {
+                // thesis (1) + round-1 sections (7) = first 8 calls omit numbers;
+                // the revision pass (calls > 8) embeds the brief's canonical numbers.
+                return ++calls <= 8 ? "初稿:本节量化结论稍后补充。" : "修订稿:结论先行。\n" + task.brief();
+            }
+        };
+        ThematicReportEngine engine = new ThematicReportEngine(
+                new StubThematicDataSource(AS_OF), revisionLoop, null, MemoryObserver.NOOP, () -> AS_OF);
+        ThematicReport r = engine.generate(req());
+
+        assertTrue(r.metadata().criticRounds() >= 1, "critic should have triggered at least one revision round");
+        assertTrue(r.metadata().consistencyFindings().isEmpty(),
+                () -> "after revision the prose should be consistent, got: " + r.metadata().consistencyFindings());
+    }
+
     private String ratingOf(ThematicReport r, String sub) {
         return r.subSectors().stream().filter(v -> v.name().equals(sub)).findFirst().orElseThrow().rating();
     }
