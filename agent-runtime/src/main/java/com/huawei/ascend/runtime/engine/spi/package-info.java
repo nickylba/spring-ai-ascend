@@ -12,7 +12,9 @@
  * execution code should keep framework-specific decoration inside the
  * framework adapter. {@code MemoryProvider} is a reserved narrow SPI for
  * frameworks that need runtime-provided memory init/search/save integration.
- * Frameworks with native checkpointing can use their own checkpointer
+ * {@code SkillHubProvider} is a reserved narrow SPI for progressive skill
+ * discovery/loading; concrete framework adapters decide how to install those
+ * skills. Frameworks with native checkpointing can use their own checkpointer
  * configuration without going through these optional surfaces.
  */
 package com.huawei.ascend.runtime.engine.spi;
