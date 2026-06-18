@@ -39,13 +39,15 @@ fi
 # in the environment (they live there for all local projects), then map GLM_* → the
 # BANK_LLM_* the engine reads so the live "GLM-5.2" option works out of the box.
 SETTINGS="$HOME/.claude/settings.json"
-if [ -z "${GLM_API_KEY:-}" ] && [ -f "$SETTINGS" ]; then
+if [ -f "$SETTINGS" ]; then
   eval "$(python3 - "$SETTINGS" <<'PY'
-import json, sys, shlex
+import json, sys, shlex, os
 try:
     env = json.load(open(sys.argv[1])).get("env", {})
-    for k in ("GLM_API_KEY", "GLM_BASE_URL", "GLM_MODEL"):
-        if env.get(k):
+    # Only export when not already set in the shell (shell wins).
+    for k in ("GLM_API_KEY", "GLM_BASE_URL", "GLM_MODEL",
+              "DEEPSEEK_API_KEY", "DEEPSEEK_BASE_URL", "DEEPSEEK_MODEL"):
+        if env.get(k) and not os.environ.get(k):
             print(f'export {k}={shlex.quote(env[k])}')
 except Exception:
     pass
