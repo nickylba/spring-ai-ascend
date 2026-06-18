@@ -62,7 +62,7 @@ class McpRemoteJsonRuntimeConfiguration {
             boolean sslVerify) {
         OpenJiuwenAgentRuntimeHandler handler =
                 new RemoteJsonOpenJiuwenHandler(modelProvider, apiKey, apiBase, modelName, sslVerify);
-        handler.addRuntimeToolInstaller(remoteJsonMcpToolInstaller);
+        handler.setMcpToolInstaller(remoteJsonMcpToolInstaller);
         return handler;
     }
 
