@@ -76,11 +76,37 @@ examples/agent-runtime-middleware-mcp-remote-json/mcp-servers.example.json
 
 这里的 `howtocook-mcp` 会作为 runtime 的 `serverId`，`type: "sse"` 会映射为 runtime MCP transport。SSE Server 会先返回 `endpoint` 事件，runtime 再向该 endpoint 发送 JSON-RPC 请求。
 
-如果你有真实远端 MCP Server，只需要把 `url` 改成远端地址。需要静态鉴权时，可以加入：
+如果你有真实远端 MCP Server，只需要把 `url` 改成远端地址。需要静态鉴权时，把 `headers`
+放在对应的 server 配置对象内部，和 `serverId`、`transport`、`url` 同一级。例如：
 
 ```json
-"headers": {
-  "Authorization": "Bearer demo-token"
+{
+  "servers": [
+    {
+      "serverId": "company-tools",
+      "transport": "streamable-http",
+      "url": "https://your-company.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer demo-token"
+      }
+    }
+  ]
+}
+```
+
+如果使用 `mcpServers` 兼容格式，也是在具体 server 对象内加入 `headers`：
+
+```json
+{
+  "mcpServers": {
+    "howtocook-mcp": {
+      "type": "sse",
+      "url": "https://mcp.api-inference.modelscope.net/136ad5a3226b4d/sse",
+      "headers": {
+        "Authorization": "Bearer demo-token"
+      }
+    }
+  }
 }
 ```
 
