@@ -40,7 +40,7 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractOpenJiuwenRu
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OpenJiuwenAgentRuntimeHandler.class);
 
-    private OpenJiuwenRemoteToolInstaller remoteToolInstaller;
+    private OpenJiuwenRemoteToolInstaller runtimeToolInstaller;
     private OpenJiuwenMcpToolInstaller mcpToolInstaller;
 
     protected OpenJiuwenAgentRuntimeHandler(String agentId) {
@@ -122,8 +122,8 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractOpenJiuwenRu
      * agent implementation.
      */
     protected void installRuntimeTools(BaseAgent agent, AgentExecutionContext context) {
-        if (remoteToolInstaller != null) {
-            remoteToolInstaller.install(agent, context);
+        if (runtimeToolInstaller != null) {
+            runtimeToolInstaller.install(agent, context);
         }
         if (mcpToolInstaller != null) {
             mcpToolInstaller.install(agent, context);
@@ -131,7 +131,7 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractOpenJiuwenRu
     }
 
     public final void setRuntimeToolInstaller(OpenJiuwenRemoteToolInstaller runtimeToolInstaller) {
-        this.remoteToolInstaller = runtimeToolInstaller;
+        this.runtimeToolInstaller = runtimeToolInstaller;
     }
 
     public final void setMcpToolInstaller(OpenJiuwenMcpToolInstaller mcpToolInstaller) {
