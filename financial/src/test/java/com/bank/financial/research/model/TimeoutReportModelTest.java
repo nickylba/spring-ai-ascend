@@ -8,7 +8,7 @@ import com.bank.financial.research.model.TimeoutReportModel.ModelTimeoutExceptio
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
 
-/** Unit layer: the hard per-call timeout that protects the live LLM path (F2). */
+/** Unit layer: the hard per-call timeout that protects the live LLM path. */
 class TimeoutReportModelTest {
 
     private static final ModelTask TASK = new ModelTask("writer", "i", "b", 100);
