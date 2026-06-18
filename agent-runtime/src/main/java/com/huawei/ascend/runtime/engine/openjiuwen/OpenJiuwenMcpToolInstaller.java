@@ -18,7 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Installs MCP tools into an OpenJiuwen agent instance. */
-public final class OpenJiuwenMcpToolInstaller implements OpenJiuwenRuntimeToolInstaller {
+public final class OpenJiuwenMcpToolInstaller {
     private static final Logger LOG = LoggerFactory.getLogger(OpenJiuwenMcpToolInstaller.class);
 
     private final McpProvider mcpProvider;
@@ -27,7 +27,6 @@ public final class OpenJiuwenMcpToolInstaller implements OpenJiuwenRuntimeToolIn
         this.mcpProvider = Objects.requireNonNull(mcpProvider, "mcpProvider");
     }
 
-    @Override
     public void install(BaseAgent agent, AgentExecutionContext context) {
         Objects.requireNonNull(agent, "agent");
         Objects.requireNonNull(context, "context");

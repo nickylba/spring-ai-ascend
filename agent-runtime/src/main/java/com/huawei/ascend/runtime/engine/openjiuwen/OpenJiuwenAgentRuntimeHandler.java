@@ -22,7 +22,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.CopyOnWriteArrayList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,7 +40,8 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractOpenJiuwenRu
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OpenJiuwenAgentRuntimeHandler.class);
 
-    private final List<OpenJiuwenRuntimeToolInstaller> runtimeToolInstallers = new CopyOnWriteArrayList<>();
+    private OpenJiuwenRemoteToolInstaller remoteToolInstaller;
+    private OpenJiuwenMcpToolInstaller mcpToolInstaller;
 
     protected OpenJiuwenAgentRuntimeHandler(String agentId) {
         this(agentId, new OpenJiuwenMessageAdapter());
@@ -122,22 +122,20 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractOpenJiuwenRu
      * agent implementation.
      */
     protected void installRuntimeTools(BaseAgent agent, AgentExecutionContext context) {
-        for (OpenJiuwenRuntimeToolInstaller installer : runtimeToolInstallers) {
-            installer.install(agent, context);
+        if (remoteToolInstaller != null) {
+            remoteToolInstaller.install(agent, context);
+        }
+        if (mcpToolInstaller != null) {
+            mcpToolInstaller.install(agent, context);
         }
     }
 
     public final void setRuntimeToolInstaller(OpenJiuwenRemoteToolInstaller runtimeToolInstaller) {
-        runtimeToolInstallers.removeIf(OpenJiuwenRemoteToolInstaller.class::isInstance);
-        if (runtimeToolInstaller != null) {
-            addRuntimeToolInstaller(runtimeToolInstaller);
-        }
+        this.remoteToolInstaller = runtimeToolInstaller;
     }
 
-    public final void addRuntimeToolInstaller(OpenJiuwenRuntimeToolInstaller runtimeToolInstaller) {
-        if (runtimeToolInstaller != null && !runtimeToolInstallers.contains(runtimeToolInstaller)) {
-            runtimeToolInstallers.add(runtimeToolInstaller);
-        }
+    public final void setMcpToolInstaller(OpenJiuwenMcpToolInstaller mcpToolInstaller) {
+        this.mcpToolInstaller = mcpToolInstaller;
     }
 
     /**

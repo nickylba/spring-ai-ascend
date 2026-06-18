@@ -41,7 +41,7 @@ public class McpAutoConfiguration {
             OpenJiuwenMcpToolInstaller installer = new OpenJiuwenMcpToolInstaller(mcpProvider);
             int count = 0;
             for (OpenJiuwenAgentRuntimeHandler handler : handlers.orderedStream().toList()) {
-                handler.addRuntimeToolInstaller(installer);
+                handler.setMcpToolInstaller(installer);
                 count++;
                 LOG.info("installed MCP tool installer into openjiuwen handler agentId={}", handler.agentId());
             }

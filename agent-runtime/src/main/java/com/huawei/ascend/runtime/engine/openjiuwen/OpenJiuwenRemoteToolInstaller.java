@@ -15,7 +15,7 @@ import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public final class OpenJiuwenRemoteToolInstaller implements OpenJiuwenRuntimeToolInstaller {
+public final class OpenJiuwenRemoteToolInstaller {
     private static final Logger LOG = LoggerFactory.getLogger(OpenJiuwenRemoteToolInstaller.class);
 
     private final Supplier<List<RemoteAgentToolSpec>> toolSpecs;
@@ -24,7 +24,6 @@ public final class OpenJiuwenRemoteToolInstaller implements OpenJiuwenRuntimeToo
         this.toolSpecs = Objects.requireNonNull(toolSpecs, "toolSpecs");
     }
 
-    @Override
     public void install(BaseAgent agent, AgentExecutionContext context) {
         Objects.requireNonNull(agent, "agent");
         Objects.requireNonNull(context, "context");
