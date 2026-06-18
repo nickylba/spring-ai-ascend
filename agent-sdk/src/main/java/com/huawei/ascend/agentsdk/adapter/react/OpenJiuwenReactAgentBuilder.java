@@ -1,5 +1,7 @@
 package com.huawei.ascend.agentsdk.adapter.react;
 
+import com.huawei.ascend.agentsdk.adapter.OpenJiuwenModelMapper;
+import com.huawei.ascend.agentsdk.adapter.OpenJiuwenRailMapper;
 import com.huawei.ascend.agentsdk.adapter.OpenJiuwenAgentSpecMapper;
 import com.huawei.ascend.agentsdk.adapter.OpenJiuwenSkillMapper;
 import com.huawei.ascend.agentsdk.adapter.OpenJiuwenToolMapper;
@@ -13,17 +15,26 @@ import com.openjiuwen.core.runner.Runner;
 import com.openjiuwen.core.singleagent.BaseAgent;
 import com.openjiuwen.core.singleagent.ReActAgent;
 import com.openjiuwen.core.singleagent.agents.ReActAgentConfig;
+import com.openjiuwen.core.singleagent.rail.AgentRail;
 import java.util.List;
 import java.util.Map;
 
 public final class OpenJiuwenReactAgentBuilder {
     private final List<ToolResolver> toolResolvers;
+    private final List<AgentRail> rails;
     private final OpenJiuwenToolMapper toolMapper = new OpenJiuwenToolMapper();
     private final OpenJiuwenSkillMapper skillMapper = new OpenJiuwenSkillMapper();
     private final OpenJiuwenAgentSpecMapper specMapper = new OpenJiuwenAgentSpecMapper();
+    private final OpenJiuwenModelMapper modelMapper = new OpenJiuwenModelMapper();
+    private final OpenJiuwenRailMapper railMapper = new OpenJiuwenRailMapper();
 
     public OpenJiuwenReactAgentBuilder(List<ToolResolver> toolResolvers) {
+        this(toolResolvers, List.of());
+    }
+
+    public OpenJiuwenReactAgentBuilder(List<ToolResolver> toolResolvers, List<AgentRail> rails) {
         this.toolResolvers = List.copyOf(toolResolvers);
+        this.rails = List.copyOf(rails);
     }
 
     public ReActAgent buildAgent(AgentSpec spec) {
@@ -42,6 +53,8 @@ public final class OpenJiuwenReactAgentBuilder {
                         spec.modelSpec().sslVerify(),
                         null,
                         spec.modelSpec().headers());
+        config.setModelClientConfig(modelMapper.toModelClientConfig(spec.modelSpec()));
+        config.setModelConfigObj(modelMapper.toModelRequestConfig(spec.modelSpec().requestSpec()));
         agent.configure(config);
         List<Tool> tools = spec.toolSpecs().stream()
                 .map(this::resolveTool)
@@ -51,6 +64,10 @@ public final class OpenJiuwenReactAgentBuilder {
         for (String skillDirectory : skillMapper.toSkillDirectories(spec.skillSpecs())) {
             agent.registerSkill(skillDirectory);
         }
+        spec.railSpecs().stream()
+                .map(railMapper::toAgentRail)
+                .forEach(agent::registerRail);
+        rails.forEach(agent::registerRail);
         return agent;
     }
 
@@ -70,4 +87,3 @@ public final class OpenJiuwenReactAgentBuilder {
         }
     }
 }
-

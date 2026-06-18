@@ -54,6 +54,19 @@ class HttpToolExecutorTest {
                 out.write(payload);
             }
         });
+        server.createContext("/redirect", exchange -> {
+            exchange.getResponseHeaders().set("Location", "/text");
+            exchange.sendResponseHeaders(302, -1);
+            exchange.close();
+        });
+        server.createContext("/large", exchange -> {
+            byte[] payload = "1234567890".getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "text/plain");
+            exchange.sendResponseHeaders(200, payload.length);
+            try (OutputStream out = exchange.getResponseBody()) {
+                out.write(payload);
+            }
+        });
         server.start();
     }
 
@@ -91,12 +104,50 @@ class HttpToolExecutorTest {
     @Test
     void nonSuccessStatusFailsLoudlyWithStatusAndBodyPreview() {
         HttpExecutionHandle handle = new HttpExecutionHandle(
-                uri("/fail"), "POST", Map.of(), Duration.ofSeconds(5));
+                uri("/fail"), "POST", Map.of(), Duration.ofSeconds(5),
+                false, 1024 * 1024, true);
 
         assertThatThrownBy(() -> new HttpToolExecutor().execute(handle, Map.of()))
                 .isInstanceOf(ToolExecutionException.class)
                 .hasMessageContaining("502")
                 .hasMessageContaining("upstream exploded");
+    }
+
+    @Test
+    void nonSuccessStatusHidesBodyUnlessExplicitlyExposed() {
+        HttpExecutionHandle handle = new HttpExecutionHandle(
+                uri("/fail"), "POST", Map.of(), Duration.ofSeconds(5));
+
+        assertThatThrownBy(() -> new HttpToolExecutor().execute(handle, Map.of()))
+                .isInstanceOf(ToolExecutionException.class)
+                .hasMessageContaining("502")
+                .satisfies(error -> assertThat(error.getMessage()).doesNotContain("upstream exploded"));
+    }
+
+    @Test
+    void redirectsAreNotFollowedUnlessExplicitlyEnabled() {
+        HttpExecutionHandle defaultHandle = new HttpExecutionHandle(
+                uri("/redirect"), "GET", Map.of(), Duration.ofSeconds(5));
+        HttpExecutionHandle redirectingHandle = new HttpExecutionHandle(
+                uri("/redirect"), "GET", Map.of(), Duration.ofSeconds(5),
+                true, 1024 * 1024, false);
+
+        assertThatThrownBy(() -> new HttpToolExecutor().execute(defaultHandle, Map.of()))
+                .isInstanceOf(ToolExecutionException.class)
+                .hasMessageContaining("302");
+        assertThat(new HttpToolExecutor().execute(redirectingHandle, Map.of()))
+                .isEqualTo("plain answer");
+    }
+
+    @Test
+    void responseLargerThanConfiguredLimitFailsFast() {
+        HttpExecutionHandle handle = new HttpExecutionHandle(
+                uri("/large"), "GET", Map.of(), Duration.ofSeconds(5),
+                false, 4, false);
+
+        assertThatThrownBy(() -> new HttpToolExecutor().execute(handle, Map.of()))
+                .isInstanceOf(ToolExecutionException.class)
+                .hasMessageContaining("maxResponseBytes");
     }
 
     @Test
