@@ -74,6 +74,11 @@
         <artifactId>agent-travel-agentscope-hotel</artifactId>
         <version>${project.version}</version>
       </dependency>
+      <dependency>
+        <groupId>com.huawei.ascend.examples</groupId>
+        <artifactId>agent-travel-agentscope-trip</artifactId>
+        <version>${project.version}</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
@@ -89,5 +94,7 @@
   <modules>
     <module>agent-hotel</module>
     <module>agent-hotel-a2a</module>
+    <module>agent-trip</module>
+    <module>agent-trip-a2a</module>
   </modules>
 </project>

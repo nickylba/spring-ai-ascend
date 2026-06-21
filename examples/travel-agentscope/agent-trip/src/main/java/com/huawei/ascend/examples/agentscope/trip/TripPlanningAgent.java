@@ -2,11 +2,10 @@
  * Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
  */
 
-package com.huawei.ascend.examples.agentscope.hotel;
+package com.huawei.ascend.examples.agentscope.trip;
 
-import com.huawei.ascend.examples.agentscope.hotel.mock.MockHotelInventory;
-import com.huawei.ascend.examples.agentscope.hotel.prompt.SystemPromptBuilder;
-import com.huawei.ascend.examples.agentscope.hotel.tool.HotelSkills;
+import com.huawei.ascend.examples.agentscope.trip.prompt.SystemPromptBuilder;
+import com.huawei.ascend.examples.agentscope.trip.tool.TripSkills;
 
 import io.agentscope.core.ReActAgent;
 import io.agentscope.core.agent.Event;
@@ -23,39 +22,47 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * AgentScope-flavored hotel-planning sub-agent. Mirrors
- * {@code com.huawei.ascend.examples.hotel.HotelPlanningAgent} (openJiuwen flavor) but
- * is built entirely on {@code io.agentscope:agentscope-core}: a {@link ReActAgent}
- * over {@link OpenAIChatModel}, with the two hotel skills registered through
- * {@link Toolkit#registerTool(Object)}.
+ * AgentScope-flavored trip planning agent. Mirrors the sibling
+ * {@code com.huawei.ascend.examples.agentscope.hotel.HotelPlanningAgent}: a
+ * {@link ReActAgent} over {@link OpenAIChatModel} with a single local tool
+ * ({@code plan_hotel}) registered through {@link Toolkit#registerTool(Object)}.
  *
- * <p>Pure-AgentScope library — has no compile-time dependency on agent-runtime. A
- * runtime host wraps this agent through an adapter that implements the AgentScope
- * runtime SAM (see {@code agent-hotel-a2a/HotelPlanningRuntimeAdapter}); other hosts
- * may invoke {@link #stream(List)} directly with AgentScope {@link Msg} turns.
+ * <p>Pure-AgentScope library — has no compile-time dependency on agent-runtime.
+ * A runtime host wraps this agent through an adapter that implements the
+ * AgentScope runtime SAM (see {@code agent-trip-a2a/TripPlanningRuntimeAdapter}).
  *
- * <p>Each {@link #stream(List)} call builds a fresh inner ReActAgent — sharing one
- * across calls would let conversation state leak across sessions.
+ * <p>The {@code plan_hotel} tool delegates through {@link TripSkills} to a
+ * {@link com.huawei.ascend.examples.agentscope.trip.tool.HotelPlannerClient} the
+ * host supplies — typically the A2A binding shipped by the
+ * {@code agent-trip-a2a} wrapper. The AgentScope handler family has no
+ * remote-agent auto-injection hook (OpenJiuwen has it via
+ * {@code OpenJiuwenRemoteToolInstaller}), so the tool is wired here as a
+ * regular local skill rather than injected by the runtime.
+ *
+ * <p>Each {@link #stream(List)} call builds a fresh inner ReActAgent so
+ * conversation state does not leak across sessions. Long-term memory parity
+ * with the OpenJiuwen trip agent is not implemented because the AgentScope
+ * handler has no memory rail (see runtime issue #316).
  */
-public final class HotelPlanningAgent {
+public final class TripPlanningAgent {
 
-    private static final int MAX_ITERS = 6;
-    private static final Duration MODEL_TIMEOUT = Duration.ofSeconds(120);
+    private static final int DEFAULT_MAX_ITERS = 5;
+    private static final Duration MODEL_TIMEOUT = Duration.ofSeconds(180);
 
     private final String agentId;
     private final LlmConfig llm;
-    private final MockHotelInventory inventory;
-    private final HotelSkills skills;
+    private final TripSkills skills;
+    private final int maxIters;
 
-    public HotelPlanningAgent(String agentId, LlmConfig llm) {
-        this(agentId, llm, new MockHotelInventory());
+    public TripPlanningAgent(String agentId, LlmConfig llm, TripSkills skills) {
+        this(agentId, llm, skills, DEFAULT_MAX_ITERS);
     }
 
-    public HotelPlanningAgent(String agentId, LlmConfig llm, MockHotelInventory inventory) {
+    public TripPlanningAgent(String agentId, LlmConfig llm, TripSkills skills, int maxIters) {
         this.agentId = Objects.requireNonNull(agentId, "agentId");
         this.llm = Objects.requireNonNull(llm, "llm");
-        this.inventory = Objects.requireNonNull(inventory, "inventory");
-        this.skills = new HotelSkills(inventory);
+        this.skills = Objects.requireNonNull(skills, "skills");
+        this.maxIters = maxIters;
     }
 
     public String agentId() {
@@ -64,10 +71,6 @@ public final class HotelPlanningAgent {
 
     public LlmConfig llmConfig() {
         return llm;
-    }
-
-    public int inventorySize() {
-        return inventory.totalHotels();
     }
 
     /**
@@ -86,7 +89,7 @@ public final class HotelPlanningAgent {
         GenerateOptions options = GenerateOptions.builder()
                 .stream(true)
                 .temperature(0.1)
-                .maxTokens(1200)
+                .maxTokens(1500)
                 .build();
         OpenAIChatModel model = OpenAIChatModel.builder()
                 .apiKey(llm.apiKey())
@@ -101,11 +104,11 @@ public final class HotelPlanningAgent {
         toolkit.registerTool(skills);
         return ReActAgent.builder()
                 .name(agentId)
-                .description("差旅多智能体系统中的酒店规划子智能体（AgentScope ReAct + 内存 mock 数据）")
-                .sysPrompt(SystemPromptBuilder.build())
+                .description("差旅多智能体系统中的行程规划智能体（AgentScope ReAct + plan_hotel 工具）")
+                .sysPrompt(SystemPromptBuilder.build(TripSkills.HOTEL_TOOL_NAME))
                 .model(model)
                 .toolkit(toolkit)
-                .maxIters(MAX_ITERS)
+                .maxIters(maxIters)
                 .generateOptions(options)
                 .build();
     }

@@ -39,6 +39,6 @@ public class HotelAgentConfiguration {
                 "Hotel Planning Agent (AgentScope)",
                 "Corporate-travel hotel planning sub-agent built with AgentScope core "
                         + "and hosted by agent-runtime.",
-                agent);
+                new HotelPlanningRuntimeAdapter(agent));
     }
 }
