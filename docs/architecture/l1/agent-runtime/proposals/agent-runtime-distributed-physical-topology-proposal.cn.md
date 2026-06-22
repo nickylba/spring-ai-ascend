@@ -2,15 +2,15 @@
 level: L1
 view: physical
 module: agent-runtime
-status: proposal
-proposal_status: proposed
-updated: 2026-06-16
+status: draft
+proposal_status: draft
+updated: 2026-06-22
 source_active_view: architecture/L1-High-Level-Design/agent-runtime/physical.md
 ---
 
-# agent-runtime 分布式物理拓扑提案
+# agent-runtime 分布式物理拓扑草案
 
-> 提案状态文档。本文档描述 `agent-runtime` 面向分布式 Task 状态、事件队列、事件总线和执行节点拆分的候选物理拓扑。在被 ADR 或对应版本设计接受并实现前，不作为 active 架构事实。
+> Draft 状态文档。本文档描述 `agent-runtime` 面向分布式 Task 状态、事件队列、事件总线和执行节点拆分的候选物理拓扑。在被 ADR 或对应版本设计接受并实现前，不作为 active 架构事实。
 
 ## 1. 背景
 
@@ -21,7 +21,7 @@ source_active_view: architecture/L1-High-Level-Design/agent-runtime/physical.md
 - 同一 Task 的订阅、取消、恢复需要回到拥有该 Task 内存状态的实例。
 - 多实例部署时，各实例默认是独立状态岛。
 
-本提案用于归档分布式物理拓扑候选方案，供后续版本进入架构评审、ADR 决策和实现拆分。
+本草案用于归档分布式物理拓扑候选方案，供后续版本进入架构评审、ADR 决策和实现拆分。它承接 active L0/L1 中已降格的未来设计点：跨重启 Task 恢复、持久化 checkpoint/cursor、跨实例订阅/取消/恢复和执行节点拆分。
 
 ## 2. 目标
 

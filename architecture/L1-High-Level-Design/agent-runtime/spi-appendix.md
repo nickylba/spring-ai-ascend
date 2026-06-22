@@ -58,7 +58,7 @@ com.huawei.ascend.runtime.engine.spi
 | 类型 | 语义 |
 |---|---|
 | `AgentRuntimeHandler` | 一个可执行 Agent 的 handler SPI，承接启动、停止、健康、执行、结果适配和协作式取消。 |
-| `AbstractAgentRuntimeHandler` | 可选基类，固定 `agentId()`，提供默认健康检查，并为支持 trajectory 的 handler 注入标准 run lifecycle。 |
+| `AbstractAgentRuntimeHandler` | 可选基类，固定 `agentId()`，提供默认健康检查，并为支持 trajectory 的 handler 注入标准 invocation trajectory lifecycle。 |
 | `StreamAdapter` | 将框架原生 `Stream<?>` 转换为 `Stream<AgentExecutionResult>`。 |
 | `AgentExecutionResult` | runtime 中立执行结果，表达输出、完成、失败、中断和远端 Agent 调用中断。 |
 
@@ -125,7 +125,7 @@ public interface AgentRuntimeHandler {
 - `agentId()` 为 final。
 - `isHealthy()` 默认返回 `true`。
 - 实现 `TrajectorySource.openTrajectory()`，当 trajectory 开启时向 `AgentExecutionContext` 注入 `StampingTrajectoryEmitter`。
-- `execute()` 为 final，自动发出 `RUN_START` / `RUN_END`，异常时发出 `ERROR` draft，然后委托子类 `doExecute(context, trajectory)`。
+- `execute()` 为 final，自动发出 `RUN_START` / `RUN_END` trajectory 事件，异常时发出 `ERROR` draft，然后委托子类 `doExecute(context, trajectory)`。这里的 `RUN_*` 是 telemetry 事件名，不表示服务端生命周期术语。
 - `supportedKinds()` 默认返回 `TrajectoryEvent.MANDATORY_KINDS`，子类可扩大支持的事件种类。
 
 ### 4.3 StreamAdapter

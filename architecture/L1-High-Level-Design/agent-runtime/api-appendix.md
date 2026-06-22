@@ -44,7 +44,7 @@ API 附录回答以下问题：
 | Agent Card 兼容发现 | `GET /.well-known/agent.json` | `AgentCardController` | legacy 兼容路径，返回同一类 Agent Card。 |
 | Health | host actuator path | `AgentRuntimeHealthIndicator` | 可选 Actuator health contributor，不是 runtime 自有路径。 |
 
-当前 active 代码不提供独立的自研管理 REST API、gRPC API 或非 A2A 的 northbound 执行 API。
+当前 active 代码不提供独立的自研管理 REST API、gRPC API 或非 A2A 的 northbound 执行 API。当前 A2A JSON-RPC 是 `agent-runtime` Service Task API 的 active 实现形态。
 
 ## 3. A2A JSON-RPC 入口
 

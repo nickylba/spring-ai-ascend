@@ -24,7 +24,7 @@ dependency:
 
 | 术语 | 当前含义 |
 |---|---|
-| run-owning runtime SDK | `agent-runtime` 对 runtime Task 生命周期负责：接收 A2A 请求、创建或推进 Task、调用本地 Agent handler，并把结果折叠回 A2A Task 状态。 |
+| task-owning runtime SDK | `agent-runtime` 对 runtime Task 生命周期负责：接收 A2A 请求、创建或推进 Task、调用本地 Agent handler，并把结果折叠回 A2A Task 状态。历史或代码中的 run 命名只能理解为 invocation/trajectory 兼容语义，不引入第二个生命周期 owner。 |
 | 本地 Agent handler | 当前 JVM 内唯一注册的 `AgentRuntimeHandler` bean。当前版本 host 只允许一个本地 handler；多个本地 handler / 多本地 Agent 路由属于未来版本提案范围。 |
 | 框架适配器 | 位于 `engine.openjiuwen`、`engine.agentscope` 等包中的适配实现，负责把中立 `AgentExecutionContext` 转换为具体框架输入，并把框架原生输出转换为 `AgentExecutionResult`。 |
 | A2A 协议桥 | 位于 `engine.a2a` 和 `boot` 边界内的协议相关实现，包括 A2A JSON-RPC controller、Agent Card、A2A executor、远端 Agent card cache、outbound adapter 和 remote invocation orchestration。 |

@@ -62,7 +62,7 @@ dependency:
 
 **数据与状态对象归属（持有什么，不持有什么）**
 
-`agent-runtime` 拥有 Task、Task tree、Task lifecycle state、Task hierarchy、Session / Context shell、Agent definition 的服务侧注册与运行入口、服务端恢复 checkpoint、挂起/恢复游标、服务流引用和运行时查询引用。它是服务端 Task 生命周期的权威 owner。
+`agent-runtime` 拥有 Task、Task tree、Task lifecycle state、Task hierarchy、Session / Context shell、Agent definition 的服务侧注册与运行入口、服务流引用和运行时查询引用。当前 active `agent-runtime` 默认不拥有跨重启恢复 checkpoint 或持久化挂起/恢复游标；这些能力属于后续 draft 设计。它是服务端 Task 生命周期的权威 owner。
 
 **行为边界概述（面向谁，暴露什么）**
 
@@ -88,13 +88,13 @@ dependency:
 
 **业务逻辑职责（负责什么、不负责什么）**
 
-`agent-bus` 是全局交互治理与总线边界，负责跨实例、跨部门、跨部署、跨信任边界的控制协作。它治理跨边界通信关系，而不是拥有每个服务实例内部的生命周期状态。
+`agent-bus` 是全局交互治理与总线边界，负责跨实例、跨部门、跨部署、跨信任边界的控制协作方向。当前 active 架构只保留该逻辑边界，具体 L1/L2 总线治理、路由和传输机制尚未展开。它治理跨边界通信关系，而不是拥有每个服务实例内部的生命周期状态。
 
 `agent-bus` 不负责单个 `agent-runtime` 实例内部的多智能体协调，不直接修改 Task hierarchy 或 Task lifecycle state，不承载 token-by-token 服务流、大对象正文、多模态正文或客户敏感数据正文，也不做微服务网关层面的业务编排。
 
 **数据与状态对象归属（持有什么，不持有什么）**
 
-`agent-bus` 拥有跨边界路由引用、A2A / federation 控制命令、S2C 回调引用、数据引用信封、权限中介上下文、节奏信号、唤醒信号、超时信号和事件/控制通道元数据。它不拥有 Task lifecycle state 或 Task sleep state。
+`agent-bus` 的目标边界包括跨边界路由引用、A2A / federation 控制命令、S2C 回调引用、数据引用信封、权限中介上下文、节奏信号、唤醒信号、超时信号和事件/控制通道元数据；这些具体能力在展开为 L1/L2 前不作为已实现事实。它不拥有 Task lifecycle state 或 Task sleep state。
 
 **行为边界概述（面向谁，暴露什么）**
 

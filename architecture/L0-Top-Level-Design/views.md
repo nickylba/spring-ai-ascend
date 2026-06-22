@@ -113,13 +113,13 @@ L1 架构位于 `architecture/L1-High-Level-Design/`。L2 技术设计由后续 
 
 | 路径 | 顶层流程 | 涉及模块 | 必须保持的约束 |
 |---|---|---|---|
-| Task 创建与接入 | client / HTTP caller -> Platform Gateway 或 Service Task API -> `agent-runtime` 创建 Task。 | `agent-client`、`agent-bus`、`agent-runtime` | 入口绑定 tenant、actor、idempotency、posture 和 trace；Platform Gateway 不成为 Task owner。 |
+| Task 创建与接入 | client / HTTP caller -> Service Task API 当前实现形态（A2A JSON-RPC） -> `agent-runtime` 创建 Task。 | `agent-client`、`agent-runtime` | 入口传播 tenant 和 trace；Platform Gateway 准入、actor、idempotency 和 posture 治理属于待展开 draft 设计。 |
 | 智能体执行 | `agent-runtime` Task owner -> 受治理执行契约 -> `agent-core` 官方组件或异构框架适配实现 -> 返回执行结果/意图。 | `agent-runtime`、`agent-core`、异构框架适配实现 | SDK/框架不直接拉取 Task，不直接写生命周期状态。 |
 | 上下文构建 | Task owner 请求上下文 -> Session shell -> memory/retrieval/prompt/advisor 组装 context package。 | `agent-runtime`、`agent-middleware` | Context 不覆盖 Task 生命周期；记忆和知识状态通过中间件边界读写。 |
 | 工具调用 | 执行组件产生 tool intent -> 服务侧治理 -> skill/tool/sandbox 执行 -> audit/evidence。 | `agent-core`、`agent-runtime`、`agent-middleware` | 不可逆副作用必须幂等或有重复保护；工具不得绕过治理直接外呼。 |
-| 本地能力 / 审批 | 服务侧产生 Yield/S2C 请求 -> `agent-bus` 治理回调 -> `agent-client` 本地能力或审批 UI -> 受控结果返回。 | `agent-runtime`、`agent-bus`、`agent-client` | C-Side 能力保留在业务侧；平台只接收治理后的结果和证据。 |
-| 跨实例 A2A / 联邦 | 本地 Task 产生子工作或联邦请求 -> `agent-bus` A2A/联邦控制 -> 远端 `agent-runtime` 创建/绑定远端 Task。 | `agent-runtime`、`agent-bus`、远端 `agent-runtime` | 远端 Task 生命周期由远端服务拥有；本地只保留关系引用、join 状态和证据。 |
-| 挂起 / 恢复 | 长等待 -> `agent-runtime` 持久化 checkpoint / cursor / next-wake -> 释放物理资源 -> 回调、节奏信号或用户动作恢复。 | `agent-runtime`、`agent-bus`、`agent-client` | 长等待不得占用线程或长连接；bus 可治理唤醒信号但不拥有服务内 sleep 状态。 |
+| 本地能力 / 审批 | 服务侧产生中断或等待输入状态 -> 客户端继续消息或回调结果 -> 受控结果返回。 | `agent-runtime`、`agent-client` | 当前 active `agent-runtime` 表达 `INPUT_REQUIRED` 等状态；S2C 总线治理、本地能力权限和审批 UI 属于 draft 设计。 |
+| 跨实例 A2A / 联邦 | 当前 `agent-runtime` 提供远端 A2A Agent outbound 调用支撑；跨实例、跨部门、跨数据边界治理需要显式声明。 | `agent-runtime`、远端 `agent-runtime` | 远端 Task 生命周期由远端服务拥有；中央 `agent-bus` 联邦治理属于 draft 设计。 |
+| 挂起 / 恢复 | 长等待或外部输入等待 -> `agent-runtime` 表达 Task 中断/等待状态 -> 客户端继续消息或远端回灌恢复。 | `agent-runtime`、`agent-client` | 当前 active 默认 InMemory，不保证跨重启恢复；checkpoint/cursor/next-wake 持久化和节奏信号属于 draft 设计。 |
 | 实时输出 | `agent-runtime` 服务流表面 -> client SSE/stream 消费。 | `agent-runtime`、`agent-client` | token/content stream 不退化为窄事件/控制通道。 |
 | 数据引用 | 控制消息携带引用信封 -> 授权消费者读取对象存储/客户系统/提供方。 | `agent-bus`、`agent-runtime`、外部数据路径 | 大载荷和敏感数据不进入窄事件/控制载荷。 |
 | 证据链 | 各路径产生 trace、span、event、audit、metrics、cost、fixture。 | 全模块 + 纵向能力 | 证据可关联 tenant、Task、agent、tree、tool 和 cost。 |
@@ -129,10 +129,10 @@ L1 架构位于 `architecture/L1-High-Level-Design/`。L2 技术设计由后续 
 | 并发域 | 并发方式 | 资源释放规则 | 背压与隔离 |
 |---|---|---|---|
 | 接入控制 | 短事务处理请求准入、幂等校验、租户和安全态势绑定。 | 不承载长尾 token stream 或大载荷传输。 | 与服务流、数据路径和 bus 控制通道隔离。 |
-| Task lifecycle | 每个 Task 由 `agent-runtime` 持有状态机和确定性 writer path。 | 长等待表达为 suspend/resume/cursor/checkpoint。 | 按租户、应用、agent、Task tree 做容量和并发治理。 |
+| Task lifecycle | 每个 Task 由 `agent-runtime` 持有状态机和确定性 writer path。 | 当前长等待表达为 Task 状态、事件和继续消息。 | 租户/应用/agent/Task tree 维度容量治理属于 draft 设计。 |
 | SDK / 框架执行 | workflow 节点、ReAct loop 和异构适配可并发执行。 | 执行组件返回意图或结果，不保留服务端生命周期锁。 | 由服务侧契约和中间件治理限制工具、模型和资源使用。 |
-| 中间件能力 | 模型、记忆、检索、技能、沙箱等能力按独立资源池或提供方边界运行。 | 外部调用与沙箱执行必须可审计、可超时、可熔断。 | Provider 级背压不得阻塞 Task 控制通道。 |
-| Bus 控制 | A2A、S2C、rhythm signal 和数据引用信封走窄控制/事件通道。 | 只传控制、引用、路由和节奏信号。 | 不承载 token stream、大对象正文或服务内 Task sleep owner。 |
+| 中间件能力 | 当前仅在 `agent-runtime` SPI 中提供 memory、trajectory、remote tool 等窄接缝。 | 外部调用与沙箱执行治理属于后续中间件 L1/L2 设计。 | Provider 级背压属于 draft 设计。 |
+| Bus 控制 | `agent-bus` 作为逻辑模块保留跨边界治理方向。 | A2A、S2C、rhythm signal 和数据引用信封的窄控制通道属于 draft 设计。 | 不承载 token stream、大对象正文或服务内 Task sleep owner是目标约束，尚待 L1 展开。 |
 | 服务流 | SSE 或等价服务实时输出表面。 | 客户端消费慢不得反向阻塞控制面。 | 与事件/控制通道分离。 |
 | 演进平面 | 异步消费导出证据，离线分析、评分或优化。 | 不同步等待主请求。 | 通过导出契约和隐私治理限流。 |
 
@@ -145,9 +145,9 @@ L1 架构位于 `architecture/L1-High-Level-Design/`。L2 技术设计由后续 
 | 物理平面 | 典型部署单元 | 主要资源 | 承载模块 |
 |---|---|---|---|
 | 边缘 / 客户端平面 | SDK、业务应用、本地能力 agent、审批 UI。 | 终端、本地服务器、业务侧网络和本地凭据。 | `agent-client`，以及 C-Side local capability。 |
-| 服务控制平面 | Task service、runtime service、adapter host、query/stream service。 | CPU、服务线程池、状态存储、checkpoint 存储。 | `agent-runtime`，可包含被适配的 `agent-core` 执行组件。 |
+| 服务控制平面 | Task service、runtime service、adapter host、query/stream service。 | 当前 active `agent-runtime` 使用宿主 JVM、服务线程池和 InMemory 状态；checkpoint 存储属于 draft 设计。 | `agent-runtime`，可包含被适配的 `agent-core` 执行组件。 |
 | SDK / 执行组件平面 | Java SDK library、agent-core runtime、workflow/ReAct executor、异构框架 adapter host。 | CPU/NPU/GPU 入口、执行线程、框架运行时资源。 | `agent-core`，以及由 `agent-runtime` 适配接入的外部框架。 |
-| 总线与交互治理平面 | Platform Gateway、A2A/S2C gateway、event/control channel、permission/routing service。 | 网络、消息中间件、路由表、权限中介、调度器。 | `agent-bus`。 |
+| 总线与交互治理平面 | Platform Gateway、A2A/S2C gateway、event/control channel、permission/routing service。 | 网络、消息中间件、路由表、权限中介、调度器。 | `agent-bus`，当前尚未展开 L1 active 设计。 |
 | 中间件能力平面 | model gateway、memory store、retrieval service、skill service、sandbox service、prompt/advisor service。 | 模型连接池、向量库、对象存储、沙箱容器、外部工具连接。 | `agent-middleware`。 |
 | 数据路径平面 | 客户数据源、对象存储、第三方系统、模型/知识提供方。 | 数据库、对象存储、文件系统、专线或外部 API。 | 外部系统 + 数据引用路径治理。 |
 | 演进平面 | export job、eval worker、offline scoring、ML pipeline adapter。 | 离线计算、训练/评估资源、证据仓。 | `agent-evolve`。 |
@@ -172,12 +172,12 @@ L1 架构位于 `architecture/L1-High-Level-Design/`。L2 技术设计由后续 
 
 | 场景 | 稳定运行证明什么 | 覆盖视图 |
 |---|---|---|
-| S1 创建 Task | 入口、租户、操作者、幂等、trace 和 Task owner 归属正确。 | 逻辑视图、运行视图、物理视图。 |
-| S2 执行智能体步骤 | `agent-runtime` 能通过受治理执行契约调用 `agent-core` 或适配实现，并保持 Task 生命周期权威。 | 逻辑视图、开发视图、运行视图。 |
-| S3 构建上下文包 | Session、memory、retrieval、prompt、advisor 的归属和协作路径不越界。 | 逻辑视图、运行视图。 |
-| S4 带治理的工具调用 | Tool/Skill/Sandbox 能力经过授权、容量、审计、幂等和副作用保护。 | 逻辑视图、开发视图、运行视图。 |
-| S5 挂起 / 恢复 | 长等待可以释放物理资源，并通过 checkpoint、cursor、callback、timeout 或 rhythm signal 恢复。 | 运行视图、物理视图。 |
-| S6 子 Task / 联邦协作 | 同实例 Task tree 与跨实例 A2A/联邦边界清晰，远端生命周期不被本地或 bus 抢占。 | 逻辑视图、运行视图、物理视图。 |
+| S1 创建 Task | A2A Service Task API 能创建 runtime Task，并保持 Task owner 归属清晰；租户/操作者/幂等/posture 的完整准入治理属于 draft 设计。 | 逻辑视图、运行视图、物理视图。 |
+| S2 执行智能体步骤 | `agent-runtime` 能通过中立执行 SPI 调用本地 handler 或适配实现，并保持 Task 生命周期权威。 | 逻辑视图、开发视图、运行视图。 |
+| S3 构建上下文包 | 当前验证 Task/Session 与业务 Agent checkpoint 不混写；完整 Context Engine、retrieval、prompt、advisor 组装属于 draft 设计。 | 逻辑视图、运行视图。 |
+| S4 带治理的工具调用 | 当前验证远端 Agent 工具规格与中立 SPI 边界；Tool/Skill/Sandbox 授权、容量、审计、幂等和副作用保护属于 draft 设计。 | 逻辑视图、开发视图、运行视图。 |
+| S5 挂起 / 恢复 | 当前验证 `INPUT_REQUIRED`、继续消息和远端回灌等 Task 状态路径；跨重启 checkpoint、cursor、callback、timeout 或 rhythm signal 恢复属于 draft 设计。 | 运行视图、物理视图。 |
+| S6 子 Task / 联邦协作 | 当前验证远端 A2A outbound 支撑不抢占远端生命周期；同实例 Task tree、跨实例 A2A/联邦和 agent-bus 治理属于 draft 设计。 | 逻辑视图、运行视图、物理视图。 |
 
 ### 场景提升规则
 

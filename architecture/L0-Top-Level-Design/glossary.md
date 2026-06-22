@@ -59,7 +59,7 @@ dependency:
 | 工具网关 | Tool Gateway | 面向 skill 授权、容量、审计、幂等和工具调用治理的能力聚合。 | `agent-middleware` + `agent-runtime` integration | independent reactor module | proposal |
 | 上下文引擎 | Context Engine | 面向 session、context projection、memory、retrieval、vector 和 context package assembly 的能力聚合。 | `agent-runtime` + `agent-middleware` | independent reactor module | proposal |
 | 平台网关 | Platform Gateway | 平台级入口治理能力，涵盖认证预检查、租户路由、跨服务路由、流量治理、A2A/S2C ingress 和权限中介；可在 L1/L2 中作为 `agent-bus` 下的运行时单元实现。 | `agent-bus` L1/L2 candidate | Service Task API、service stream、business orchestration | proposal |
-| 服务任务 API | Service Task API | 服务侧拥有的 create task、query task、stream task、cancel task 和相关 Task 生命周期 HTTP/API 表面。 | `agent-runtime` | Platform Gateway、bus event channel、engine pull queue | active |
+| 服务任务 API | Service Task API | 服务侧拥有的 create task、query task、stream task、cancel task 和相关 Task 生命周期 HTTP/API 表面。当前 `agent-runtime` L1 中，A2A JSON-RPC 是该 API 的 active 实现形态。 | `agent-runtime` | Platform Gateway、bus event channel、engine pull queue | active |
 | 智能体总线 | Agent Bus | 面向 S2C、A2A/federation、路由、权限中介、节奏、数据引用信封和窄事件/控制传输单元的广义平台交互治理领域；不等同于单一 MQ 或 event bus。 | `agent-bus` | narrow event bus、service SSE stream、gateway ingress | active |
 | 事件/控制通道 | Event/control channel | `agent-bus` 领域下的窄传输或信号通道，可由 MQ 或其他消息中间件承载；只传控制命令、引用、路由元数据和节奏信号，不承载大对象正文或 token-by-token 外部流。 | `agent-bus` L1/L2 runtime unit | broad Agent Bus domain、data path、service stream | active |
 | 集成开发者 | Integrating developer | 直接集成 `agent-client`、定义智能体、连接业务工具并负责业务系统内应用发布结果的平台用户。 | business application team | end business user、platform-internal module owner | proposal |
