@@ -1,0 +1,59 @@
+---
+level: L1
+view: version-scope
+module: agent-runtime
+status: active
+updated: 2026-06-22
+authority: "ADR-0159 (agent-runtime consolidation) + current version facts"
+covers: [A2A协议与S2C通讯, 异构Agent框架兼容, 核心接口与状态边界, Memory与State中间件, 远程Agent编排, 轨迹可观测性]
+---
+
+# agent-runtime version-scope
+
+`version-scope` 是当前版本的事实范围描述目录，用于说明本版本已经纳入范围、需要被设计与实现对齐的需求事实。它不是长期路线图，也不是模块详细设计本身；它回答的是：当前版本对外承诺哪些能力、这些能力的外部行为边界是什么、哪些文档是后续详细设计与实现校验的事实来源。
+
+## 1. 文档目的
+
+本目录承载 `agent-runtime` 当前版本的需求类文档，包括：
+
+| 文档类型 | 说明 |
+|---|---|
+| 原始需求文档 | 记录需求来源、业务动机、版本目标和约束条件。 |
+| 场景设计文档 | 记录面向用户或系统集成方的典型使用场景、交互链路和端到端流程。 |
+| 特性用例文档 | 以外部视角描述特性的黑盒行为，包括能力边界、外部接口、用户示例和 E2E 流程。 |
+
+其中，特性用例文档是本目录的核心产物。它们侧重外部可观察行为，不展开模块内部结构；`architecture/L2-Low-Level-Design/` 中各模块详细设计会引用这些特性用例文档，并与其一一对应。
+
+## 2. 范围边界
+
+本目录只描述当前版本已经纳入事实范围的能力：
+
+- 只声明当前版本范围内的特性，不记录后续路线图。
+- 只描述外部行为、能力边界、接口入口和用户可见流程。
+- 不替代 L2 详细设计；内部模块拆分、类设计、数据结构和实现策略由 `architecture/L2-Low-Level-Design/` 承载。
+- 不替代开发者指南；安装、配置和完整操作手册由 `agent-runtime/docs/guides/` 承载。
+
+## 3. 特性索引
+
+| Feature ID | 特性 | 当前版本范围简介 | 特性用例文档 | L2 详细设计对应关系 |
+|---|---|---|---|---|
+| Feat-Func-001 | A2A 协议标准与 S2C 通讯模型 | 对外暴露 A2A JSON-RPC 与 Agent Card 发现能力，支持阻塞、流式和异步任务查询三类通讯模型。 | [Feat-Func-001-a2a-protocol-and-s2c-communication.md](./Feat-Func-001-a2a-protocol-and-s2c-communication.md) | `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-001-a2a-protocol-and-s2c-communication.md` |
+| Feat-Func-002 | 异构 Agent 框架兼容 | 通过统一 Adapter 抽象接入 OpenJiuwen、AgentScope 和 Versatile REST 代理，使上层 A2A 协议层不感知底层框架差异。 | [Feat-Func-002-heterogeneous-agent-framework-compatibility.md](./Feat-Func-002-heterogeneous-agent-framework-compatibility.md) | `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-002-heterogeneous-agent-framework-compatibility.md` |
+| Feat-Func-003 | agent-runtime 核心接口与状态边界 | 定义 `AgentRuntimeHandler`、`StreamAdapter`、`AgentCardProvider`、state key、MemoryProvider 预留 SPI 等核心接口和扩展边界。 | [Feat-Func-003-agent-runtime-core-interface.md](./Feat-Func-003-agent-runtime-core-interface.md) | `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-003-agent-runtime-core-interface.cn.md` |
+| Feat-Func-004 | 中间件解耦 — Memory & State | 将记忆检索/保存与 Agent 执行状态持久化从具体 Agent 框架中解耦，以可注入、可替换的中间件能力接入 runtime。 | [Feat-Func-004-middleware-memory-and-state.md](./Feat-Func-004-middleware-memory-and-state.md) | `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-004-middleware-memory-and-state.md` |
+| Feat-Func-005 | 远程 Agent 编排 | runtime 作为 A2A 客户端接入远程 Agent，基于 Agent Card 生成本地工具，并支持远程调用、中断续接、进度投射和取消传播。 | [Feat-Func-005-remote-agent-orchestration.md](./Feat-Func-005-remote-agent-orchestration.md) | `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-005-remote-agent-orchestration.md` |
+| Feat-DFX-001 | 轨迹可观测性 | 记录 Agent 执行过程中的运行、模型调用、工具调用、错误和进度事件，提供框架中立的执行轨迹与敏感信息掩码。 | [Feat-DFX-001-trajectory-observability.md](./Feat-DFX-001-trajectory-observability.md) | `architecture/L2-Low-Level-Design/agent-runtime/Feat-DFX-001-trajectory-observability.md` |
+
+## 4. 阅读顺序
+
+1. 先阅读本入口，确认当前版本事实范围和文档关系。
+2. 按 Feature ID 阅读对应特性用例文档，确认外部行为、能力边界和场景流程。
+3. 进入 `architecture/L2-Low-Level-Design/agent-runtime/` 阅读对应详细设计，确认内部设计如何满足特性用例。
+4. 进入 `agent-runtime/docs/guides/` 和 `examples/` 查看开发指导与可运行样例。
+
+## 5. 维护规则
+
+- 新增当前版本特性时，必须在本入口登记 Feature ID、特性名称、简介、特性用例文档和 L2 详细设计对应关系。
+- 特性用例文档应保持黑盒视角，避免提前写入类名级实现细节；必要的 SPI 或配置入口可以作为外部接口说明。
+- 入口文档只保留简介和索引；详细能力清单、显式排除、用户示例和 E2E 流程应放入对应特性用例文档。
+- 未纳入当前版本事实范围的能力不在本入口声明；如需记录后续规划，应放入独立 roadmap 或 backlog 文档。

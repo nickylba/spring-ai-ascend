@@ -5,7 +5,7 @@ feature_type: dfx
 feature_id: Feat-DFX-001
 status: active
 dependency:
-  - agent-runtime-release-features.cn.md
+  - README.md
   - ../architecture/L2-Low-Level-Design/agent-runtime/Feat-DFX-001-trajectory-observability.md
 ---
 

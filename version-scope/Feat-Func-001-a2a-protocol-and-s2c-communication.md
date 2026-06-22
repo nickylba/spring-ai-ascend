@@ -5,7 +5,7 @@ feature_type: functional
 feature_id: Feat-Func-001
 status: active
 dependency:
-  - agent-runtime-release-features.cn.md
+  - README.md
   - ../architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-001-a2a-protocol-and-s2c-communication.md
 ---
 

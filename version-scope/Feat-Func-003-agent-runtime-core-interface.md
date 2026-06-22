@@ -5,7 +5,7 @@ feature_type: functional
 feature_id: Feat-Func-003
 status: active
 dependency:
-  - agent-runtime-release-features.cn.md
+  - README.md
   - ../architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-003-agent-runtime-core-interface.cn.md
 ---
 
