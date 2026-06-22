@@ -1,7 +1,23 @@
+---
+level: L2-LLD
+module: agent-runtime
+feature_type: functional
+feature_id: Feat-Func-005
+status: active
+dependency:
+  - ../../L1-High-Level-Design/agent-runtime/README.md
+  - ../../L1-High-Level-Design/agent-runtime/development.md
+  - ../../L1-High-Level-Design/agent-runtime/process.md
+  - ../../../version-scope/Feat-Func-005-remote-agent-orchestration.cn.md
+---
+
 # 远程 Agent 编排 — 设计文档
 
 > 目标模块：`agent-runtime/src/main/java/com/huawei/ascend/runtime/engine/a2a/`（南向）
 > 最后更新：2026-06-14
+> **⚠️ 关键约束：没有 skills 的 Agent Card 不会被 LLM 作为 Tool 调用。** 如果远端 Agent Card 的 `skills` 字段为空或不存在，Card Cache 不会为其生成 `RemoteAgentToolSpec`，该 Agent 对 LLM 不可见。这意味着：
+> - 如果你的 Agent 需要被其他 Agent 作为 Tool 调用，必须在 Agent Card 中声明至少一个 skill
+> - 仅用于直接 A2A 调用的 Agent（不需要被其他 Agent 发现的）可以不声明 skills
 
 ---
 
@@ -14,14 +30,18 @@ agent-runtime 作为 A2A 客户端接入和调用其他 A2A Agent，实现跨 Ag
 - **解决的问题**：单个 Agent 能力有限，需要将专业任务委托给其他 Agent。A2A 协议提供了标准的跨 Agent 通信方式，无需 Agent 之间共享代码或状态。
 - **适用场景**：多 Agent 协作（旅行助手调用天气/酒店/航班 Agent）、企业 Agent 生态（主 Agent 调用部门级子 Agent）。如果只需要单一 Agent 完成所有任务，不需要此特性。
 
-### 1.2 核心设计原则
+### 1.2 当前事实边界
+
+本文只描述 Feat-Func-005 在当前 `agent-runtime` 模块中的已接受实现事实。面向调用方的黑盒行为、用户场景和外部示例已迁移到 `version-scope/Feat-Func-005-remote-agent-orchestration.cn.md`；模块级 API/SPI、逻辑对象归属和部署资源模型以 L1 设计及其附录为准。
+
+### 1.3 设计原则
 
 1. **配置驱动** — 远程端点通过 YAML 静态配置，非动态网络发现
 2. **A2A 原生** — 南向通信完全使用 A2A JSON-RPC，与远程 Agent 的实现语言/框架无关
 3. **中断-续接** — 远程 Agent 返回输入请求时，父 Task 自动挂起等待；输入到达后恢复执行
 4. **故障隔离** — 远程 Agent 不可用时从目录标记不可用，不影响其他远程 Agent 和本地 Agent 的运行
 
-### 1.3 子特性全景
+### 1.4 子特性全景
 
 | 子特性 | 职责 | 关键抽象 | 状态 |
 |--------|------|---------|------|
@@ -32,7 +52,7 @@ agent-runtime 作为 A2A 客户端接入和调用其他 A2A Agent，实现跨 Ag
 
 ---
 
-## 2. 功能规格
+## 2. 特性规格
 
 ### 2.1 能力清单
 
@@ -61,37 +81,7 @@ agent-runtime 作为 A2A 客户端接入和调用其他 A2A Agent，实现跨 Ag
 | 远程 Agent 负载均衡 | 不属于 agent-runtime 职责 | 在反向代理层实现 |
 | 远程调用的认证 | A2A 认证属于协议层，不属于编排层 | 通过 A2A SDK 认证扩展 |
 
-### 2.3 接口契约
-
-#### RemoteAgentInvocationService
-
-```java
-/** 远程 A2A 调用服务层。 */
-public class RemoteAgentInvocationService {
-    /** 发起首次远程调用。 */
-    RemoteAgentResult invoke(RemoteAgentRequest request);
-
-    /** 续写 input-required 的远程 Task。 */
-    RemoteAgentResult resumeRemoteInput(RemoteTaskReference ref, String userInput);
-
-    /** 取消远程 Task（best-effort）。 */
-    void cancel(RemoteTaskReference ref);
-}
-```
-
-#### RemoteAgentToolSpec
-
-```java
-/** 协议中立的远程 Agent 工具描述。 */
-public record RemoteAgentToolSpec(
-    String remoteAgentId,    // 路由键
-    String toolName,         // LLM function name
-    String description,      // LLM function description
-    Map<String, Object> inputSchema  // 开放 JSON schema
-) {}
-```
-
-#### 行为承诺
+### 2.3 行为承诺
 
 - **必须**：Card Cache 按配置 URL 维护，不发现新 URL
 - **必须**：远程调用超时后 best-effort cancel 孤儿 Task
@@ -101,57 +91,9 @@ public record RemoteAgentToolSpec(
 
 ---
 
-## 3. 模块结构
+## 3. 核心实现
 
-### 3.1 包结构
-
-```
-engine/a2a/
-├── RemoteAgentProperties.java              # YAML 配置属性
-├── RemoteAgentCardCache.java               # 远程 Agent Card 缓存（volatile snapshot）
-├── RemoteAgentInvocationService.java       # 远程调用服务层
-├── A2aRemoteAgentOutboundAdapter.java      # A2A JSON-RPC 出站传输适配器
-├── A2aRemoteInvocationOrchestrator.java    # 远程调用编排引擎
-├── A2aParentTaskProjector.java             # 父 Task 进度投射
-├── A2aClientAutoConfiguration.java         # 条件自动装配（按 remote-agents[0].url 激活）
-
-engine/openjiuwen/
-├── OpenJiuwenRemoteAgentInterruptRail.java # 拦截远程 Tool → 创建 InterruptRequest
-└── OpenJiuwenRemoteToolInstaller.java      # 安装远程 Tool 到 OpenJiuwen Agent
-
-engine/spi/
-└── RemoteAgentToolSpec.java                # 协议中立的远程 Tool 描述
-```
-
-### 3.2 核心类静态关系
-
-```
-RemoteAgentCardCache
-      │
-      ├── 拉取 Agent Card ──→ RemoteAgentToolSpec
-      │                              │
-      │                              ▼
-      │                   OpenJiuwenRemoteToolInstaller
-      │                              │
-      │                              ▼ install
-      │                   OpenJiuwen Agent
-      │
-      ▼
-A2aRemoteAgentOutboundAdapter  ←── RemoteAgentInvocationService
-      │
-      ▼ 调用
-A2aRemoteInvocationOrchestrator
-      │
-      ├── outbound: invoke remote
-      ├── inbound: A2aParentTaskProjector → parent task
-      └── resume: re-enter local handler
-```
-
----
-
-## 4. 核心设计
-
-### 4.1 远程 Agent 配置接入
+### 3.1 远程 Agent 配置接入
 
 ```
 应用配置: agent-runtime.remote-agents[0].url=http://remote:18081
@@ -179,7 +121,7 @@ A2aClientAutoConfiguration (条件激活)
 > - 如果你的 Agent 需要被其他 Agent 作为 Tool 调用，必须在 Agent Card 中声明至少一个 skill
 > - 仅用于直接 A2A 调用的 Agent（不需要被其他 Agent 发现的）可以不声明 skills
 
-### 4.2 远程调用管道
+### 3.2 远程调用管道
 
 ```
 本地 Agent 执行中 → LLM 调用远程 Tool
@@ -220,7 +162,7 @@ A2aRemoteInvocationOrchestrator
 | `TaskStatusUpdate` | 其他 final state | toolResult = error JSON |
 | 超时 | 超过 stream-timeout | `{"error":"remote A2A stream timed out","code":"REMOTE_TIMEOUT"}` |
 
-### 4.3 中断-续接流程
+### 3.3 中断-续接流程
 
 ```
 第一轮:
@@ -241,7 +183,7 @@ A2aRemoteInvocationOrchestrator
     → 远程 COMPLETED → toolResult = "remote answer"
 ```
 
-### 4.4 结果回灌
+### 3.4 结果回灌
 
 ```
 远程 COMPLETED → toolResult = "remote answer"
@@ -271,111 +213,65 @@ OpenJiuwen Runner (resume 模式):
 
 ---
 
-## 5. 配置模型
+## 4. 代码结构
 
-### 5.1 完整配置示例
-
-```yaml
-agent-runtime:
-  remote-agents:
-    - url: http://weather-agent:18081
-      stream-timeout: 30s
-      output:
-        default-target: USER
-        completion-target: LLM
-    - url: http://hotel-agent:18082
-      stream-timeout: 60s
-```
-
-### 5.2 配置属性表
-
-| 属性路径 | 类型 | 默认值 | 说明 |
-|---------|------|--------|------|
-| `agent-runtime.remote-agents[N].url` | String | — | 远程 Agent base URL（必填以激活） |
-| `agent-runtime.remote-agents[N].stream-timeout` | Duration | — | 流式调用超时 |
-| `agent-runtime.remote-agents[N].output.default-target` | String | — | 默认输出目标（USER / LLM / BOTH） |
-| `agent-runtime.remote-agents[N].output.completion-target` | String | — | 完成时输出目标 |
-
----
-
-## 6. 对外呈现 / 用户场景
-
-### 6.1 外部接口
-
-| API | 说明 |
-|-----|------|
-| `agent-runtime.remote-agents` YAML | 配置远程端点 |
-| RemoteAgentToolSpec | 被 LLM 看到的工具描述 |
-| 父 Task artifact / status | 外部客户端通过 A2A stream 看到的进度和结果 |
-
-### 6.2 用户示例
-
-#### 6.2.1 配置远程 Agent
-
-```yaml
-# 主 Agent (8080) 配置两个远程 Agent
-agent-runtime:
-  remote-agents:
-    - url: http://weather-agent:18081
-    - url: http://hotel-agent:18082
-```
-
-前置条件：远程 Agent 已启动在对应端口，Agent Card 可访问。预期结果：主 Agent 的 LLM 工具列表中出现 `query_weather` 和 `search_hotels` 两个远程工具。
-
-#### 6.2.2 多 Agent 协作
-
-```bash
-# 终端 1: 天气 Agent
-java -jar weather-agent.jar --server.port=18081
-
-# 终端 2: 酒店 Agent
-java -jar hotel-agent.jar --server.port=18082
-
-# 终端 3: 主 Agent（配置了上述两个远程）
-java -jar main-agent.jar --server.port=8080
-
-# 调用：用户只需对主 Agent 说话
-curl -s -X POST http://localhost:8080/a2a \
-  -H "Content-Type: application/json" \
-  -H "Accept: text/event-stream" \
-  -d '{
-    "jsonrpc": "2.0",
-    "method": "SendStreamingMessage",
-    "params": {
-      "message": {
-        "role": "ROLE_USER",
-        "messageId": "msg-001",
-        "parts": [{"text": "帮我查北京天气并订个酒店"}]
-      }
-    }
-  }'
-
-# 预期结果：主 Agent 的 LLM 自动依次调用 query_weather 和 search_hotels，汇总返回
-```
-
-### 6.3 E2E 流程
+### 4.1 包结构
 
 ```
-用户: "查北京天气"
-  │
-  ▼ 主 Agent
-  ├─ LLM 看到 tool: query_weather (来自 weather-agent)
-  ├─ LLM 调用: query_weather(city="北京")
-  │
-  ▼ Interrupt Rail 拦截 → RemoteInvocation
-  ├─ POST /a2a SendStreamingMessage → weather-agent:18081
-  ├─ weather-agent 返回: ArtifactUpdate("晴 22°C") → 父 Task 进度
-  └─ weather-agent 返回: COMPLETED → toolResult = "晴 22°C"
-  │
-  ▼ 回灌主 Agent
-  ├─ InteractiveInput.update("tool-call-1", "晴 22°C")
-  ├─ LLM resume: "北京今天天气晴朗，气温22°C"
-  └─ parent task COMPLETED
+engine/a2a/
+├── RemoteAgentProperties.java              # YAML 配置属性
+├── RemoteAgentCardCache.java               # 远程 Agent Card 缓存（volatile snapshot）
+├── RemoteAgentInvocationService.java       # 远程调用服务层
+├── A2aRemoteAgentOutboundAdapter.java      # A2A JSON-RPC 出站传输适配器
+├── A2aRemoteInvocationOrchestrator.java    # 远程调用编排引擎
+├── A2aParentTaskProjector.java             # 父 Task 进度投射
+├── A2aClientAutoConfiguration.java         # 条件自动装配（按 remote-agents[0].url 激活）
+
+engine/openjiuwen/
+├── OpenJiuwenRemoteAgentInterruptRail.java # 拦截远程 Tool → 创建 InterruptRequest
+└── OpenJiuwenRemoteToolInstaller.java      # 安装远程 Tool 到 OpenJiuwen Agent
+
+engine/spi/
+└── RemoteAgentToolSpec.java                # 协议中立的远程 Tool 描述
+```
+
+### 4.2 核心类静态关系
+
+```
+RemoteAgentCardCache
+      │
+      ├── 拉取 Agent Card ──→ RemoteAgentToolSpec
+      │                              │
+      │                              ▼
+      │                   OpenJiuwenRemoteToolInstaller
+      │                              │
+      │                              ▼ install
+      │                   OpenJiuwen Agent
+      │
+      ▼
+A2aRemoteAgentOutboundAdapter  ←── RemoteAgentInvocationService
+      │
+      ▼ 调用
+A2aRemoteInvocationOrchestrator
+      │
+      ├── outbound: invoke remote
+      ├── inbound: A2aParentTaskProjector → parent task
+      └── resume: re-enter local handler
 ```
 
 ---
 
-## 7. 错误处理
+## 5. 运行流程
+
+### 5.1 主流程
+
+主流程由第 3 章各子特性的内部实现流程描述；本章只补充跨流程的错误、取消和降级语义，避免重复外部用户场景。
+
+### 5.2 分支流程
+
+分支流程按第 3 章中的状态流转、数据流或 adapter 分支处理。涉及外部调用方式的黑盒场景不在 L2 展开。
+
+### 5.3 错误、取消、降级处理
 
 | 错误场景 | 触发条件 | 行为 | 对外结果 |
 |---------|---------|------|---------|
@@ -390,7 +286,34 @@ curl -s -X POST http://localhost:8080/a2a \
 
 ---
 
-## 8. 限制与待补
+## 6. 配置使用
+
+### 6.1 完整配置示例
+
+```yaml
+agent-runtime:
+  remote-agents:
+    - url: http://weather-agent:18081
+      stream-timeout: 30s
+      output:
+        default-target: USER
+        completion-target: LLM
+    - url: http://hotel-agent:18082
+      stream-timeout: 60s
+```
+
+### 6.2 配置属性表
+
+| 属性路径 | 类型 | 默认值 | 说明 |
+|---------|------|--------|------|
+| `agent-runtime.remote-agents[N].url` | String | — | 远程 Agent base URL（必填以激活） |
+| `agent-runtime.remote-agents[N].stream-timeout` | Duration | — | 流式调用超时 |
+| `agent-runtime.remote-agents[N].output.default-target` | String | — | 默认输出目标（USER / LLM / BOTH） |
+| `agent-runtime.remote-agents[N].output.completion-target` | String | — | 完成时输出目标 |
+
+---
+
+## 7. 当前限制
 
 | 限制 | 影响范围 | 临时方案 |
 |------|---------|---------|
