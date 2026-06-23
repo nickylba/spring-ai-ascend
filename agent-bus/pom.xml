@@ -20,7 +20,7 @@
   <parent>
     <groupId>com.huawei.ascend</groupId>
     <artifactId>spring-ai-ascend-parent</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.2.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>agent-bus</artifactId>
@@ -87,6 +87,24 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!--
+      Stage 17 (decision §8 permit): test-only dependency on agent-runtime. The
+      C3 end-to-end integration test boots a real LocalA2aRuntimeHost (Spring Boot
+      A2A server) to validate the full forwarding chain outbox → worker → deliver
+      → real /a2a → COMPLETED → ACKED, replacing Stage 15's MockWebServer. This is
+      agent-bus's FIRST dependency on agent-runtime (the two modules were fully
+      isolated builds until now). Production code stays free of agent-runtime:
+      AgentBusDependencyBoundaryTest guards com.huawei.ascend.bus.. against
+      com.huawei.ascend.runtime.. (the agent-service → agent-runtime rename in
+      034da8f7 had left the boundary rule on the old 'service..' package; Stage 17
+      adds the 'runtime..' guard). §6.2 unchanged.
+    -->
+    <dependency>
+      <groupId>com.huawei.ascend</groupId>
+      <artifactId>agent-runtime</artifactId>
+      <version>${project.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>

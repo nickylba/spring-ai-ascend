@@ -96,6 +96,21 @@ class AgentBusDependencyBoundaryTest {
         rule.check(BUS_PRODUCTION);
     }
 
+    @Test
+    void bus_does_not_depend_on_agent_runtime() {
+        ArchRule rule = noClasses()
+                .that().resideInAPackage("com.huawei.ascend.bus..")
+                .should().dependOnClassesThat()
+                .resideInAPackage("com.huawei.ascend.runtime..")
+                .because("agent-bus production must stay free of agent-runtime; Stage 17 "
+                       + "introduces a test-only dependency (the C3 end-to-end IT boots a "
+                       + "real LocalA2aRuntimeHost), but the shipped SPI surface must not "
+                       + "reach into the compute_control runtime. Supersedes the stale "
+                       + "'service..' guard left by the agent-service → agent-runtime "
+                       + "rename in 034da8f7.");
+        rule.check(BUS_PRODUCTION);
+    }
+
     // ---- import-liveness guard (MI-004 follow-up) -------------------------
 
     /**

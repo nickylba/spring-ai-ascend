@@ -43,7 +43,10 @@ public class RemoteAgentCardCache {
     }
 
     public RemoteAgentCardCache(List<String> urls, Map<String, Duration> streamTimeoutsByUrl) {
-        this(urls, streamTimeoutsByUrl, url -> A2ACardResolver.builder().baseUrl(url).build().getAgentCard());
+        // A2ACardResolver resolves via its constructor (the SDK exposes no builder());
+        // its errors are RuntimeException subclasses, so the lambda stays unchecked and
+        // refresh()'s catch (RuntimeException) degrades to the last good card on failure.
+        this(urls, streamTimeoutsByUrl, url -> new A2ACardResolver(url).getAgentCard());
     }
 
     RemoteAgentCardCache(List<String> urls, Function<String, AgentCard> cardResolver) {

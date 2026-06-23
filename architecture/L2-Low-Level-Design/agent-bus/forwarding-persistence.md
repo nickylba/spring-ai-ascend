@@ -556,3 +556,44 @@ Stage 16 DoD 自检：
 - machine-readable schema：[`agent-bus-forwarding-runtime.v1.yaml`](../../../docs/architecture/l0/05-contracts/machine-readable/agent-bus-forwarding-runtime.v1.yaml)。
 - 裁决：[`decision`](../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md)。
 - Stage 8 计划：[`agent-bus-stage7-review-and-stage8-plan`](../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage7-review-and-stage8-plan.md)。
+
+## 18. Stage 17 决策（首次跨模块集成：真实端到端 IT 验证 C3 转发闭环）
+
+Stage 17（MI17-005..007）是 agent-bus 项目自 Stage 1 以来**首个跨模块集成里程碑**：首次建立 agent-bus → agent-runtime 依赖（test-only），用**真实的 `LocalA2aRuntimeHost`（Spring Boot A2A 服务器）替换 Stage 15 的 MockWebServer**，端到端驱动完整 C3 转发链路到 outbox record ACKED。不裁决 Stage 13 的 push/pull/MQ 最终模型（仍 H2/H3）；IT 复用 Stage 15 已选的 T1 投递绑定 + Stage 10 测试驱动的 `TickSource`（无真实 scheduler，符合 §6.1）。**§6.2 始终不得项不变**（IT 不含 Task 执行状态 / payload body / concrete broker，复用 Stage 12 CONTROL_ONLY envelope）。
+
+### 18.1 链路（无 stub transport / mock server / in-memory outbox）
+
+```
+JdbcForwardingOutbox.enqueue(record)            [Stage 12 真实 Postgres 16.2 + Flyway V1 + RLS]
+   ↓
+ForwardingDispatchLoop.run (测试 TickSource)     [Stage 10 无 scheduler/thread/clock]
+   ↓ worker.runOnce: claim (lease-guarded)
+A2aForwardingDeliveryPort.deliver               [Stage 15 真实 A2A JSON-RPC client + X-Tenant-Id]
+   ↓ HTTP /a2a + SSE
+LocalA2aRuntimeHost.port(0) + StubHandler       [Stage 17 真实 Spring Boot MVC + A2A SDK server]
+   ↓ Task → COMPLETED (SSE)
+mapped → ACKED → outbox record ACKED
+```
+
+### 18.2 两个 Stage 17 发现（治理记录）
+
+(a) **agent-runtime 对 JDBC-bearing 共享 classpath 敏感**。`LocalA2aRuntimeHost` 的 A2A server Spring 上下文是纯内存（A2A SDK task store / event queue，无 JDBC），其自身测试从不触发 `DataSourceAutoConfiguration`；但 agent-bus 的 `spring-boot-starter-jdbc` + postgres driver + flyway（Stage 12）一旦泄漏到共享测试 classpath，`DataSourceAutoConfiguration` / `FlywayAutoConfiguration` 对真实 host 上下文 fire 并因缺 `spring.datasource.url` 失败。IT 里用 `System.setProperty("spring.autoconfigure.exclude", …)` 排除 —— `LocalA2aRuntimeHost.port(int)` 工厂未暴露 property hook，system property 是唯一高于其 package-private `defaultProperties` 的属性源。**记录给 agent-runtime**：`LocalA2aRuntimeHost` 生产部署若与 JDBC-bearing 消费方共享 classpath 会撞同样失败，应排除这些 autoconfig（或显式提供 datasource）。
+
+(b) **Spring Boot 4 autoconfigure 重打包**。jdbc autoconfigure 从 `org.springframework.boot.autoconfigure.jdbc`（Spring Boot 3）移到 `org.springframework.boot.jdbc.autoconfigure`（Spring Boot 4），flyway 从 `…autoconfigure.flyway` 移到 `org.springframework.boot.flyway.autoconfigure`。**旧包名排除静默无效** —— 排除 Spring Boot 3 的包名不会报错也不会生效。任何用 `spring.autoconfigure.exclude` 排除 jdbc/flyway 的代码必须用 Spring Boot 4 新包名。
+
+### 18.3 意外强证据：真实 controller 接收并解析 tenant
+
+Stage 15 在 wire level 断言了 `X-Tenant-Id` header 的值（MockWebServer 拦截）。Stage 17 的运行日志显示真实 `A2aAgentExecutor` 收到 `metadata.tenantId=tenant-loop` / `tenant-iso-a` —— 证明 header 不只被发送，更被**真实 agent-runtime controller 接收 / 解析 / 传给 handler**（MockWebServer 不解析 header 语义，这是 Stage 15 无法提供的证据）。端到端租户隔离（Rule R-C.c）的第二个测试进一步证实：tenant A 两条 route 指向**同一**真实 host，dispatch loop 只 ACK tenant A 的 record，tenant B 仍 PENDING（无跨租户回退）。
+
+### 18.4 边界（ArchUnit / production 纯度）
+
+agent-bus 生产代码**仍零依赖** agent-runtime。`agent-bus/pom.xml` 的 `agent-runtime` 依赖是 **test-scope**；`AgentBusDependencyBoundaryTest.bus_does_not_depend_on_agent_runtime` 守卫生产 `com.huawei.ascend.bus..` 不得 reach `com.huawei.ascend.runtime..`（这条守卫的存在正是为了允许 test-only 跨模块依赖而不破生产边界；同时取代 `agent-service → agent-runtime` 重命名 034da8f7 遗留的旧 `service..` 守卫）。`AgentBusForwardingSpiPurityTest` 针对生产源，test-scope 引用不触发。
+
+Stage 17 DoD 自检：
+
+- ✓ `C3ForwardingEndToEndIntegrationTest` 双测试 green（happy path 一条 record 走完到 ACKED + tick 自洽 + 端到端租户隔离）。
+- ✓ `agent-bus/pom.xml` 加 test-scope `agent-runtime` 依赖（首次跨模块）。
+- ✓ `AgentBusDependencyBoundaryTest.bus_does_not_depend_on_agent_runtime` 守卫加入。
+- ✓ **182 tests green**（Stage 16 的 179 + 2 IT），ArchUnit green（新 `runtime..` 守卫 + SpiPurity 不受影响）。
+- ✓ §6.2 不变：IT 不含 Task 执行状态 / payload body / concrete broker；复用 CONTROL_ONLY envelope。
+- ✓ **deferred**：真实 agent handler（用 StubHandler）、registry 集成的 resolver 生产实现（用 MapEndpointResolver）、连接池治理、`REMOTE_TASK_FAILED` non-retryable 码、真实 scheduler/polling、push/pull/MQ 最终裁决（H2/H3）。
