@@ -152,15 +152,15 @@ status: active
 | 不变量 | registry 不扩大权限；只返回调用方 tenant 范围内的 entry。 |
 | 缺口 | runtime enforcement 待后续波次（Stage 3 harness-level）。 |
 
-## SC-012：runtime-to-runtime 异步控制消息转发（设计态）
+## SC-012：runtime-to-runtime 异步控制消息转发
 
 | 项目 | 内容 |
 |---|---|
 | 参与者 | 调用方 `agent-runtime`、真 bus（转发底座）、接收方 `agent-runtime` |
-| 入口 | forwarding（设计态） |
-| 契约 | [`ICD-Agent-Bus-Forwarding`](../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding.md) |
-| 流程 | 调用方据 Stage 3 discovery 返回的 route handle 构造 forwarding envelope（`tenantId`、`traceId`、`correlationId`、`idempotencyKey`、`routeHandle`、`capability`、`deadline`；`payloadRef` 条件必填），转发底座投递，接收方按自身 Task/Run lifecycle 处理。 |
-| 成功结果 | 同步 ack（已落队）或异步完成（接收方处理后回传 outcome）。 |
-| 失败结果 | `route_not_found`、`tenant_mismatch`、`delivery_timeout`、`receiver_unavailable`、`backpressure_rejected`、`duplicate_suppressed`。 |
+| 入口 | forwarding（C3 转发底座，`adopted-c3`，已落地运行态） |
+| 契约 | [`ICD-Agent-Bus-Forwarding`](../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding.md) + [`ICD-Agent-Bus-Forwarding-Runtime`](../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding-runtime.md) |
+| 流程 | 调用方据 Stage 3 discovery 返回的 route handle 构造 forwarding envelope（`tenantId`、`traceId`、`correlationId`、`idempotencyKey`、`routeHandle`、`capability`、`deadline`；`payloadRef` 条件必填），转发底座入队 durable outbox（`(tenantId, messageId)` 唯一键、幂等 enqueue），dispatcher 按 lease 抢占 claim（`claimDue`，`SKIP LOCKED`）→ 基于 routeHandle 经 A2A transport（Stage 15 落地的真实投递绑定 PoC `A2aForwardingDeliveryPort`）投递，接收方按自身 Task/Run lifecycle 处理；投递结果驱动 outbox 状态机（ACKED / RETRY_SCHEDULED / DLQ / EXPIRED）+ 重投策略（Stage 14 overflow-safe 指数退避 + exhausted→DLQ）+ 断路器（Stage 16 故障 route 短路 HALF_OPEN 探测）。 |
+| 成功结果 | 同步 ack（已落队）或异步完成（接收方处理后回传 outcome → ACKED）。 |
+| 失败结果 | `route_not_found`、`tenant_mismatch`、`delivery_timeout`、`receiver_unavailable`、`backpressure_rejected`、`duplicate_suppressed`、`payload_ref_invalid`、`remote_task_failed`（远程 agent 终态业务失败 FAILED/CANCELED/REJECTED，non-retryable → 直达 DLQ，不消耗 retry 预算）。 |
 | 不变量 | 不改变远端 Task lifecycle owner；envelope 有载荷时只携带 `payloadRef`（条件必填，MI5-003 方案 B）、不携带 payload body / token stream / Task execution state；纯控制消息可省略 `payloadRef`；大载荷走 data reference path。 |
-| 缺口 | broker / MQ 产品选择 deferred（Stage 5）；运行态转发底座、queue / DLQ / replay 存储未实现。 |
+| 缺口 | 运行态转发底座（outbox / inbox / dispatcher / retry / breaker / 真实 A2A 投递）已落地且 Stage 17（happy-path）/ Stage 18（失败路径）端到端验证通过（184 tests green）；broker / MQ 产品仍未绑定（broker-agnostic，Stage 5 候选评审 + Stage 13 transport 候选评审），真实 queue / replay store 物理实现 + push / pull / MQ 最终投递模型裁决待 H2/H3。 |

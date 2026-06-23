@@ -25,7 +25,7 @@ target_module: agent-bus
 - 幂等键、租户隔离、失败语义的精确化定义。
 - 可被 harness 字段级校验的 schema 草案（见 runtime ICD + machine-readable yaml）。
 
-Stage 7 交付**最小骨架**：领域模型、端口接口、状态机、schema 草案、harness、in-memory test double。**Stage 8** 补齐 record 模型（`ForwardingOutboxRecord` / `ForwardingInboxRecord`）、claim / lease 端口、dispatcher worker skeleton、schema / migration 草案（[`forwarding-persistence`](forwarding-persistence.md)）。真实持久化实现（JDBC adapter / Flyway migration / lease store 物理实现 / 真实投递绑定）是 **Stage 9+**。
+Stage 7 交付**最小骨架**：领域模型、端口接口、状态机、schema 草案、harness、in-memory test double。**Stage 8** 补齐 record 模型（`ForwardingOutboxRecord` / `ForwardingInboxRecord`）、claim / lease 端口、dispatcher worker skeleton、schema / migration 草案（[`forwarding-persistence`](forwarding-persistence.md)）。真实持久化（Stage 12 JDBC adapter + Flyway + RLS）与真实投递绑定（Stage 15 A2A transport adapter）已落地，跨模块端到端验证 Stage 17/18 通过（184 tests green）；细节见 [`forwarding-persistence`](forwarding-persistence.md) 与本文 §10。
 
 ## 2. 非目标
 
@@ -124,8 +124,9 @@ Stage 7 交付**最小骨架**：领域模型、端口接口、状态机、schem
 | `backpressure_rejected` | 接收方 / 队列压力拒绝 | dispatch / inbox | retryable → `RETRY_SCHEDULED`（不静默丢消息） |
 | `duplicate_suppressed` | inbox 幂等键命中 | inbox `ARRIVE_DUPLICATE` | `DUPLICATE_SUPPRESSED` 终态 |
 | `payload_ref_invalid` | `DATA_BEARING` 消息缺 `payloadRef` / `payloadRef` blank / 不可解析 | envelope 构造 / inbox 接收 | 拒绝（不入队 / inbox `REJECTED`） |
+| `remote_task_failed` | 远程 agent 终态业务失败（A2A `FAILED` / `CANCELED` / `REJECTED`，`isFinal && !COMPLETED`） | transport 终态映射（Stage 15 / Stage 18） | 不可恢复 → `DLQ`（不消耗 retry 预算，正交于 retry policy） |
 
-retryable vs 不可恢复：`route_not_found`、`tenant_mismatch`、`payload_ref_invalid` 不可恢复（直接 DLQ / REJECT）；`delivery_timeout` / `receiver_unavailable` / `backpressure_rejected` 可重试（受 attemptCount 上限 + deadline 约束）。
+retryable vs 不可恢复：`route_not_found`、`tenant_mismatch`、`payload_ref_invalid`、`remote_task_failed` 不可恢复（直接 DLQ / REJECT；`remote_task_failed` 不消耗 retry 预算，正交于 `ForwardingRetryPolicy`）；`delivery_timeout` / `receiver_unavailable` / `backpressure_rejected` 可重试（受 `ForwardingRetryPolicy` 的 attemptCount 上限 + deadline 约束）。
 
 ## 8. 端口接口投影（Stage 7 骨架 + Stage 8 补齐）
 
@@ -179,7 +180,7 @@ ForwardingStateMachine (runtime, 纯函数)
   transitInbox(current, event)     -> Inbox status
 ```
 
-> Stage 8 用 `claimDue` 取代裸 `findRetryable(now)`（MI8-001）：真实持久化下多实例并发抢同一条消息，必须用 claim / lease 防重复投递（并发抢占语义见 [`forwarding-persistence §4`](forwarding-persistence.md)）。端口实现（JDBC adapter）是 Stage 9+；Stage 7 / Stage 8 提供 in-memory test double + in-memory lease harness（test source set）验证端口语义、状态机与 claim / lease。
+> Stage 8 用 `claimDue` 取代裸 `findRetryable(now)`（MI8-001）：真实持久化下多实例并发抢同一条消息，必须用 claim / lease 防重复投递（并发抢占语义见 [`forwarding-persistence §4`](forwarding-persistence.md)）。端口实现（JDBC adapter）已于 Stage 12 落地（`JdbcForwardingOutbox` 含 `SKIP LOCKED` claim + lease guard + §7.3 RLS）；Stage 7 / Stage 8 的 in-memory test double + in-memory lease harness 仍保留为 fast test double。
 
 ## 9. 与 Stage 3 / Stage 4 的消费关系
 
@@ -187,25 +188,30 @@ ForwardingStateMachine (runtime, 纯函数)
 - **承载 Stage 4 语义**：outbox/inbox 是 Stage 4 broker-agnostic 转发语义（ack / retry / timeout / DLQ / correlation / backpressure / tenant-aware routing）的运行态承载；本 L2 不修改 Stage 4 语义，只投影为状态机与端口。
 - **不改变 Task ownership**：runtime-to-runtime 消息只携带控制与 `payloadRef`，**不改变远端 Task lifecycle owner**；`agent-bus` 不写 Task execution state（延续 HD4 / 与 registry 边界一致）。
 
-## 10. Stage 8 / Stage 9 / Stage 10 已交付 / 后续 deferred
+## 10. Stage 8 → Stage 18 已交付 / 后续 deferred
 
-Stage 8 已交付（见 [`forwarding-persistence`](forwarding-persistence.md)）：record 模型、claim / lease 端口（`claimDue` 取代 `findRetryable`）、dispatcher worker skeleton、抽象 delivery 端口、schema / migration 草案（DDL 草稿，未执行）、in-memory lease harness。
+C3 运行态按 [`decision`](../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md) 分阶段递进落地，截至 Stage 18（184 tests green）：
 
-Stage 9 已交付（lease-safe / persistence-ready）：lease-owner guarded mutation（`markAcked` / `scheduleRetry` / `moveToDlq` / `markExpired` 带 `leaseOwner`，`markDispatching` 移除）、lease 生命周期闭环（terminal + retry 清 lease）、record 条件不变量（Java 构造器 + DDL CHECK + harness）、failure-code classification（retryable / non-retryable / dedup）、claim / state-update SQL contract、in-memory lease-guard harness。DB / migration 归属未确认 → **路径 B**（不引入 JDBC / Flyway；DDL / SQL 仍为 contract / draft）。
+- **Stage 8**（持久化准备）：record 模型、claim / lease 端口（`claimDue` 取代 `findRetryable`）、dispatcher worker skeleton、抽象 delivery 端口、schema / migration 草案（DDL 草稿，未执行）、in-memory lease harness。
+- **Stage 9**（lease-safe / persistence-ready）：lease-owner guarded mutation（`markAcked` / `scheduleRetry` / `moveToDlq` / `markExpired` 带 `leaseOwner`，`markDispatching` 移除）、lease 生命周期闭环、record 条件不变量（Java 构造器 + DDL CHECK + harness）、failure-code classification（retryable / non-retryable / dedup）、claim / state-update SQL contract。路径 B。
+- **Stage 10**（dispatch-loop runtime）：worker lease 异常恢复（catch `ForwardingLeaseException` + skip，`DispatchTickResult.skipped` 自洽）、lease 续约（`DispatchLeasePolicy`）、dispatch 调度责任（`ForwardingDispatchLoop` 骨架：`TickSource` / `IdleStrategy` 注入）。路径 B。
+- **Stage 11**（runtime-completion）：lease 续约触发时机改读注入 `EpochClock`、`deliver` 非 lease `RuntimeException` 兜底 `skipped`、`runOnce` 仅入参非法 fail-fast。路径 B。
+- **Stage 12**（real persistence，**打破路径 B**）：Postgres JDBC adapter（Spring JDBC）+ Flyway migration `V1` + §7.3 RLS；real-SQL 验证 embedded-postgres PG 16.2（17 tests）。ArchUnit 把 Spring/JDBC 圈进 `persistence.jdbc` 子包。真实持久化已从 deferred 解除。
+- **Stage 13**（transport 候选评审）：T1-T4 × 8 维度候选评审（[`transport-candidates`](../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-transport-candidates.md)），T3 consumer-pull over DB 非裁决推荐；不实现生产代码，最终 push / pull / MQ 投递模型裁决仍 deferred。
+- **Stage 14**（deliver 重投策略先行）：`ForwardingRetryPolicy` 端口 + overflow-safe 指数退避 + exhausted→DLQ（DEFAULT：base 100ms / cap 60s / maxAttempts 5 / jitter 0）；worker RETRY_SCHEDULED 分支接入。熔断端口 deferred。§6.2 不变。
+- **Stage 15**（真实投递绑定 PoC）：A2A HTTP transport adapter `A2aForwardingDeliveryPort` 消费 agent-runtime `/a2a`（同步等完成 = T1 push）+ `ForwardingEndpointResolver` / `MapEndpointResolver`。`§6.1` 第 4 项「真实投递绑定 deferred」解除、`§6.2` 不变。ArchUnit 把 `org.a2aproject` 圈进 `transport.a2a` 子包。真实投递绑定已从 deferred 解除。
+- **Stage 16**（断路器接入 worker）：`ForwardingCircuitBreaker` 端口加 `recordOutcome` 反馈 + `RouteCircuitBreaker` 三态机（CLOSED→OPEN→HALF_OPEN）接入 worker（投递前 `allowsDelivery` 短路 + 投递后 `recordOutcome`）；正当性来自 Stage 15 选 T1 push。纯 JDK transport-agnostic，§6.2 不变。
+- **Stage 17**（首次跨模块端到端集成）：`C3ForwardingEndToEndIntegrationTest` 用真实 `LocalA2aRuntimeHost`（替换 Stage 15 MockWebServer）端到端驱动 outbox enqueue → tick → deliver → 真实 /a2a → COMPLETED → ACKED；agent-bus 加 `agent-runtime` test-scope 依赖、生产零依赖。182 tests green。
+- **Stage 18**（失败路径端到端 + `REMOTE_TASK_FAILED`）：`C3ForwardingFailurePathIntegrationTest` 双场景（真实 FAILED→DLQ `remote_task_failed` / 不可达 route→RETRY）+ `ForwardingFailureCode.REMOTE_TASK_FAILED` NON_RETRYABLE + 终态映射改 `isFinal()` if-chain；无 DDL / SqlCodec / record 改动（outbox CHECK 不枚举码值）。184 tests green。
 
-Stage 10 已交付（dispatch-loop runtime）：worker lease 异常恢复（per-record catch `ForwardingLeaseException` + skip，`DispatchTickResult.skipped` 计数自洽 `claimed == acked + retried + dlqd + expired + skipped`，MI10-001）、lease 续约契约（`DispatchLeasePolicy`：deliver 前剩余 TTL 低于阈值则 `renewLease`，renew=false 同 skip，MI10-002）、dispatch 调度责任（`ForwardingDispatchLoop` 骨架：`TickSource` / `IdleStrategy` 注入，无 clock / scheduler / 线程，MI10-004）。DB / migration 归属经人类再确认为 **路径 B**（不引入 JDBC / Flyway；DDL / SQL 仍 contract / draft；真实持久化 deferred 后续阶段）。
+后续 deferred：
 
-Stage 11 已交付（runtime-completion）：lease 续约触发时机改读注入 `EpochClock`（真实墙钟；`remaining = leaseUntilMillisEpoch − clock.epochMillis()`，使自然 dispatch loop 下耗时 deliver 接近 TTL 时续约能触发——此前用 tick 入参 `nowMillisEpoch` 致 `remaining` 恒定、永不触发，MI11-001）、`deliver` 非 lease `RuntimeException` 兜底为 `skipped`（record 留 DISPATCHING 待重投，不丢消息；契约：真实 transport 绑定映射异常为 `ForwardingDeliveryResult` 不应抛，MI11-002）、`runOnce` 异常契约（仅入参非法 fail-fast，`ForwardingDispatchLoop` 传播，不加 loop 级兜底，MI11-003）。保持路径 B（不引入 JDBC / Flyway / transport）；真实持久化 / 真实投递绑定 / agent-runtime 集成 deferred Stage 12+。
-
-后续 deferred（不在 Stage 9）：
-
-- 真实 JDBC adapter；outbox / inbox 物理 schema migration / rollback 策略（Stage 10 经人类再确认为路径 B；归属仍待定：agent-bus 自有 vs 共享 schema 模块 vs runtime 受控路径）。
-- lease store 物理实现；polling cadence。
-- backpressure 参数（队列阈值、降速策略、tenant quota）。
-- 真实投递绑定（dispatcher worker → 接收方 transport；HTTP / gRPC / 内部 RPC）。
-- 是否独立 adapter module；接入 `agent-runtime` 受控调用路径。
+- 真实 broker / queue / replay store 物理实现；push vs pull / 是否引 MQ 的最终投递模型裁决（H2/H3；选 T2 / T4 需解除 §6.2 引 MQ）。
+- registry 集成的 resolver 生产实现（Stage 15 用 `MapEndpointResolver` 替身）。
+- 连接池治理 / 熔断参数调优 / breaker 状态持久化。
+- polling cadence；并发 worker 分片；backpressure 参数（队列阈值、降速策略、tenant quota）。
+- `ForwardingDispatchLoop` 接真实 scheduler。
 - ordering / fairness 的具体实现（per-tenant / per-route 局部 ordering 是运行态选择）。
-- 数据库产品确认 + 是否启用 Postgres RLS。
 
 ## 11. DoD 自检
 

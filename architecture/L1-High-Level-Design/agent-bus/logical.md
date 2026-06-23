@@ -120,12 +120,17 @@ Agent 注册与发现的完整设计态契约见 [`ICD-Agent-Registry-Discovery`
 - runtime-to-runtime 消息不改变远端 Task lifecycle owner；`agent-bus` 不写 Task execution state。
 - Stage 4 只定义转发语义和 harness 断言，不实现运行态转发底座、不新增 mailbox / queue / DLQ / replay 运行态存储。
 
-## 9. C3 转发运行态最小骨架（Stage 7）
+## 9. C3 转发运行态（Stage 7 → Stage 18）
 
-Stage 7 按 Stage 6 裁决，落地 C3（database outbox / inbox）的最小可测运行态骨架。运行态契约见 [`ICD-Agent-Bus-Forwarding-Runtime`](../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding-runtime.md)，L2 技术设计见 [`forwarding-outbox-inbox.md`](../../L2-Low-Level-Design/agent-bus/forwarding-outbox-inbox.md)。逻辑落点：
+C3（database outbox / inbox）按 Stage 6 裁决落地，`adopted-c3`。运行态契约见 [`ICD-Agent-Bus-Forwarding-Runtime`](../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding-runtime.md)，L2 技术设计见 [`forwarding-outbox-inbox.md`](../../L2-Low-Level-Design/agent-bus/forwarding-outbox-inbox.md)。逻辑落点：
 
 - 发送方持久 outbox：唯一键 `(tenantId, messageId)`，幂等 enqueue，状态机驱动 `PENDING → DISPATCHING → {ACKED | RETRY_SCHEDULED → DISPATCHING | DLQ | EXPIRED}`。
 - 接收方持久 inbox：去重键 `(tenantId, messageId, consumerServiceId)`，重复到达返回 `DUPLICATE_SUPPRESSED` 不变更，`RECEIVED → {CONSUMED | REJECTED}`。
 - envelope 强制 tenant 隔离（`tenantId == routeHandle.tenantScope`，违例 `tenant_mismatch`）与 `payloadRef` 条件必填（MI5-003 方案 B：DATA_BEARING 必填、CONTROL_ONLY 可选）。
-- outbox / inbox / dispatcher 以端口接口表达，broker-agnostic；真实持久化已在 Stage 12 落地（Postgres JDBC adapter + Flyway + RLS，打破路径 B），交付绑定仍 deferred（transport 拆出独立议）。非生产 in-memory 测试替身仍保留为 fast test double。
-- 不改变远端 Task lifecycle owner；`agent-bus` 不写 Task execution state。
+- outbox / inbox / dispatcher 以端口接口表达，broker-agnostic；真实持久化 Stage 12 落地（Postgres JDBC adapter + Flyway + RLS，打破路径 B）。
+- 真实投递绑定 Stage 15 落地 PoC：`A2aForwardingDeliveryPort`（`transport.a2a` 子包）消费 agent-runtime `/a2a`，把 A2A SSE 终态映射为 `ForwardingDeliveryResult`（同步等完成 = T1 push，Stage 13 候选评审）；`ForwardingEndpointResolver` 注入投递端口，解开 routeHandle opaque（不破 HD4）。
+- 重投策略（Stage 14）：`ForwardingRetryPolicy` overflow-safe 指数退避 + exhausted→DLQ；断路器（Stage 16）：`ForwardingCircuitBreaker` 接入 worker，故障 route 经 `RouteCircuitBreaker` 三态机短路（CLOSED→OPEN→HALF_OPEN），正当性来自 Stage 15 选 T1 push。
+- 失败码 8 个，含 Stage 18 `remote_task_failed`（远程 agent 终态业务失败 FAILED/CANCELED/REJECTED，non-retryable → 直达 DLQ，不消耗 retry 预算，正交于 retry policy）。
+- Stage 17 happy-path / Stage 18 失败路径端到端验证（真实 `LocalA2aRuntimeHost`，184 tests green）；agent-bus 加 `agent-runtime` test-scope 依赖、生产仍零依赖。
+- 非生产 in-memory 测试替身仍保留为 fast test double。
+- 不改变远端 Task lifecycle owner；`agent-bus` 不写 Task execution state。真实 broker / queue / replay store + push-pull-MQ 最终投递模型裁决仍 deferred（H2/H3）。

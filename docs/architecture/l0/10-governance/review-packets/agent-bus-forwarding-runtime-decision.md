@@ -189,6 +189,7 @@ C3 分支已由本裁决激活。Stage 7 的最小实现切片（见 Stage 7 计
 - Stage 15 评审与 Stage 16 计划：[`agent-bus-stage15-review-and-stage16-plan`](../delivery-projections/agent-bus-stage15-review-and-stage16-plan.md)。
 - Stage 16 评审与 Stage 17 计划：[`agent-bus-stage16-review-and-stage17-plan`](../delivery-projections/agent-bus-stage16-review-and-stage17-plan.md)。
 - Stage 17 评审与 Stage 18 计划：[`agent-bus-stage17-review-and-stage18-plan`](../delivery-projections/agent-bus-stage17-review-and-stage18-plan.md)。
+- Stage 18 评审与 Stage 19 计划：[`agent-bus-stage18-review-and-stage19-plan`](../delivery-projections/agent-bus-stage18-review-and-stage19-plan.md)。
 - Stage 7 L2 设计：[`forwarding-outbox-inbox`](../../../../architecture/docs/L2/agent-bus/forwarding-outbox-inbox.md)。
 - Stage 8 持久化 L2：[`forwarding-persistence`](../../../../architecture/docs/L2/agent-bus/forwarding-persistence.md)。
 - Stage 7 runtime 契约：[`ICD-Agent-Bus-Forwarding-Runtime`](../../05-contracts/human-readable/ICD-agent-bus-forwarding-runtime.md)。
