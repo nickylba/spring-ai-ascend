@@ -40,7 +40,15 @@
 - 各自独立开发 / 部署 / 扩缩容，符合"一人负责一个 agent"的分工
 - 主要 tradeoff：每跳多 50–200ms，相对模型推理（5–30s/跳）可忽略
 
-**关键依赖说明**：DeepAgent handler 已支持 `setRuntimeToolInstaller(OpenJiuwenRemoteToolInstaller)`，所以远端 A2A 子 agent 注入是走通的。MCP / SkillHub / 长期记忆 rail 在 DeepAgent handler 上**暂未提供**（已开 issue 跟踪），本 demo 不依赖。
+**关键依赖说明**：DeepAgent handler 现已具备以下能力注入点：
+- 远端 A2A 子 agent 注入（`setRuntimeToolInstaller`）—— root 调子 agent 的核心路径
+- MCP installer（`setMcpToolInstaller`）
+- SkillHub installer（`setSkillHubInstaller`）
+- ReAct callback rails 注入（`openJiuwenRails(ctx)`，作用于 inner ReActAgent 回调）
+- DeepAgent task-loop rails 注入（`openJiuwenDeepAgentRails(ctx)`，作用于 DeepAgent 任务循环生命周期）
+- 两个 memory rail 工厂：`memoryRuntimeRail(ctx, mp)`（ReAct 兼容）+ `openJiuwenExternalMemoryRail(ctx, mp)`（harness native）
+
+本 demo 本期重点利用 **长期记忆 rail**（见 §3.1，跨会话研究召回是 deep research 最自然的差异化场景）。MCP / SkillHub installer 和 自定义 audit rail 列为可选加分项（见 §8）。
 
 ## 2. 模块布局与端口
 
@@ -93,6 +101,9 @@ A 同学的开发重点：
 - 报告组装 prompt：comparison_table 转 markdown 表格 + citations + 置信度叙述
 - 错误路径处理：`spa_blocked` / `cloudflare_403` / `verdict=insufficient` 这几种 sub-agent 返回时，重新调度策略
 - A2A wrapper 的 `application.yaml` 配 3 个 `agent-runtime.remote-agents.*.endpoint`
+- **长期记忆接入（本 demo 的差异化亮点）**：A 同学 adapter override `openJiuwenExternalMemoryRail(ctx, memoryProvider)` 把 harness native external memory rail 挂到 DeepAgent 上，`MemoryProvider` 实现走 **mem0**（参考 `examples/travel/agent-hotel-a2a/` 已有的 mem0 接入）。研究主题 + 关键结论（如"火山方舟豆包 Pro 4K 输入价 0.0008 元/千 token, fetched_at=2026-06"）写入 mem0；用户次日二次提问"上次对比的厂商里哪家上下文窗口最大"时 root 能从 memory 拿到上轮结论作为 system prompt 前置上下文，无需重新跑一整轮 search/read/verify
+  - mem0 命名空间按 `tenantId + agentId` 隔离，避免跨用户串台
+  - 写入策略：仅在 DeepAgent task-loop 收尾阶段（final report 组装完成后）批量写一次，不在 sub-agent 调用过程中频繁写
 
 ### 3.2 search-agent（B 同学）
 
@@ -261,6 +272,7 @@ A 同学维护 e2e 测试用例，固定输入：
 - 每个数字都有 citation
 - verify-agent 至少识别出 1 个 `contradict` 或 `insufficient`（说明它在干活，不是空过）
 - 整体耗时不超过 5 分钟（端到端）
+- **跨会话记忆召回**：同一 `tenantId + agentId` 下，第一轮研究完成后清掉 session（模拟"次日再问"），第二轮提问"上次对比里上下文窗口最大的是哪家"时，root 直接从 mem0 召回结论给出答案，耗时 < 30s（不应再次触发完整 search/read/verify 链路）
 
 ## 6. 分工与里程碑
 
@@ -282,6 +294,17 @@ A 同学维护 e2e 测试用例，固定输入：
 - **Tavily API key 申请人**：xx 同学负责申请（注意核对当前免费额度，SaaS 报价变化频繁），结果同步到团队
 - **CI / 部署**：本 demo 第一阶段只在本地 + 测试服跑（参考 hotel-agentscope 部署到 7.209.189.82 的方式），不进 CI；后续如果要进 CI，需要约定 `stub` profile 的 CI 测试矩阵
 - **是否要 trajectory 可观测面板**：DeepAgent 自带 TrajectoryRail，runtime 会吐 RUN_START/RUN_END/MODEL_CALL/TOOL_CALL 事件；第一阶段先看日志，不接外部 dashboard
+
+## 8. 可选加分项（W3 验收完之后再做）
+
+DeepAgent handler 在 release/v0.2.0-rc1 上已经把 ReAct handler 已有的能力注入点补齐（详见 §1 关键依赖说明），W1/W2 没用到的几个 hook 列在这里作为后续拓展方向，不进入第一阶段验收：
+
+- **MCP installer（`setMcpToolInstaller`）**：把外部 MCP server 提供的工具（如官方文档站、内部知识库 MCP）作为 root DeepAgent 的额外工具源，与 A2A 子 agent 互补。开发动作：A 同学 adapter `@Bean` 注入一个 `OpenJiuwenMcpToolInstaller`
+- **SkillHub installer（`setSkillHubInstaller`）**：如果项目接入了 SkillHub，把"价格抓取"、"模型规格对比"等通用技能集中托管，跨 demo 复用；开发动作同上
+- **自定义 DeepAgent task-loop 审计 rail（`openJiuwenDeepAgentRails(ctx)`）**：在 task-loop 生命周期上挂一个业务 rail，输出"本轮规划了几个子任务 / 哪些 sub-agent verdict 不一致 / 单轮 token 用量"等指标，方便后续做 deep research 质量评测；这一层 rail 是 DeepAgent harness native，比 ReAct 回调 rail 看到的事件更上层
+- **ReAct 回调 rail（`openJiuwenRails(ctx)`）**：DeepAgent 内部的 ReAct planner 也会走 ReAct callback，需要在 planner 步骤埋点（例如限制连续 model_call 次数、tool 黑名单）时挂这一层
+
+落地优先级：MCP > 自定义 task-loop rail > SkillHub > ReAct rail；除非现场观察到具体问题再补。
 
 ---
 
