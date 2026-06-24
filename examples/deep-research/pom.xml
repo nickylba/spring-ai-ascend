@@ -11,8 +11,6 @@
   Decoupled from the repository root (no <relativePath> back to root); resolves
   agent-runtime / agent-sdk / openJiuwen agent framework from the local m2 repo.
   This matches the layout of examples/travel/pom.xml.
-
-  Module entries are added as each agent lands. Initial cut: agent-search only.
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -43,8 +41,6 @@
     <java.version>21</java.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-    <!-- Released artifacts consumed from the local m2 repo. Pinned explicitly
-         so they never resolve to these examples' own 0.2.0-SNAPSHOT. -->
     <ascend.runtime.version>0.2.0-SNAPSHOT</ascend.runtime.version>
     <ascend.sdk.version>0.2.0-SNAPSHOT</ascend.sdk.version>
     <openjiuwen.agent-core.version>0.1.12-jdk17</openjiuwen.agent-core.version>
@@ -68,9 +64,6 @@
         <artifactId>agent-core-java</artifactId>
         <version>${openjiuwen.agent-core.version}</version>
       </dependency>
-
-      <!-- Pin protobuf to 4.x for the same reason as travel-parent:
-           a2a-sdk's protoc-generated classes reference protobuf 4.x types. -->
       <dependency>
         <groupId>com.google.protobuf</groupId>
         <artifactId>protobuf-java</artifactId>
@@ -81,11 +74,19 @@
         <artifactId>protobuf-java-util</artifactId>
         <version>${protobuf.version}</version>
       </dependency>
-
-      <!-- Sibling example libraries share the demo's own version. -->
+      <dependency>
+        <groupId>com.huawei.ascend.examples</groupId>
+        <artifactId>agent-deep-research</artifactId>
+        <version>${project.version}</version>
+      </dependency>
       <dependency>
         <groupId>com.huawei.ascend.examples</groupId>
         <artifactId>agent-search</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.huawei.ascend.examples</groupId>
+        <artifactId>agent-verify</artifactId>
         <version>${project.version}</version>
       </dependency>
     </dependencies>
@@ -101,7 +102,11 @@
   </repositories>
 
   <modules>
+    <module>agent-deep-research</module>
+    <module>agent-deep-research-a2a</module>
     <module>agent-search</module>
     <module>agent-search-a2a</module>
+    <module>agent-verify</module>
+    <module>agent-verify-a2a</module>
   </modules>
 </project>
