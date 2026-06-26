@@ -8,10 +8,10 @@ dependency:
   - ../../L1-High-Level-Design/agent-runtime/README.md
   - ../../L1-High-Level-Design/agent-runtime/development.md
   - ../../L1-High-Level-Design/agent-runtime/process.md
-  - ../../../version-scope/Feat-Func-001-a2a-protocol-and-s2c-communication.cn.md
+  - ../../../version-scope/Feat-Func-001-standardized-agent-service-entrypoint.md
 ---
 
-# A2A 协议标准与 S2C 通讯模型 — 设计文档
+# 标准化 Agent 服务入口 — 设计文档
 
 > 目标模块：`agent-runtime/src/main/java/com/huawei/ascend/runtime/engine/a2a/`、`boot/`
 > 最后更新：2026-06-14
@@ -29,7 +29,7 @@ agent-runtime 以 Google A2A 协议作为唯一的对外协议标准。北向对
 
 ### 1.2 当前事实边界
 
-本文只描述 Feat-Func-001 在当前 `agent-runtime` 模块中的已接受实现事实。面向调用方的黑盒行为、用户场景和外部示例已迁移到 `version-scope/Feat-Func-001-a2a-protocol-and-s2c-communication.cn.md`；模块级 API/SPI、逻辑对象归属和部署资源模型以 L1 设计及其附录为准。
+本文只描述 Feat-Func-001 在当前 `agent-runtime` 模块中的已接受实现事实。面向调用方的当前版本事实要求、用户场景和外部行为边界由 `version-scope/Feat-Func-001-standardized-agent-service-entrypoint.md` 驱动；模块级 API/SPI、逻辑对象归属和部署资源模型以 L1 设计及其附录为准。
 
 ### 1.3 设计原则
 

@@ -46,7 +46,7 @@ L2 特性文档按功能特性和非功能特性分组命名：
 
 | 编号 | 文档 | 特性 | 当前事实边界 |
 |---|---|---|---|
-| Feat-Func-001 | [A2A 协议标准与 S2C 通讯模型](Feat-Func-001-a2a-protocol-and-s2c-communication.md) | A2A northbound 接入、Agent Card、阻塞/流式/异步 S2C 通讯、A2A 执行桥接。 | 对外协议入口和 Task 表面映射。 |
+| Feat-Func-001 | [标准化 Agent 服务入口](Feat-Func-001-a2a-protocol-and-s2c-communication.md) | A2A northbound 接入、Agent Card、普通 client/其他 runtime/agent-bus forwarding inbound、阻塞/流式/异步 S2C 通讯、A2A 执行桥接。 | 标准 Agent 服务入口和 Task 表面映射。 |
 | Feat-Func-002 | [异构 Agent 框架兼容](Feat-Func-002-heterogeneous-agent-framework-compatibility.md) | `AgentRuntimeHandler` 适配模型、OpenJiuwen / AgentScope / Versatile adapter 接入。 | 框架中立执行 SPI 与具体 adapter 协作。 |
 | Feat-Func-003 | [agent-runtime 核心接口与状态边界](Feat-Func-003-agent-runtime-core-interface.cn.md) | 核心 SPI、A2A 执行链路、OpenJiuwen adapter、状态与记忆边界。 | 公共接口语义和状态归属原则。 |
 | Feat-Func-004 | [中间件解耦 Memory & State](Feat-Func-004-middleware-memory-and-state.md) | `MemoryProvider`、Memory 注入、OpenJiuwen checkpoint、State 持久化边界。 | Memory/State 中间件能力与 runtime 公共层解耦。 |
