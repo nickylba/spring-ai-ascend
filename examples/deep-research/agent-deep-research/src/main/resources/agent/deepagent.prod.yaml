@@ -3,7 +3,7 @@ schema: ascend-agent/v1
 name: deep-research-agent
 displayName: Deep Research Agent
 description: >-
-  Root DeepAgent that orchestrates plan_search, plan_read, and plan_verify
+  Root DeepAgent that orchestrates search-agent, plan_read, and verify-agent
   sub-agents to produce a cited comparison report for LLM API vendors.
 
 framework:
