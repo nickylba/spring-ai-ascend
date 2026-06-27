@@ -23,7 +23,7 @@
            │  • A2A 入口暴露给用户/上游   │   Checkpointer 可选
            └─────────────┬──────────────┘
                          │ OpenJiuwenRemoteToolInstaller
-                         │ 自动注入为 3 个 tool：plan_search / plan_read / plan_verify
+                         │ 自动注入为 3 个 tool：search-agent / plan_read / verify-agent
          ┌───────────────┼────────────────┐
          ▼               ▼                ▼
  ┌────────────────┐ ┌────────────┐ ┌──────────────┐
@@ -174,7 +174,7 @@ A2A 入口契约：
 ```
 
 A 同学的开发重点：
-- **`deepagent.prod.yaml` 装配（特性 2）**：`framework.type=openjiuwen` / `framework.agent=deepagent` / `framework.options.{maxIterations:10, enableTaskLoop:true, language:cn}`；`model.*` 配项目默认 LLM；`prompt.system` 写 DeepAgent 决策提示（决定调 `plan_search` / `plan_read` / `plan_verify` 中的哪个，以及报告组装的格式）；本 agent **不在 YAML 里声明 tools**（3 个子 agent tool 由 runtime `OpenJiuwenRemoteToolInstaller` 注入，不走 YAML）
+- **`deepagent.prod.yaml` 装配（特性 2）**：`framework.type=openjiuwen` / `framework.agent=deepagent` / `framework.options.{maxIterations:10, enableTaskLoop:true, language:cn}`；`model.*` 配项目默认 LLM；`prompt.system` 写 DeepAgent 决策提示（决定调 `search-agent` / `plan_read` / `verify-agent` 中的哪个，以及报告组装的格式）；本 agent **不在 YAML 里声明 tools**（3 个子 agent tool 由 runtime `OpenJiuwenRemoteToolInstaller` 注入，不走 YAML）
 - 报告组装 prompt：comparison_table 转 markdown 表格 + citations + 置信度叙述（写在 `prompt.system` 内）
 - 错误路径处理：`spa_blocked` / `cloudflare_403` / `verdict=insufficient` 这几种 sub-agent 返回时，重新调度策略（同样写在 prompt 里）
 - A2A wrapper 的 `application.yaml` 配 3 个 `agent-runtime.remote-agents.*.endpoint`

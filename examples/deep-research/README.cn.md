@@ -182,7 +182,7 @@ curl -X POST http://localhost:13003/a2a \
 ## 设计约束
 
 - Wrapper 仅通过 `AgentFactory.toDeepAgent(yamlPath)` 装配，禁止手写 `DeepAgentConfig.builder()`
-- 远端子 agent tool 名必须为 `plan_search` / `plan_read` / `plan_verify`（与 AgentCard `name` 一致）
+- 远端子 agent tool 名必须为 `search-agent` / `plan_read` / `verify-agent`（与 AgentCard `name` 一致）
 - 长期记忆走 `openJiuwenRails` + `openJiuwenExternalMemoryRail`（非 `openJiuwenDeepAgentRails`）
 
 详细拓扑见 [TOPOLOGY.cn.md](TOPOLOGY.cn.md)。

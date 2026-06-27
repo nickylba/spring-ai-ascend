@@ -27,13 +27,13 @@ final class DeepResearchRemoteToolSpecs {
         return List.of(
                 spec(
                         DeepResearchConstants.REMOTE_TOOL_PLAN_SEARCH,
-                        "plan_search / web_search: query, top_k, time_range, language → results[]"),
+                        "search-agent / web_search: query, top_k, time_range, language -> results[]"),
                 spec(
                         DeepResearchConstants.REMOTE_TOOL_PLAN_READ,
-                        "plan_read / read_url: url, focus_question → content_markdown, metadata.doc_type"),
+                        "plan_read / read_url: url, focus_question -> content_markdown, metadata.doc_type"),
                 spec(
                         DeepResearchConstants.REMOTE_TOOL_PLAN_VERIFY,
-                        "plan_verify / verify_claim: claim, sources, claim_type → verdict, confidence"));
+                        "verify-agent / verify_claim: claim, sources, claim_type -> verdict, confidence"));
     }
 
     private static RemoteAgentToolSpec spec(String name, String description) {

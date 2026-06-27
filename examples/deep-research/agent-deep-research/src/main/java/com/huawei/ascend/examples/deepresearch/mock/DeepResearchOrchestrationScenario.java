@@ -61,8 +61,8 @@ public final class DeepResearchOrchestrationScenario {
                 rows,
                 List.of(
                         "plan_read 对 SPA 页面返回 spa_blocked 后，已换源读取: " + recoveredUrl,
-                        "plan_verify 对火山方舟定价返回 verdict=contradict，表中保留争议说明",
-                        "plan_verify 对限速字段返回 verdict=insufficient，已标注未验证",
+                        "verify-agent 对火山方舟定价返回 verdict=contradict，表中保留争议说明",
+                        "verify-agent 对限速字段返回 verdict=insufficient，已标注未验证",
                         "plan_read 对 cloudflare_403 URL 已降权并排除 citations")));
     }
 

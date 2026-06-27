@@ -25,7 +25,7 @@ agent-runtime:
         name: deep-research-agent
         description: >-
           Deep-research root DeepAgent. Accepts a natural-language research
-          request, orchestrates plan_search / plan_read / plan_verify sub-agents,
+          request, orchestrates search-agent / plan_read / verify-agent sub-agents,
           and returns a cited comparison report with confidence annotations.
         version: "0.1.0"
         organization: spring-ai-ascend

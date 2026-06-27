@@ -19,9 +19,9 @@ public final class DeepResearchConstants {
      * Remote sub-agent tool names. Must match downstream AgentCard {@code name}
      * fields registered by {@code RemoteAgentCardCache}.
      */
-    public static final String REMOTE_TOOL_PLAN_SEARCH = "plan_search";
+    public static final String REMOTE_TOOL_PLAN_SEARCH = "search-agent";
     public static final String REMOTE_TOOL_PLAN_READ = "plan_read";
-    public static final String REMOTE_TOOL_PLAN_VERIFY = "plan_verify";
+    public static final String REMOTE_TOOL_PLAN_VERIFY = "verify-agent";
 
     /** Classpath location of the production DeepAgent YAML spec. */
     public static final String PROD_YAML_RESOURCE = "agent/deepagent.prod.yaml";
